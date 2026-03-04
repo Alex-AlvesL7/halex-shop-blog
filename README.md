@@ -1,0 +1,1 @@
+# halex-shop-blog
