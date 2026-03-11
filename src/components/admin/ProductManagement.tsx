@@ -9,7 +9,23 @@ export const ProductManagement = ({ products, onRefresh }: { products: any[], on
   const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch('/api/categories').then(res => res.json()).then(setCategories);
+    fetch('/api/categories')
+      .then(res => res.json())
+      .then(data => {
+        // Garantir que data é um array
+        if (Array.isArray(data)) {
+          setCategories(data);
+        } else if (data?.error) {
+          console.error('Erro ao carregar categorias:', data.error);
+          setCategories([]);
+        } else {
+          setCategories([]);
+        }
+      })
+      .catch(err => {
+        console.error('Erro na requisição de categorias:', err);
+        setCategories([]);
+      });
   }, []);
 
   const handleSaveProduct = async (e: React.FormEvent) => {

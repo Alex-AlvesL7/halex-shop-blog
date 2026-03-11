@@ -13,7 +13,23 @@ export const CategoryManagement = ({ onRefresh }: { onRefresh: () => void }) => 
   }, []);
 
   const fetchCategories = () => {
-    fetch('/api/categories').then(res => res.json()).then(setCategories);
+    fetch('/api/categories')
+      .then(res => res.json())
+      .then(data => {
+        // Garantir que data é um array
+        if (Array.isArray(data)) {
+          setCategories(data);
+        } else if (data?.error) {
+          console.error('Erro ao carregar categorias:', data.error);
+          setCategories([]);
+        } else {
+          setCategories([]);
+        }
+      })
+      .catch(err => {
+        console.error('Erro na requisição de categorias:', err);
+        setCategories([]);
+      });
   };
 
   const handleSaveCategory = async (e: React.FormEvent) => {
