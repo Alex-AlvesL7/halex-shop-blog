@@ -1190,13 +1190,17 @@ app.post("/api/checkout", async (req, res) => {
         fullError: error
       });
 
-      // Retornar mais informações para debug
+      // Sempre retornar detalhes do erro para debug
       res.status(error.response?.status || 500).json({
         error: 'Erro ao calcular frete',
-        details: process.env.NODE_ENV === 'development' ? error.response?.data : undefined,
-        message: errorMsg.includes('401') || errorMsg.includes('unauthorized')
-          ? 'API Key inválida ou expirada'
-          : 'Não foi possível calcular o frete. Tente novamente.',
+        details: error.response?.data,
+        message: typeof errorMsg === 'string' 
+          ? errorMsg 
+          : JSON.stringify(errorMsg),
+        status: error.response?.status,
+        errorType: errorMsg.includes('401') || errorMsg.includes('unauthorized')
+          ? 'API_KEY_INVALID'
+          : 'UNKNOWN_ERROR',
       });
     }
   });
