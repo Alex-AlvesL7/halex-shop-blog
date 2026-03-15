@@ -1152,6 +1152,7 @@ app.post("/api/checkout", async (req, res) => {
       };
 
       console.log('📦 Calculando frete via Melhor Envio...');
+      console.log('Payload:', JSON.stringify(payload, null, 2));
 
       // Chamar API do Melhor Envio
       const response = await axios.post(
@@ -1169,6 +1170,7 @@ app.post("/api/checkout", async (req, res) => {
       );
 
       console.log('✅ Frete calculado com sucesso:', response.data.length, 'opção(ões)');
+      console.log('Response data:', JSON.stringify(response.data.slice(0, 1), null, 2));
       
       // Retornar opções de frete
       res.json(response.data || []);
@@ -1176,14 +1178,22 @@ app.post("/api/checkout", async (req, res) => {
       const errorMsg =
         error.response?.data?.message ||
         error.response?.data?.error ||
+        error.response?.data ||
         error.message ||
         'Erro desconhecido ao calcular frete';
 
-      console.error('❌ Erro ao calcular frete:', errorMsg);
+      console.error('❌ Erro ao calcular frete:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message,
+        fullError: error
+      });
 
-      // Não expor detalhes da API
+      // Retornar mais informações para debug
       res.status(error.response?.status || 500).json({
         error: 'Erro ao calcular frete',
+        details: process.env.NODE_ENV === 'development' ? error.response?.data : undefined,
         message: errorMsg.includes('401') || errorMsg.includes('unauthorized')
           ? 'API Key inválida ou expirada'
           : 'Não foi possível calcular o frete. Tente novamente.',
