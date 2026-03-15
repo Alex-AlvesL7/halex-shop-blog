@@ -68,8 +68,19 @@ export const FreteCalculator: React.FC<FreteCalculatorProps> = ({
         setError(data.error);
         setOpcoesFrete([]);
       } else {
-        setOpcoesFrete(data || []);
-        setExpandido(true);
+        // Normalizar dados da API: mapear 'company' para 'carrier' e filtrar opções com erro
+        const opcoes = (data || []).filter((op: any) => !op.error && op.price).map((op: any) => ({
+          ...op,
+          carrier: op.carrier || op.company || { id: 0, name: 'Transportadora' },
+          delivery_time: op.delivery_time ?? op.delivery_range?.min ?? 0,
+          arrival_at: op.arrival_at || new Date(Date.now() + ((op.delivery_time ?? op.delivery_range?.min ?? 7) * 86400000)).toISOString(),
+        }));
+        if (opcoes.length === 0) {
+          setError('Nenhuma opção de frete disponível para este CEP.');
+        } else {
+          setOpcoesFrete(opcoes);
+          setExpandido(true);
+        }
       }
     } catch (err: any) {
       setError(err.message || 'Erro ao calcular frete');

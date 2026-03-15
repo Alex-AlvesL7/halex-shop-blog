@@ -2,19 +2,34 @@ import axios from 'axios';
 
 const MELHOR_ENVIO_API = 'https://api.melhorenvio.com.br/v2';
 
-// Tipo de frete retornado
+// Tipo de frete retornado (estrutura real da API Melhor Envio)
 export interface FreteOption {
   id: number;
   name: string;
   price: string;
+  custom_price: string;
+  discount: string;
+  currency: string;
   delivery_time: number;
-  arrival_at: string;
-  carrier: {
+  delivery_range?: { min: number; max: number };
+  scheduled_time?: number;
+  arrival_at?: string;
+  // API retorna 'company' mas o componente usava 'carrier'
+  company?: {
+    id: number;
+    name: string;
+    picture?: string;
+    logo?: string;
+  };
+  // compatibilidade com código antigo
+  carrier?: {
     id: number;
     name: string;
     picture?: string;
   };
   packages?: any[];
+  additional_services?: any;
+  error?: string;
 }
 
 // Interface de produto para cálculo
