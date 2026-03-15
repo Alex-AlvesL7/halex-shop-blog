@@ -1161,7 +1161,7 @@ app.post("/api/checkout", async (req, res) => {
 
       // Chamar API do Melhor Envio
       const response = await axios.post(
-        'https://api.melhorenvio.com.br/v2/shipment/calculate',
+        'https://api.melhorenvio.com.br/api/v2/me/shipment/calculate',
         payload,
         {
           headers: {
