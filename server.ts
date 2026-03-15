@@ -1152,25 +1152,27 @@ app.post("/api/checkout", async (req, res) => {
       };
 
       console.log('📦 Calculando frete via Melhor Envio...');
-      console.log('API Key presente:', !!apiKey);
-      console.log('CEP Origem:', cepOrigem.replace(/\D/g, ''));
-      console.log('Payload:', JSON.stringify(payload, null, 2));
+      console.log('✅ Credenciais presentes', {
+        apiKeyPresente: !!apiKey,
+        apiKeyLength: apiKey?.length,
+        cepOrigem: cepOrigem.replace(/\D/g, ''),
+      });
+      console.log('📋 Payload:', JSON.stringify(payload, null, 2));
 
       // Chamar API do Melhor Envio
-      try {
-        const response = await axios.post(
-          'https://api.melhorenvio.com.br/v2/shipment/calculate',
-          payload,
-          {
-            headers: {
-              'Authorization': `Bearer ${apiKey}`,
-              'Accept': 'application/json',
-              'Content-Type': 'application/json',
-              'User-Agent': 'Halex-Shop/1.0',
-            },
-            timeout: 15000,
-          }
-        );
+      const response = await axios.post(
+        'https://api.melhorenvio.com.br/v2/shipment/calculate',
+        payload,
+        {
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'User-Agent': 'Halex-Shop/1.0',
+          },
+          timeout: 15000,
+        }
+      );
 
       console.log('✅ Frete calculado com sucesso:', response.data.length, 'opção(ões)');
       console.log('Response data:', JSON.stringify(response.data.slice(0, 1), null, 2));
@@ -1190,12 +1192,12 @@ app.post("/api/checkout", async (req, res) => {
                             error.code === 'ETIMEDOUT' ||
                             !error.response;
 
-      console.error('❌ Erro ao calcular frete:', {
+      console.error('❌ ERRO AO CALCULAR FRETE:', {
         code: error.code,
-        status: error.response?.status,
+        httpStatus: error.response?.status,
         statusText: error.response?.statusText,
-        data: error.response?.data,
-        message: error.message,
+        apiResponse: error.response?.data,
+        errorMessage: error.message,
         isNetworkError,
       });
 
@@ -1210,7 +1212,7 @@ app.post("/api/checkout", async (req, res) => {
         code: error.code,
         errorType: isNetworkError 
           ? 'NETWORK_ERROR'
-          : errorMsg.includes('401') || errorMsg.includes('unauthorized')
+          : error.response?.status === 401
           ? 'API_KEY_INVALID'
           : 'UNKNOWN_ERROR',
       });
