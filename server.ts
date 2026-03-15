@@ -1123,7 +1123,7 @@ app.post("/api/checkout", async (req, res) => {
 
       // Credenciais do Melhor Envio
       const apiKey = process.env.MELHOR_ENVIO_API_KEY;
-      const cepOrigem = process.env.VITE_MELHOR_ENVIO_CEP_ORIGEM || '01310100';
+      const cepOrigem = process.env.MELHOR_ENVIO_CEP_ORIGEM || '01310100';
 
       if (!apiKey) {
         console.warn('⚠️ MELHOR_ENVIO_API_KEY não está configurado');
