@@ -1152,22 +1152,25 @@ app.post("/api/checkout", async (req, res) => {
       };
 
       console.log('📦 Calculando frete via Melhor Envio...');
+      console.log('API Key presente:', !!apiKey);
+      console.log('CEP Origem:', cepOrigem.replace(/\D/g, ''));
       console.log('Payload:', JSON.stringify(payload, null, 2));
 
       // Chamar API do Melhor Envio
-      const response = await axios.post(
-        'https://api.melhorenvio.com.br/v2/shipment/calculate',
-        payload,
-        {
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'User-Agent': 'Halex-Shop/1.0',
-          },
-          timeout: 15000,
-        }
-      );
+      try {
+        const response = await axios.post(
+          'https://api.melhorenvio.com.br/v2/shipment/calculate',
+          payload,
+          {
+            headers: {
+              'Authorization': `Bearer ${apiKey}`,
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              'User-Agent': 'Halex-Shop/1.0',
+            },
+            timeout: 15000,
+          }
+        );
 
       console.log('✅ Frete calculado com sucesso:', response.data.length, 'opção(ões)');
       console.log('Response data:', JSON.stringify(response.data.slice(0, 1), null, 2));
@@ -1182,23 +1185,32 @@ app.post("/api/checkout", async (req, res) => {
         error.message ||
         'Erro desconhecido ao calcular frete';
 
+      const isNetworkError = error.code === 'ENOTFOUND' || 
+                            error.code === 'ECONNREFUSED' || 
+                            error.code === 'ETIMEDOUT' ||
+                            !error.response;
+
       console.error('❌ Erro ao calcular frete:', {
+        code: error.code,
         status: error.response?.status,
         statusText: error.response?.statusText,
         data: error.response?.data,
         message: error.message,
-        fullError: error
+        isNetworkError,
       });
 
-      // Sempre retornar detalhes do erro para debug
+      // Retornar detalhes do erro
       res.status(error.response?.status || 500).json({
         error: 'Erro ao calcular frete',
         details: error.response?.data,
         message: typeof errorMsg === 'string' 
           ? errorMsg 
           : JSON.stringify(errorMsg),
-        status: error.response?.status,
-        errorType: errorMsg.includes('401') || errorMsg.includes('unauthorized')
+        status: error.response?.status || 500,
+        code: error.code,
+        errorType: isNetworkError 
+          ? 'NETWORK_ERROR'
+          : errorMsg.includes('401') || errorMsg.includes('unauthorized')
           ? 'API_KEY_INVALID'
           : 'UNKNOWN_ERROR',
       });
