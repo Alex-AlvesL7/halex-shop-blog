@@ -812,6 +812,26 @@ const getWhatsAppLink = (phone?: string, orderNsu?: string) => {
   return `https://wa.me/${normalized}?text=${message}`;
 };
 
+const fulfillmentLabels: Record<string, string> = {
+  'aguardando-envio': 'Aguardando envio',
+  'separando': 'Separando',
+  'postado': 'Postado',
+  'entregue': 'Entregue',
+};
+
+const fulfillmentBadgeClasses: Record<string, string> = {
+  'aguardando-envio': 'bg-gray-100 text-gray-600',
+  'separando': 'bg-blue-100 text-blue-600',
+  'postado': 'bg-purple-100 text-purple-600',
+  'entregue': 'bg-emerald-100 text-emerald-600',
+};
+
+const getTrackingLink = (trackingCode?: string, trackingUrl?: string) => {
+  if (trackingUrl) return trackingUrl;
+  if (!trackingCode) return '';
+  return `https://melhorrastreio.com.br/rastreio/${encodeURIComponent(trackingCode)}`;
+};
+
 const CheckoutPage = ({
   cart,
   selectedFrete,
@@ -1053,6 +1073,8 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
   const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'posts' | 'orders' | 'affiliates' | 'categories'>('dashboard');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [orderFulfillmentDrafts, setOrderFulfillmentDrafts] = useState<Record<string, { status: string; trackingCode: string; trackingUrl: string }>>({});
+  const [savingOrderId, setSavingOrderId] = useState<string | null>(null);
   const [aiInsight, setAiInsight] = useState<string | null>(null);
   const [loadingInsight, setLoadingInsight] = useState(false);
   const [affiliates, setAffiliates] = useState<any[]>([]);
@@ -1112,6 +1134,20 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
       fetchInsight();
     }
   }, [activeTab, metrics]);
+
+  useEffect(() => {
+    setOrderFulfillmentDrafts(prev => {
+      const next = { ...prev };
+      orders.forEach((order: any) => {
+        next[order.id] = {
+          status: prev[order.id]?.status || order.fulfillment?.status || 'aguardando-envio',
+          trackingCode: prev[order.id]?.trackingCode || order.fulfillment?.trackingCode || '',
+          trackingUrl: prev[order.id]?.trackingUrl || order.fulfillment?.trackingUrl || '',
+        };
+      });
+      return next;
+    });
+  }, [orders]);
 
   const COLORS = ['#FF6321', '#141414', '#10B981', '#6366F1', '#F59E0B'];
 
@@ -1217,6 +1253,48 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
     if (confirm('Tem certeza que deseja excluir este post?')) {
       await fetch(`/api/posts/${id}`, { method: 'DELETE' });
       onRefresh();
+    }
+  };
+
+  const updateOrderDraft = (orderId: string, patch: Partial<{ status: string; trackingCode: string; trackingUrl: string }>) => {
+    setOrderFulfillmentDrafts(prev => ({
+      ...prev,
+      [orderId]: {
+        status: prev[orderId]?.status || 'aguardando-envio',
+        trackingCode: prev[orderId]?.trackingCode || '',
+        trackingUrl: prev[orderId]?.trackingUrl || '',
+        ...patch,
+      }
+    }));
+  };
+
+  const handleSaveFulfillment = async (orderId: string) => {
+    const draft = orderFulfillmentDrafts[orderId];
+    if (!draft) return;
+
+    setSavingOrderId(orderId);
+    try {
+      const response = await fetch(`/api/orders/${orderId}/fulfillment`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fulfillmentStatus: draft.status,
+          trackingCode: draft.trackingCode,
+          trackingUrl: draft.trackingUrl,
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Falha ao atualizar logística');
+      }
+
+      await onRefresh();
+    } catch (error) {
+      console.error('Erro ao atualizar logística:', error);
+      alert(error instanceof Error ? error.message : 'Falha ao atualizar logística do pedido.');
+    } finally {
+      setSavingOrderId(null);
     }
   };
 
@@ -1660,12 +1738,25 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                 ) : (
                   orders.map(order => (
                     <div key={order.id} className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-all">
+                      {(() => {
+                        const draft = orderFulfillmentDrafts[order.id] || {
+                          status: order.fulfillment?.status || 'aguardando-envio',
+                          trackingCode: order.fulfillment?.trackingCode || '',
+                          trackingUrl: order.fulfillment?.trackingUrl || '',
+                        };
+                        const trackingLink = getTrackingLink(draft.trackingCode, draft.trackingUrl);
+
+                        return (
+                          <>
                       <div className="flex flex-col md:flex-row justify-between gap-4 mb-4">
                         <div>
                           <div className="flex items-center gap-3 mb-1">
                             <span className="text-lg font-black">{order.order_nsu}</span>
                             <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${order.status === 'paid' ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-600'}`}>
                               {order.status === 'paid' ? 'Pago' : 'Pendente'}
+                            </span>
+                            <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${fulfillmentBadgeClasses[draft.status] || fulfillmentBadgeClasses['aguardando-envio']}`}>
+                              {fulfillmentLabels[draft.status] || 'Aguardando envio'}
                             </span>
                           </div>
                           <p className="text-sm text-gray-500">{order.customer?.name || 'Cliente não informado'} • {order.customer_email}</p>
@@ -1688,6 +1779,9 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                           <p className="text-2xl font-black text-brand-orange">R$ {order.total.toFixed(2)}</p>
                           {order.frete && (
                             <p className="text-xs text-gray-400 mt-1">Frete: {(order.frete.carrier || '').trim()} {order.frete.name} • R$ {Number(order.frete.price || 0).toFixed(2)}</p>
+                          )}
+                          {draft.trackingCode && (
+                            <p className="text-xs text-gray-400 mt-1">Rastreio: {draft.trackingCode}</p>
                           )}
                         </div>
                       </div>
@@ -1726,6 +1820,56 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                           </div>
                         </div>
                       </div>
+                      <div className="rounded-2xl border border-gray-100 bg-white p-4 mb-4">
+                        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">
+                          <Package size={14} /> Logística e rastreio
+                        </div>
+                        <div className="flex flex-wrap gap-2 mb-4">
+                          {['aguardando-envio', 'separando', 'postado', 'entregue'].map(status => (
+                            <button
+                              key={status}
+                              onClick={() => updateOrderDraft(order.id, { status })}
+                              className={`px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${draft.status === status ? 'bg-brand-black text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                            >
+                              {fulfillmentLabels[status]}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="grid lg:grid-cols-[1fr_1fr_auto] gap-3 items-end">
+                          <label className="block">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2 block">Código de rastreio</span>
+                            <input
+                              value={draft.trackingCode}
+                              onChange={(e) => updateOrderDraft(order.id, { trackingCode: e.target.value })}
+                              placeholder="Ex: QG123456789BR"
+                              className="w-full px-4 py-3 rounded-2xl border border-gray-200 focus:border-brand-orange focus:outline-none"
+                            />
+                          </label>
+                          <label className="block">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2 block">Link de rastreio</span>
+                            <input
+                              value={draft.trackingUrl}
+                              onChange={(e) => updateOrderDraft(order.id, { trackingUrl: e.target.value })}
+                              placeholder="Opcional"
+                              className="w-full px-4 py-3 rounded-2xl border border-gray-200 focus:border-brand-orange focus:outline-none"
+                            />
+                          </label>
+                          <button
+                            onClick={() => handleSaveFulfillment(order.id)}
+                            disabled={savingOrderId === order.id}
+                            className={`px-5 py-3 rounded-2xl text-sm font-bold uppercase tracking-widest ${savingOrderId === order.id ? 'bg-gray-200 text-gray-500' : 'btn-primary'}`}
+                          >
+                            {savingOrderId === order.id ? 'Salvando...' : 'Salvar'}
+                          </button>
+                        </div>
+                        {trackingLink && (
+                          <div className="mt-3">
+                            <a href={trackingLink} target="_blank" rel="noreferrer" className="text-sm font-bold text-brand-orange hover:underline">
+                              Abrir rastreio
+                            </a>
+                          </div>
+                        )}
+                      </div>
                       <div className="border-t border-gray-50 pt-4">
                         <h5 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">Itens do Pedido</h5>
                         <div className="space-y-2">
@@ -1737,6 +1881,9 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                           ))}
                         </div>
                       </div>
+                          </>
+                        );
+                      })()}
                     </div>
                   ))
                 )}
@@ -2015,9 +2162,14 @@ const ProfileModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => voi
                 <div key={order.id} className="p-4 border border-gray-100 rounded-3xl">
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-xs font-black uppercase tracking-widest">{order.order_nsu}</span>
-                    <span className={`px-2 py-1 rounded-full text-[8px] font-bold uppercase tracking-widest ${order.status === 'paid' ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-600'}`}>
-                      {order.status === 'paid' ? 'Pago' : 'Pendente'}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2 py-1 rounded-full text-[8px] font-bold uppercase tracking-widest ${order.status === 'paid' ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-600'}`}>
+                        {order.status === 'paid' ? 'Pago' : 'Pendente'}
+                      </span>
+                      <span className={`px-2 py-1 rounded-full text-[8px] font-bold uppercase tracking-widest ${fulfillmentBadgeClasses[order.fulfillment?.status || 'aguardando-envio'] || fulfillmentBadgeClasses['aguardando-envio']}`}>
+                        {fulfillmentLabels[order.fulfillment?.status || 'aguardando-envio'] || 'Aguardando envio'}
+                      </span>
+                    </div>
                   </div>
                   <div className="flex justify-between items-center">
                     <p className="text-xs text-gray-400">{new Date(order.created_at).toLocaleDateString('pt-BR')}</p>
@@ -2027,6 +2179,14 @@ const ProfileModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => voi
                     <p className="text-xs text-gray-400 mt-3 leading-relaxed">
                       Entrega em {order.shipping.city}/{order.shipping.state} • CEP {order.shipping.cep}
                     </p>
+                  )}
+                  {order.fulfillment?.trackingCode && (
+                    <div className="mt-3 text-xs text-gray-500 space-y-1">
+                      <p>Código de rastreio: <span className="font-bold text-gray-700">{order.fulfillment.trackingCode}</span></p>
+                      <a href={getTrackingLink(order.fulfillment.trackingCode, order.fulfillment.trackingUrl)} target="_blank" rel="noreferrer" className="text-brand-orange font-bold hover:underline">
+                        Acompanhar entrega
+                      </a>
+                    </div>
                   )}
                 </div>
               ))

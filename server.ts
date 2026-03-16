@@ -249,7 +249,20 @@ const normalizeOrderRecord = (order: any) => {
     customer: metadataItem?.customer || null,
     shipping: metadataItem?.shipping || metadataItem?.customer?.address || null,
     frete: metadataItem?.frete || null,
+    fulfillment: metadataItem?.fulfillment || {
+      status: 'aguardando-envio',
+      trackingCode: '',
+      trackingUrl: '',
+      updatedAt: null,
+    },
   };
+};
+
+const fulfillmentStatusLabels: Record<string, string> = {
+  'aguardando-envio': 'Aguardando envio',
+  'separando': 'Separando',
+  'postado': 'Postado',
+  'entregue': 'Entregue',
 };
 
 const buildOrderEmailHtml = ({
@@ -271,6 +284,7 @@ const buildOrderEmailHtml = ({
   const customer = order.customer || {};
   const shipping = order.shipping || {};
   const frete = order.frete || {};
+  const fulfillment = order.fulfillment || {};
 
   return `
     <div style="font-family:Arial,Helvetica,sans-serif;background:#f8fafc;padding:32px 16px;color:#111827;">
@@ -317,12 +331,61 @@ const buildOrderEmailHtml = ({
               <div><strong>Cidade/UF:</strong> ${escapeHtml(shipping.city || '-')} / ${escapeHtml(shipping.state || '-')}</div>
               <div><strong>CEP:</strong> ${escapeHtml(shipping.cep || '-')}</div>
               <div><strong>Frete:</strong> ${escapeHtml(frete.carrier || '')} ${escapeHtml(frete.name || '')} - ${escapeHtml(formatBRL(Number(frete.price) || 0))}</div>
+              <div><strong>Status logístico:</strong> ${escapeHtml(fulfillmentStatusLabels[fulfillment.status] || 'Aguardando envio')}</div>
+              <div><strong>Código de rastreio:</strong> ${escapeHtml(fulfillment.trackingCode || '—')}</div>
             </div>
           </div>
         </div>
       </div>
     </div>
   `;
+};
+
+const mergeOrderMetadataItems = (rawItems: any[], patch: any) => {
+  const items = Array.isArray(rawItems) ? [...rawItems] : [];
+  const metadataIndex = items.findIndex((item: any) => item?.type === 'customer_metadata');
+  const previousMetadata = metadataIndex >= 0 ? items[metadataIndex] : { id: 'customer_metadata', type: 'customer_metadata' };
+  const nextMetadata = {
+    ...previousMetadata,
+    ...patch,
+    fulfillment: {
+      status: patch?.fulfillment?.status ?? previousMetadata?.fulfillment?.status ?? 'aguardando-envio',
+      trackingCode: patch?.fulfillment?.trackingCode ?? previousMetadata?.fulfillment?.trackingCode ?? '',
+      trackingUrl: patch?.fulfillment?.trackingUrl ?? previousMetadata?.fulfillment?.trackingUrl ?? '',
+      updatedAt: patch?.fulfillment?.updatedAt ?? previousMetadata?.fulfillment?.updatedAt ?? new Date().toISOString(),
+    }
+  };
+
+  if (metadataIndex >= 0) {
+    items[metadataIndex] = nextMetadata;
+  } else {
+    items.push(nextMetadata);
+  }
+
+  return items;
+};
+
+const getRawOrderById = async (id: string) => {
+  if (!id) return null;
+
+  if (supabase) {
+    try {
+      const { data, error } = await supabase.from('orders').select('*').eq('id', id).single();
+      if (!error && data) return data;
+    } catch (error) {
+      console.warn('Supabase getRawOrderById failed:', error);
+    }
+  }
+
+  if (db) {
+    try {
+      return db.prepare('SELECT * FROM orders WHERE id = ?').get(id) || null;
+    } catch (error) {
+      console.warn('SQLite getRawOrderById failed:', error);
+    }
+  }
+
+  return null;
 };
 
 const getOrderByNsu = async (orderNsu: string) => {
@@ -861,6 +924,103 @@ app.get("/api/health", async (req, res) => {
     } catch (error) {
       console.error("Error in GET /api/orders/:email:", error);
       res.status(500).json({ error: "Failed to fetch orders", details: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  app.put("/api/orders/:id/fulfillment", async (req, res) => {
+    const { id } = req.params;
+    const { fulfillmentStatus, trackingCode, trackingUrl } = req.body || {};
+    const allowedStatuses = ['aguardando-envio', 'separando', 'postado', 'entregue'];
+    const normalizedStatus = allowedStatuses.includes(String(fulfillmentStatus)) ? String(fulfillmentStatus) : 'aguardando-envio';
+    const normalizedTrackingCode = String(trackingCode || '').trim();
+    const normalizedTrackingUrl = String(trackingUrl || '').trim();
+
+    try {
+      const rawOrder = await getRawOrderById(id);
+      if (!rawOrder) {
+        return res.status(404).json({ error: 'Pedido não encontrado' });
+      }
+
+      let parsedItems: any[] = [];
+      try {
+        parsedItems = typeof rawOrder.items === 'string' ? JSON.parse(rawOrder.items) : (rawOrder.items || []);
+      } catch (error) {
+        console.warn('Falha ao parsear items do pedido para fulfillment:', error);
+      }
+
+      const previousOrder = normalizeOrderRecord(rawOrder);
+      const nextItems = mergeOrderMetadataItems(parsedItems, {
+        fulfillment: {
+          status: normalizedStatus,
+          trackingCode: normalizedTrackingCode,
+          trackingUrl: normalizedTrackingUrl,
+          updatedAt: new Date().toISOString(),
+        }
+      });
+
+      const serializedItems = JSON.stringify(nextItems);
+
+      if (db) {
+        try {
+          db.prepare('UPDATE orders SET items = ? WHERE id = ?').run(serializedItems, id);
+        } catch (error) {
+          console.error('SQLite fulfillment update failed:', error);
+        }
+      }
+
+      if (supabase) {
+        try {
+          await supabase.from('orders').update({ items: serializedItems }).eq('id', id);
+        } catch (error) {
+          console.error('Supabase fulfillment update failed:', error);
+        }
+      }
+
+      const updatedOrder = normalizeOrderRecord({ ...rawOrder, items: serializedItems });
+      const adminEmail = process.env.ORDER_NOTIFICATION_EMAIL || process.env.EMAIL_USER || 'contato@mail.l7fitness.com.br';
+      const statusChanged = previousOrder.fulfillment?.status !== updatedOrder.fulfillment?.status;
+      const trackingChanged = (previousOrder.fulfillment?.trackingCode || '') !== (updatedOrder.fulfillment?.trackingCode || '');
+
+      if (statusChanged || trackingChanged) {
+        const intro = updatedOrder.fulfillment?.trackingCode
+          ? `O status logístico do pedido foi atualizado para ${fulfillmentStatusLabels[updatedOrder.fulfillment?.status] || 'Aguardando envio'} e o código de rastreio já está disponível.`
+          : `O status logístico do pedido foi atualizado para ${fulfillmentStatusLabels[updatedOrder.fulfillment?.status] || 'Aguardando envio'}.`;
+
+        if (updatedOrder.customer_email) {
+          try {
+            await enviarEmail(
+              updatedOrder.customer_email,
+              `Atualização de envio ${updatedOrder.order_nsu}`,
+              buildOrderEmailHtml({
+                title: 'Atualização do seu pedido',
+                intro,
+                order: updatedOrder,
+              })
+            );
+          } catch (error) {
+            console.warn('Falha ao enviar atualização logística para cliente:', error);
+          }
+        }
+
+        try {
+          await enviarEmail(
+            adminEmail,
+            `Logística atualizada ${updatedOrder.order_nsu}`,
+            buildOrderEmailHtml({
+              title: 'Logística atualizada',
+              intro: `O pedido teve seu status logístico alterado para ${fulfillmentStatusLabels[updatedOrder.fulfillment?.status] || 'Aguardando envio'}.`,
+              order: updatedOrder,
+            })
+          );
+        } catch (error) {
+          console.warn('Falha ao enviar atualização logística para admin:', error);
+        }
+      }
+
+      res.json({ success: true, order: updatedOrder });
+    } catch (error) {
+      console.error('Error in PUT /api/orders/:id/fulfillment:', error);
+      res.status(500).json({ error: 'Falha ao atualizar logística do pedido', details: error instanceof Error ? error.message : String(error) });
     }
   });
 
