@@ -219,6 +219,18 @@ const PORT = 3000;
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ limit: '100mb', extended: true }));
 
+const escapeHtml = (value: any) => String(value ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
+
+const formatBRL = (value: number) => Number(value || 0).toLocaleString('pt-BR', {
+  style: 'currency',
+  currency: 'BRL',
+});
+
 const normalizeOrderRecord = (order: any) => {
   let parsedItems: any[] = [];
 
@@ -238,6 +250,103 @@ const normalizeOrderRecord = (order: any) => {
     shipping: metadataItem?.shipping || metadataItem?.customer?.address || null,
     frete: metadataItem?.frete || null,
   };
+};
+
+const buildOrderEmailHtml = ({
+  title,
+  intro,
+  order,
+}: {
+  title: string;
+  intro: string;
+  order: any;
+}) => {
+  const itemsHtml = (order.items || []).map((item: any) => `
+    <tr>
+      <td style="padding:8px 0;color:#111827;">${escapeHtml(item.quantity)}x ${escapeHtml(item.name)}</td>
+      <td style="padding:8px 0;color:#f97316;font-weight:700;text-align:right;">${escapeHtml(formatBRL((Number(item.price) || 0) * (Number(item.quantity) || 0)))}</td>
+    </tr>
+  `).join('');
+
+  const customer = order.customer || {};
+  const shipping = order.shipping || {};
+  const frete = order.frete || {};
+
+  return `
+    <div style="font-family:Arial,Helvetica,sans-serif;background:#f8fafc;padding:32px 16px;color:#111827;">
+      <div style="max-width:680px;margin:0 auto;background:#ffffff;border-radius:24px;padding:32px;border:1px solid #e5e7eb;">
+        <div style="margin-bottom:24px;">
+          <div style="display:inline-block;background:#fff7ed;color:#f97316;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;padding:8px 12px;border-radius:999px;">L7 Fitness</div>
+          <h1 style="font-size:28px;line-height:1.2;margin:16px 0 8px;">${escapeHtml(title)}</h1>
+          <p style="font-size:15px;line-height:1.6;color:#4b5563;margin:0;">${escapeHtml(intro)}</p>
+        </div>
+
+        <div style="background:#111827;border-radius:20px;padding:20px 24px;color:#ffffff;margin-bottom:24px;">
+          <div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#9ca3af;font-weight:700;">Pedido</div>
+          <div style="font-size:24px;font-weight:800;margin-top:8px;">${escapeHtml(order.order_nsu || '')}</div>
+          <div style="font-size:14px;color:#d1d5db;margin-top:8px;">Total: <strong style="color:#fb923c;">${escapeHtml(formatBRL(order.total || 0))}</strong></div>
+          <div style="font-size:14px;color:#d1d5db;margin-top:4px;">Status: ${escapeHtml(order.status === 'paid' ? 'Pago' : 'Pendente')}</div>
+        </div>
+
+        <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
+          <thead>
+            <tr>
+              <th style="text-align:left;padding-bottom:8px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#9ca3af;">Itens</th>
+              <th style="text-align:right;padding-bottom:8px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#9ca3af;">Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>${itemsHtml}</tbody>
+        </table>
+
+        <div style="display:grid;grid-template-columns:1fr;gap:16px;">
+          <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:18px;padding:18px;">
+            <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#9ca3af;font-weight:700;margin-bottom:10px;">Contato</div>
+            <div style="font-size:14px;line-height:1.7;">
+              <div><strong>Nome:</strong> ${escapeHtml(customer.name || '-')}</div>
+              <div><strong>E-mail:</strong> ${escapeHtml(customer.email || order.customer_email || '-')}</div>
+              <div><strong>Telefone:</strong> ${escapeHtml(customer.phone || '-')}</div>
+              <div><strong>CPF:</strong> ${escapeHtml(customer.document || '-')}</div>
+            </div>
+          </div>
+          <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:18px;padding:18px;">
+            <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#9ca3af;font-weight:700;margin-bottom:10px;">Entrega</div>
+            <div style="font-size:14px;line-height:1.7;">
+              <div><strong>Endereço:</strong> ${escapeHtml(shipping.street || '-')}, ${escapeHtml(shipping.number || '-')}</div>
+              <div><strong>Complemento:</strong> ${escapeHtml(shipping.complement || '—')}</div>
+              <div><strong>Bairro:</strong> ${escapeHtml(shipping.neighborhood || '-')}</div>
+              <div><strong>Cidade/UF:</strong> ${escapeHtml(shipping.city || '-')} / ${escapeHtml(shipping.state || '-')}</div>
+              <div><strong>CEP:</strong> ${escapeHtml(shipping.cep || '-')}</div>
+              <div><strong>Frete:</strong> ${escapeHtml(frete.carrier || '')} ${escapeHtml(frete.name || '')} - ${escapeHtml(formatBRL(Number(frete.price) || 0))}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+const getOrderByNsu = async (orderNsu: string) => {
+  if (!orderNsu) return null;
+
+  if (supabase) {
+    try {
+      const { data, error } = await supabase.from('orders').select('*').eq('order_nsu', orderNsu).single();
+      if (!error && data) return normalizeOrderRecord(data);
+    } catch (error) {
+      console.warn('Supabase getOrderByNsu failed:', error);
+    }
+  }
+
+  if (db) {
+    try {
+      const order = db.prepare('SELECT * FROM orders WHERE order_nsu = ?').get(orderNsu);
+      if (order) return normalizeOrderRecord(order);
+    } catch (error) {
+      console.warn('SQLite getOrderByNsu failed:', error);
+    }
+  }
+
+  return null;
 };
 
 app.get("/api/health", async (req, res) => {
@@ -868,6 +977,39 @@ app.post("/api/checkout", async (req, res) => {
       }
     }
 
+    const normalizedOrderForEmail = normalizeOrderRecord(orderData);
+    const orderNotificationEmail = process.env.ORDER_NOTIFICATION_EMAIL || process.env.EMAIL_USER || 'contato@mail.l7fitness.com.br';
+
+    try {
+      await enviarEmail(
+        orderNotificationEmail,
+        `Novo pedido iniciado ${orderNsu}`,
+        buildOrderEmailHtml({
+          title: 'Novo pedido iniciado',
+          intro: 'Um novo pedido foi criado e já contém os dados completos de contato e entrega.',
+          order: normalizedOrderForEmail,
+        })
+      );
+    } catch (emailError) {
+      console.warn('Falha ao enviar notificação de novo pedido para admin:', emailError);
+    }
+
+    if (normalizedCustomer.email) {
+      try {
+        await enviarEmail(
+          normalizedCustomer.email,
+          `Recebemos seu pedido ${orderNsu}`,
+          buildOrderEmailHtml({
+            title: 'Recebemos seu pedido',
+            intro: 'Seu pedido foi criado com sucesso. Assim que o pagamento for confirmado, enviaremos as próximas atualizações.',
+            order: normalizedOrderForEmail,
+          })
+        );
+      } catch (emailError) {
+        console.warn('Falha ao enviar confirmação inicial para o cliente:', emailError);
+      }
+    }
+
     try {
       // Real InfinitePay API Call (Public Checkout Links)
       const payload = {
@@ -937,6 +1079,8 @@ app.post("/api/checkout", async (req, res) => {
     
     const orderNsu = data.order_nsu || data.data?.order_nsu;
     const status = (data.status === 'paid' || data.data?.status === 'paid') ? 'paid' : 'failed';
+    const previousOrder = orderNsu ? await getOrderByNsu(orderNsu) : null;
+    const previousStatus = previousOrder?.status;
 
     if (orderNsu) {
       // Update SQLite
@@ -947,6 +1091,41 @@ app.post("/api/checkout", async (req, res) => {
       // Update Supabase
       if (supabase) {
         await supabase.from('orders').update({ status }).eq('order_nsu', orderNsu);
+      }
+
+      if (status === 'paid' && previousStatus !== 'paid') {
+        const updatedOrder = (await getOrderByNsu(orderNsu)) || { ...previousOrder, status: 'paid' };
+        const orderNotificationEmail = process.env.ORDER_NOTIFICATION_EMAIL || process.env.EMAIL_USER || 'contato@mail.l7fitness.com.br';
+
+        try {
+          await enviarEmail(
+            orderNotificationEmail,
+            `Pagamento aprovado ${orderNsu}`,
+            buildOrderEmailHtml({
+              title: 'Pagamento aprovado',
+              intro: 'O pagamento foi confirmado pela InfinitePay. O pedido está pronto para separação e envio.',
+              order: updatedOrder,
+            })
+          );
+        } catch (emailError) {
+          console.warn('Falha ao enviar aviso de pagamento aprovado para admin:', emailError);
+        }
+
+        if (updatedOrder?.customer_email) {
+          try {
+            await enviarEmail(
+              updatedOrder.customer_email,
+              `Pagamento confirmado ${orderNsu}`,
+              buildOrderEmailHtml({
+                title: 'Pagamento confirmado',
+                intro: 'Recebemos seu pagamento com sucesso. Em breve você receberá novidades sobre a preparação e o envio do pedido.',
+                order: updatedOrder,
+              })
+            );
+          } catch (emailError) {
+            console.warn('Falha ao enviar confirmação de pagamento para cliente:', emailError);
+          }
+        }
       }
     }
     

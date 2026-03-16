@@ -804,6 +804,14 @@ const initialCheckoutForm: CheckoutFormData = {
 
 const brazilStates = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'];
 
+const getWhatsAppLink = (phone?: string, orderNsu?: string) => {
+  const digits = String(phone || '').replace(/\D/g, '');
+  if (!digits) return '';
+  const normalized = digits.startsWith('55') ? digits : `55${digits}`;
+  const message = encodeURIComponent(`Olá! Aqui é da L7 Fitness sobre o seu pedido ${orderNsu || ''}. Estamos entrando em contato para acompanhar sua entrega.`);
+  return `https://wa.me/${normalized}?text=${message}`;
+};
+
 const CheckoutPage = ({
   cart,
   selectedFrete,
@@ -1678,15 +1686,53 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                         </div>
                         <div className="text-right">
                           <p className="text-2xl font-black text-brand-orange">R$ {order.total.toFixed(2)}</p>
+                          {order.frete && (
+                            <p className="text-xs text-gray-400 mt-1">Frete: {(order.frete.carrier || '').trim()} {order.frete.name} • R$ {Number(order.frete.price || 0).toFixed(2)}</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="grid lg:grid-cols-2 gap-4 mb-4">
+                        <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">
+                            <Mail size={14} /> Contato do Cliente
+                          </div>
+                          <div className="space-y-2 text-sm text-gray-600">
+                            <p><span className="font-bold text-gray-900">Nome:</span> {order.customer?.name || 'Não informado'}</p>
+                            <p><span className="font-bold text-gray-900">E-mail:</span> {order.customer_email}</p>
+                            <p><span className="font-bold text-gray-900">Telefone:</span> {order.customer?.phone || 'Não informado'}</p>
+                            <p><span className="font-bold text-gray-900">CPF:</span> {order.customer?.document || 'Não informado'}</p>
+                          </div>
+                          <div className="flex flex-wrap gap-2 mt-4">
+                            <a href={`mailto:${encodeURIComponent(order.customer_email)}?subject=${encodeURIComponent(`Pedido ${order.order_nsu} - L7 Fitness`)}`} className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-brand-black text-white text-xs font-bold uppercase tracking-widest hover:opacity-90 transition-opacity">
+                              <Mail size={14} /> E-mail
+                            </a>
+                            {getWhatsAppLink(order.customer?.phone, order.order_nsu) && (
+                              <a href={getWhatsAppLink(order.customer?.phone, order.order_nsu)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-green-600 text-white text-xs font-bold uppercase tracking-widest hover:bg-green-700 transition-colors">
+                                <Phone size={14} /> WhatsApp
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                        <div className="rounded-2xl border border-gray-100 bg-orange-50/40 p-4">
+                          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">
+                            <MapPin size={14} /> Entrega
+                          </div>
+                          <div className="space-y-2 text-sm text-gray-600">
+                            <p><span className="font-bold text-gray-900">Endereço:</span> {order.shipping?.street || 'Não informado'}, {order.shipping?.number || '-'}</p>
+                            <p><span className="font-bold text-gray-900">Complemento:</span> {order.shipping?.complement || '—'}</p>
+                            <p><span className="font-bold text-gray-900">Bairro:</span> {order.shipping?.neighborhood || 'Não informado'}</p>
+                            <p><span className="font-bold text-gray-900">Cidade/UF:</span> {order.shipping?.city || 'Não informado'}/{order.shipping?.state || '-'}</p>
+                            <p><span className="font-bold text-gray-900">CEP:</span> {order.shipping?.cep || 'Não informado'}</p>
+                          </div>
                         </div>
                       </div>
                       <div className="border-t border-gray-50 pt-4">
                         <h5 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">Itens do Pedido</h5>
                         <div className="space-y-2">
                           {order.items.map((item: any, idx: number) => (
-                            <div key={idx} className="flex justify-between text-sm">
+                            <div key={idx} className="flex justify-between text-sm rounded-xl px-3 py-2 bg-gray-50">
                               <span className="text-gray-600">{item.quantity}x {item.name}</span>
-                              <span className="font-medium">R$ {(item.price * item.quantity).toFixed(2)}</span>
+                              <span className={`font-medium ${item.type === 'frete' ? 'text-brand-orange' : ''}`}>R$ {(item.price * item.quantity).toFixed(2)}</span>
                             </div>
                           ))}
                         </div>
