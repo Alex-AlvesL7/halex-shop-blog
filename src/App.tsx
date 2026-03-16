@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, createContext, useContext } from 'react';
-import { ShoppingBag, Menu, X, User, Search, ChevronRight, Instagram, Facebook, Youtube, Plus, Trash2, LayoutDashboard, Package, FileText, Edit, Upload, CheckCircle, TrendingUp, DollarSign, Users, BarChart3, Heart, LogOut, Tag, ArrowLeft, Mail, Phone, MapPin, CreditCard } from 'lucide-react';
+import { ShoppingBag, Menu, X, User, Search, ChevronRight, Instagram, Facebook, Youtube, Plus, Trash2, LayoutDashboard, Package, FileText, Edit, Upload, CheckCircle, TrendingUp, DollarSign, Users, BarChart3, Heart, LogOut, Tag, ArrowLeft, Mail, Phone, MapPin, CreditCard, Sun, Moon, Monitor } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import { Auth } from '@supabase/auth-ui-react';
@@ -840,6 +840,9 @@ const CheckoutPage = ({
   onBack,
   onSubmit,
   isProcessing,
+  themePreference,
+  resolvedTheme,
+  onThemeChange,
 }: {
   cart: CartItem[];
   selectedFrete: FreteOption | null;
@@ -848,8 +851,12 @@ const CheckoutPage = ({
   onBack: () => void;
   onSubmit: () => void;
   isProcessing: boolean;
+  themePreference: 'light' | 'dark' | 'system';
+  resolvedTheme: 'light' | 'dark';
+  onThemeChange: (theme: 'light' | 'dark' | 'system') => void;
 }) => {
   const [cepLoading, setCepLoading] = useState(false);
+  const isDark = resolvedTheme === 'dark';
 
   const formatPhone = (value: string) => {
     const digits = value.replace(/\D/g, '').slice(0, 11);
@@ -897,105 +904,141 @@ const CheckoutPage = ({
   const freteValue = selectedFrete?.value ?? (Number.parseFloat(String((selectedFrete as any)?.custom_price ?? (selectedFrete as any)?.price ?? '0')) || 0);
   const productsTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const total = productsTotal + freteValue;
+  const pageClasses = isDark ? 'min-h-screen bg-[#050505] text-white' : 'min-h-screen bg-[#f8f8f8] text-brand-black';
+  const heroCardClasses = isDark ? 'bg-[#101010] border border-white/10 shadow-2xl' : 'bg-white border border-gray-100 shadow-sm';
+  const sectionCardClasses = isDark ? 'bg-[#101010] border border-white/10 shadow-xl' : 'bg-white border border-gray-100 shadow-sm';
+  const inputClasses = isDark ? 'w-full px-4 py-3 border-2 border-white/10 bg-[#171717] text-white rounded-2xl focus:border-brand-orange focus:outline-none placeholder:text-gray-500' : 'w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:border-brand-orange focus:outline-none';
+  const mutedTextClasses = isDark ? 'text-gray-400' : 'text-gray-500';
+  const labelClasses = isDark ? 'text-sm font-bold text-gray-200 mb-2 block' : 'text-sm font-bold text-gray-700 mb-2 block';
+  const titleClasses = isDark ? 'text-white' : 'text-brand-black';
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-12">
-      <div className="mb-8 flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.3em] text-gray-400 mb-4">
+    <div className={pageClasses}>
+      <div className="max-w-7xl mx-auto px-6 py-8 md:py-10">
+        <div className={`mb-8 rounded-[28px] px-5 py-4 md:px-6 md:py-5 flex items-center justify-between gap-4 flex-wrap ${heroCardClasses}`}>
+          <div className="flex items-center gap-4">
+            <button onClick={onBack} className={`inline-flex items-center gap-2 px-4 py-2 rounded-2xl transition-colors ${isDark ? 'bg-white/5 hover:bg-white/10 text-white' : 'border border-gray-200 hover:border-brand-orange hover:text-brand-orange'}`}>
+              <ArrowLeft size={18} /> Voltar ao carrinho
+            </button>
+            <button onClick={onBack} className={`text-2xl font-display font-black tracking-tighter transition-colors ${isDark ? 'text-white hover:text-brand-orange' : 'text-brand-black hover:text-brand-orange'}`}>
+              HALEX<span className="text-brand-orange">SHOP</span>
+            </button>
+          </div>
+
+          <div className={`flex items-center gap-2 p-1 rounded-2xl ${isDark ? 'bg-white/5' : 'bg-gray-100'}`}>
+            {[
+              { value: 'light', label: 'Claro', icon: Sun },
+              { value: 'dark', label: 'Black', icon: Moon },
+              { value: 'system', label: 'Sistema', icon: Monitor },
+            ].map(option => {
+              const Icon = option.icon;
+              const active = themePreference === option.value;
+              return (
+                <button
+                  key={option.value}
+                  onClick={() => onThemeChange(option.value as 'light' | 'dark' | 'system')}
+                  className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${active ? 'bg-brand-orange text-white shadow-sm' : isDark ? 'text-gray-300 hover:bg-white/10' : 'text-gray-500 hover:bg-white'}`}
+                >
+                  <Icon size={14} /> {option.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="mb-8 flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <div className={`flex items-center gap-2 text-xs font-bold uppercase tracking-[0.3em] mb-4 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
             <span>Contato</span>
             <ChevronRight size={14} />
             <span>Entrega</span>
             <ChevronRight size={14} />
             <span>Pagamento</span>
           </div>
-          <h1 className="text-4xl font-black uppercase text-brand-black">Checkout</h1>
-          <p className="text-gray-500 mt-2">Preencha seus dados completos para envio antes de seguir para a InfinitePay.</p>
+            <h1 className={`text-4xl font-black uppercase ${titleClasses}`}>Checkout</h1>
+            <p className={`mt-2 ${mutedTextClasses}`}>Preencha seus dados completos para envio antes de seguir para a InfinitePay.</p>
+          </div>
         </div>
-        <button onClick={onBack} className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl border border-gray-200 hover:border-brand-orange hover:text-brand-orange transition-colors">
-          <ArrowLeft size={18} /> Voltar ao carrinho
-        </button>
-      </div>
 
       {cart.length === 0 ? (
-        <div className="bg-white rounded-[32px] border border-gray-100 p-10 text-center shadow-sm">
-          <ShoppingBag size={56} className="mx-auto text-gray-200 mb-4" />
-          <h2 className="text-2xl font-black mb-2">Seu carrinho está vazio</h2>
-          <p className="text-gray-500 mb-6">Adicione produtos ao carrinho para continuar com o checkout.</p>
+        <div className={`rounded-[32px] p-10 text-center ${sectionCardClasses}`}>
+          <ShoppingBag size={56} className={`mx-auto mb-4 ${isDark ? 'text-gray-600' : 'text-gray-200'}`} />
+          <h2 className={`text-2xl font-black mb-2 ${titleClasses}`}>Seu carrinho está vazio</h2>
+          <p className={`${mutedTextClasses} mb-6`}>Adicione produtos ao carrinho para continuar com o checkout.</p>
           <button onClick={onBack} className="btn-primary px-8 py-3">Voltar</button>
         </div>
       ) : (
         <div className="grid lg:grid-cols-[1.2fr_0.8fr] gap-8 items-start">
           <div className="space-y-6">
-            <div className="bg-white rounded-[32px] border border-gray-100 p-8 shadow-sm">
+            <div className={`rounded-[32px] p-8 ${sectionCardClasses}`}>
               <div className="flex items-center gap-3 mb-6">
                 <Mail className="text-brand-orange" size={24} />
                 <div>
-                  <h2 className="text-2xl font-black">Dados de contato</h2>
-                  <p className="text-sm text-gray-500">Esses dados serão salvos junto ao pedido para contato posterior.</p>
+                  <h2 className={`text-2xl font-black ${titleClasses}`}>Dados de contato</h2>
+                  <p className={`text-sm ${mutedTextClasses}`}>Esses dados serão salvos junto ao pedido para contato posterior.</p>
                 </div>
               </div>
               <div className="grid md:grid-cols-2 gap-4">
                 <label className="block md:col-span-2">
-                  <span className="text-sm font-bold text-gray-700 mb-2 block">Nome completo</span>
-                  <input value={formData.name} onChange={(e) => onFieldChange('name', e.target.value)} className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:border-brand-orange focus:outline-none" placeholder="Digite seu nome completo" />
+                  <span className={labelClasses}>Nome completo</span>
+                  <input value={formData.name} onChange={(e) => onFieldChange('name', e.target.value)} className={inputClasses} placeholder="Digite seu nome completo" />
                 </label>
                 <label className="block">
-                  <span className="text-sm font-bold text-gray-700 mb-2 block">E-mail</span>
-                  <input type="email" value={formData.email} onChange={(e) => onFieldChange('email', e.target.value)} className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:border-brand-orange focus:outline-none" placeholder="seunome@provedor.com" />
+                  <span className={labelClasses}>E-mail</span>
+                  <input type="email" value={formData.email} onChange={(e) => onFieldChange('email', e.target.value)} className={inputClasses} placeholder="seunome@provedor.com" />
                 </label>
                 <label className="block">
-                  <span className="text-sm font-bold text-gray-700 mb-2 block">Telefone / WhatsApp</span>
-                  <input value={formData.phone} onChange={(e) => onFieldChange('phone', formatPhone(e.target.value))} className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:border-brand-orange focus:outline-none" placeholder="(00) 00000-0000" />
+                  <span className={labelClasses}>Telefone / WhatsApp</span>
+                  <input value={formData.phone} onChange={(e) => onFieldChange('phone', formatPhone(e.target.value))} className={inputClasses} placeholder="(00) 00000-0000" />
                 </label>
                 <label className="block md:col-span-2">
-                  <span className="text-sm font-bold text-gray-700 mb-2 block">CPF</span>
-                  <input value={formData.document} onChange={(e) => onFieldChange('document', formatDocument(e.target.value))} className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:border-brand-orange focus:outline-none" placeholder="000.000.000-00" />
+                  <span className={labelClasses}>CPF</span>
+                  <input value={formData.document} onChange={(e) => onFieldChange('document', formatDocument(e.target.value))} className={inputClasses} placeholder="000.000.000-00" />
                 </label>
               </div>
             </div>
 
-            <div className="bg-white rounded-[32px] border border-gray-100 p-8 shadow-sm">
+            <div className={`rounded-[32px] p-8 ${sectionCardClasses}`}>
               <div className="flex items-center gap-3 mb-6">
                 <MapPin className="text-brand-orange" size={24} />
                 <div>
-                  <h2 className="text-2xl font-black">Endereço de entrega</h2>
-                  <p className="text-sm text-gray-500">Entrega somente no Brasil. O CEP pode preencher parte do endereço automaticamente.</p>
+                  <h2 className={`text-2xl font-black ${titleClasses}`}>Endereço de entrega</h2>
+                  <p className={`text-sm ${mutedTextClasses}`}>Entrega somente no Brasil. O CEP pode preencher parte do endereço automaticamente.</p>
                 </div>
               </div>
               <div className="grid md:grid-cols-2 gap-4">
                 <label className="block">
-                  <span className="text-sm font-bold text-gray-700 mb-2 block">CEP</span>
-                  <input value={formData.cep} onChange={(e) => onFieldChange('cep', formatCep(e.target.value))} onBlur={handleCepBlur} className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:border-brand-orange focus:outline-none" placeholder="00000-000" />
-                  <span className="text-xs text-gray-400 mt-2 block">{cepLoading ? 'Buscando endereço pelo CEP...' : 'Somente endereços do Brasil'}</span>
+                  <span className={labelClasses}>CEP</span>
+                  <input value={formData.cep} onChange={(e) => onFieldChange('cep', formatCep(e.target.value))} onBlur={handleCepBlur} className={inputClasses} placeholder="00000-000" />
+                  <span className={`text-xs mt-2 block ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>{cepLoading ? 'Buscando endereço pelo CEP...' : 'Somente endereços do Brasil'}</span>
                 </label>
                 <label className="block">
-                  <span className="text-sm font-bold text-gray-700 mb-2 block">País</span>
-                  <input value="Brasil" disabled className="w-full px-4 py-3 border-2 border-gray-100 bg-gray-50 rounded-2xl text-gray-500" />
+                  <span className={labelClasses}>País</span>
+                  <input value="Brasil" disabled className={`w-full px-4 py-3 border-2 rounded-2xl ${isDark ? 'border-white/5 bg-[#171717] text-gray-400' : 'border-gray-100 bg-gray-50 text-gray-500'}`} />
                 </label>
                 <label className="block md:col-span-2">
-                  <span className="text-sm font-bold text-gray-700 mb-2 block">Rua / Logradouro</span>
-                  <input value={formData.street} onChange={(e) => onFieldChange('street', e.target.value)} className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:border-brand-orange focus:outline-none" placeholder="Rua, avenida, travessa..." />
+                  <span className={labelClasses}>Rua / Logradouro</span>
+                  <input value={formData.street} onChange={(e) => onFieldChange('street', e.target.value)} className={inputClasses} placeholder="Rua, avenida, travessa..." />
                 </label>
                 <label className="block">
-                  <span className="text-sm font-bold text-gray-700 mb-2 block">Número</span>
-                  <input value={formData.number} onChange={(e) => onFieldChange('number', e.target.value)} className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:border-brand-orange focus:outline-none" placeholder="123" />
+                  <span className={labelClasses}>Número</span>
+                  <input value={formData.number} onChange={(e) => onFieldChange('number', e.target.value)} className={inputClasses} placeholder="123" />
                 </label>
                 <label className="block">
-                  <span className="text-sm font-bold text-gray-700 mb-2 block">Complemento</span>
-                  <input value={formData.complement} onChange={(e) => onFieldChange('complement', e.target.value)} className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:border-brand-orange focus:outline-none" placeholder="Apto, bloco, referência..." />
+                  <span className={labelClasses}>Complemento</span>
+                  <input value={formData.complement} onChange={(e) => onFieldChange('complement', e.target.value)} className={inputClasses} placeholder="Apto, bloco, referência..." />
                 </label>
                 <label className="block">
-                  <span className="text-sm font-bold text-gray-700 mb-2 block">Bairro</span>
-                  <input value={formData.neighborhood} onChange={(e) => onFieldChange('neighborhood', e.target.value)} className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:border-brand-orange focus:outline-none" placeholder="Seu bairro" />
+                  <span className={labelClasses}>Bairro</span>
+                  <input value={formData.neighborhood} onChange={(e) => onFieldChange('neighborhood', e.target.value)} className={inputClasses} placeholder="Seu bairro" />
                 </label>
                 <label className="block">
-                  <span className="text-sm font-bold text-gray-700 mb-2 block">Cidade</span>
-                  <input value={formData.city} onChange={(e) => onFieldChange('city', e.target.value)} className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:border-brand-orange focus:outline-none" placeholder="Sua cidade" />
+                  <span className={labelClasses}>Cidade</span>
+                  <input value={formData.city} onChange={(e) => onFieldChange('city', e.target.value)} className={inputClasses} placeholder="Sua cidade" />
                 </label>
                 <label className="block md:max-w-[180px]">
-                  <span className="text-sm font-bold text-gray-700 mb-2 block">UF</span>
-                  <select value={formData.state} onChange={(e) => onFieldChange('state', e.target.value)} className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:border-brand-orange focus:outline-none bg-white">
+                  <span className={labelClasses}>UF</span>
+                  <select value={formData.state} onChange={(e) => onFieldChange('state', e.target.value)} className={`w-full px-4 py-3 border-2 rounded-2xl focus:border-brand-orange focus:outline-none ${isDark ? 'border-white/10 bg-[#171717] text-white' : 'border-gray-200 bg-white'}`}>
                     <option value="">Selecione</option>
                     {brazilStates.map(state => <option key={state} value={state}>{state}</option>)}
                   </select>
@@ -1005,36 +1048,36 @@ const CheckoutPage = ({
           </div>
 
           <div className="lg:sticky lg:top-24 space-y-6">
-            <div className="bg-brand-black text-white rounded-[32px] p-8 shadow-2xl">
+            <div className={`rounded-[32px] p-8 shadow-2xl ${isDark ? 'bg-white text-brand-black' : 'bg-brand-black text-white'}`}>
               <div className="flex items-center gap-3 mb-6">
                 <CreditCard size={22} className="text-brand-orange" />
                 <div>
                   <h2 className="text-2xl font-black">Resumo do pedido</h2>
-                  <p className="text-sm text-gray-400">Confira seus dados antes de seguir para o pagamento.</p>
+                  <p className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Confira seus dados antes de seguir para o pagamento.</p>
                 </div>
               </div>
 
-              <div className="space-y-4 border-b border-white/10 pb-6 mb-6">
+              <div className={`space-y-4 pb-6 mb-6 ${isDark ? 'border-b border-black/10' : 'border-b border-white/10'}`}>
                 {cart.map(item => (
                   <div key={item.id} className="flex items-center justify-between gap-4 text-sm">
                     <div>
                       <p className="font-bold">{item.quantity}x {item.name}</p>
-                      <p className="text-xs text-gray-400">R$ {item.price.toFixed(2)} cada</p>
+                      <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>R$ {item.price.toFixed(2)} cada</p>
                     </div>
                     <span className="font-black">R$ {(item.price * item.quantity).toFixed(2)}</span>
                   </div>
                 ))}
               </div>
 
-              <div className="space-y-3 text-sm border-b border-white/10 pb-6 mb-6">
+              <div className={`space-y-3 text-sm pb-6 mb-6 ${isDark ? 'border-b border-black/10' : 'border-b border-white/10'}`}>
                 <div className="flex items-center justify-between">
-                  <span className="text-gray-400">Subtotal</span>
+                  <span className={isDark ? 'text-gray-500' : 'text-gray-400'}>Subtotal</span>
                   <span>R$ {productsTotal.toFixed(2)}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-gray-400">Frete</p>
-                    {selectedFrete && <p className="text-xs text-gray-500">{selectedFrete.carrier?.name || selectedFrete.company?.name} {selectedFrete.name}</p>}
+                    <p className={isDark ? 'text-gray-500' : 'text-gray-400'}>Frete</p>
+                    {selectedFrete && <p className={`text-xs ${isDark ? 'text-gray-600' : 'text-gray-500'}`}>{selectedFrete.carrier?.name || selectedFrete.company?.name} {selectedFrete.name}</p>}
                   </div>
                   <span>R$ {freteValue.toFixed(2)}</span>
                 </div>
@@ -1049,22 +1092,23 @@ const CheckoutPage = ({
                 {isProcessing ? 'Processando...' : 'Ir para pagamento'}
               </button>
 
-              <div className="mt-4 text-xs text-gray-400 leading-relaxed">
+              <div className={`mt-4 text-xs leading-relaxed ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
                 Seus dados de contato e entrega serão vinculados ao pedido e poderão ser consultados depois no painel administrativo.
               </div>
             </div>
 
             {selectedFrete && (
-              <div className="bg-white rounded-[28px] border border-gray-100 p-6 shadow-sm">
-                <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">Frete selecionado</p>
-                <p className="font-black text-lg text-brand-black">{selectedFrete.carrier?.name || selectedFrete.company?.name} {selectedFrete.name}</p>
+              <div className={`rounded-[28px] p-6 ${sectionCardClasses}`}>
+                <p className={`text-xs font-bold uppercase tracking-widest mb-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Frete selecionado</p>
+                <p className={`font-black text-lg ${titleClasses}`}>{selectedFrete.carrier?.name || selectedFrete.company?.name} {selectedFrete.name}</p>
                 <p className="text-brand-orange font-black text-2xl mt-2">R$ {freteValue.toFixed(2)}</p>
-                <p className="text-sm text-gray-500 mt-1">Entrega estimada em {selectedFrete.delivery_time} dia(s).</p>
+                <p className={`text-sm mt-1 ${mutedTextClasses}`}>Entrega estimada em {selectedFrete.delivery_time} dia(s).</p>
               </div>
             )}
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 };
@@ -2270,6 +2314,8 @@ function MainApp() {
   const [selectedAffiliateRef, setSelectedAffiliateRef] = useState<string | null>(null);
   const [checkoutForm, setCheckoutForm] = useState<CheckoutFormData>(initialCheckoutForm);
   const [lastPageBeforeCheckout, setLastPageBeforeCheckout] = useState('home');
+  const [checkoutThemePreference, setCheckoutThemePreference] = useState<'light' | 'dark' | 'system'>('system');
+  const [resolvedCheckoutTheme, setResolvedCheckoutTheme] = useState<'light' | 'dark'>('light');
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -2294,6 +2340,15 @@ function MainApp() {
     } catch (error) {
       console.warn('Falha ao carregar dados salvos do checkout:', error);
     }
+
+    try {
+      const savedThemePreference = localStorage.getItem('l7_checkout_theme');
+      if (savedThemePreference === 'light' || savedThemePreference === 'dark' || savedThemePreference === 'system') {
+        setCheckoutThemePreference(savedThemePreference);
+      }
+    } catch (error) {
+      console.warn('Falha ao carregar tema do checkout:', error);
+    }
   }, []);
 
   useEffect(() => {
@@ -2310,6 +2365,21 @@ function MainApp() {
       console.warn('Falha ao salvar dados do checkout:', error);
     }
   }, [checkoutForm]);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+
+    const syncTheme = () => {
+      setResolvedCheckoutTheme(checkoutThemePreference === 'system' ? (mediaQuery.matches ? 'dark' : 'light') : checkoutThemePreference);
+    };
+
+    syncTheme();
+    localStorage.setItem('l7_checkout_theme', checkoutThemePreference);
+
+    const listener = () => syncTheme();
+    mediaQuery.addEventListener('change', listener);
+    return () => mediaQuery.removeEventListener('change', listener);
+  }, [checkoutThemePreference]);
 
   const fetchData = async () => {
     try {
@@ -2477,14 +2547,17 @@ function MainApp() {
 
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0) + (selectedFrete?.value ?? (Number.parseFloat(String((selectedFrete as any)?.custom_price ?? (selectedFrete as any)?.price ?? '0')) || 0));
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const isCheckoutFlowPage = currentPage === 'checkout' || currentPage === 'checkout-success';
 
   return (
     <div className="min-h-screen flex flex-col">
-        <Navbar 
-          cartCount={cartCount} 
-          onCartClick={() => setIsCartOpen(true)} 
-          onNavigate={setCurrentPage} 
-        />
+        {!isCheckoutFlowPage && (
+          <Navbar 
+            cartCount={cartCount} 
+            onCartClick={() => setIsCartOpen(true)} 
+            onNavigate={setCurrentPage} 
+          />
+        )}
 
       <main className="flex-grow">
         <AnimatePresence mode="wait">
@@ -2573,6 +2646,9 @@ function MainApp() {
                 }}
                 onSubmit={handleCheckout}
                 isProcessing={isCheckingOut}
+                themePreference={checkoutThemePreference}
+                resolvedTheme={resolvedCheckoutTheme}
+                onThemeChange={setCheckoutThemePreference}
               />
             </motion.div>
           )}
@@ -2584,9 +2660,9 @@ function MainApp() {
         </AnimatePresence>
       </main>
 
-      <Footer />
+      {!isCheckoutFlowPage && <Footer />}
 
-      <SupportChat products={products} />
+      {!isCheckoutFlowPage && <SupportChat products={products} />}
 
       {/* Cart Sidebar */}
       <AnimatePresence>
