@@ -1073,8 +1073,9 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
   const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'posts' | 'orders' | 'affiliates' | 'categories'>('dashboard');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [orderFulfillmentDrafts, setOrderFulfillmentDrafts] = useState<Record<string, { status: string; trackingCode: string; trackingUrl: string }>>({});
+  const [orderFulfillmentDrafts, setOrderFulfillmentDrafts] = useState<Record<string, { status: string; trackingCode: string; trackingUrl: string; internalNote: string }>>({});
   const [savingOrderId, setSavingOrderId] = useState<string | null>(null);
+  const [orderStatusFilter, setOrderStatusFilter] = useState<'all' | 'paid' | 'pending' | 'aguardando-envio' | 'separando' | 'postado' | 'entregue'>('all');
   const [aiInsight, setAiInsight] = useState<string | null>(null);
   const [loadingInsight, setLoadingInsight] = useState(false);
   const [affiliates, setAffiliates] = useState<any[]>([]);
@@ -1143,11 +1144,20 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
           status: prev[order.id]?.status || order.fulfillment?.status || 'aguardando-envio',
           trackingCode: prev[order.id]?.trackingCode || order.fulfillment?.trackingCode || '',
           trackingUrl: prev[order.id]?.trackingUrl || order.fulfillment?.trackingUrl || '',
+          internalNote: prev[order.id]?.internalNote || order.internalNote || '',
         };
       });
       return next;
     });
   }, [orders]);
+
+  const filteredOrders = useMemo(() => {
+    if (orderStatusFilter === 'all') return orders;
+    if (orderStatusFilter === 'paid' || orderStatusFilter === 'pending') {
+      return orders.filter((order: any) => order.status === orderStatusFilter);
+    }
+    return orders.filter((order: any) => (order.fulfillment?.status || 'aguardando-envio') === orderStatusFilter);
+  }, [orders, orderStatusFilter]);
 
   const COLORS = ['#FF6321', '#141414', '#10B981', '#6366F1', '#F59E0B'];
 
@@ -1256,13 +1266,14 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
     }
   };
 
-  const updateOrderDraft = (orderId: string, patch: Partial<{ status: string; trackingCode: string; trackingUrl: string }>) => {
+  const updateOrderDraft = (orderId: string, patch: Partial<{ status: string; trackingCode: string; trackingUrl: string; internalNote: string }>) => {
     setOrderFulfillmentDrafts(prev => ({
       ...prev,
       [orderId]: {
         status: prev[orderId]?.status || 'aguardando-envio',
         trackingCode: prev[orderId]?.trackingCode || '',
         trackingUrl: prev[orderId]?.trackingUrl || '',
+        internalNote: prev[orderId]?.internalNote || '',
         ...patch,
       }
     }));
@@ -1281,6 +1292,7 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
           fulfillmentStatus: draft.status,
           trackingCode: draft.trackingCode,
           trackingUrl: draft.trackingUrl,
+          internalNote: draft.internalNote,
         })
       });
 
@@ -1730,19 +1742,39 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
               <AffiliatesManagement affiliates={affiliates} onRefresh={onRefresh} />
             ) : (
               <div className="space-y-4">
-                {orders.length === 0 ? (
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {[
+                    ['all', 'Todos'],
+                    ['paid', 'Pagos'],
+                    ['pending', 'Pendentes'],
+                    ['aguardando-envio', 'Aguardando envio'],
+                    ['separando', 'Separando'],
+                    ['postado', 'Postados'],
+                    ['entregue', 'Entregues'],
+                  ].map(([value, label]) => (
+                    <button
+                      key={value}
+                      onClick={() => setOrderStatusFilter(value as any)}
+                      className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${orderStatusFilter === value ? 'bg-brand-black text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {filteredOrders.length === 0 ? (
                   <div className="text-center py-12 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
                     <ShoppingBag className="mx-auto text-gray-300 mb-4" size={48} />
-                    <p className="text-gray-500">Nenhum pedido encontrado.</p>
+                    <p className="text-gray-500">Nenhum pedido encontrado para esse filtro.</p>
                   </div>
                 ) : (
-                  orders.map(order => (
+                  filteredOrders.map(order => (
                     <div key={order.id} className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-all">
                       {(() => {
                         const draft = orderFulfillmentDrafts[order.id] || {
                           status: order.fulfillment?.status || 'aguardando-envio',
                           trackingCode: order.fulfillment?.trackingCode || '',
                           trackingUrl: order.fulfillment?.trackingUrl || '',
+                          internalNote: order.internalNote || '',
                         };
                         const trackingLink = getTrackingLink(draft.trackingCode, draft.trackingUrl);
 
@@ -1862,6 +1894,18 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                             {savingOrderId === order.id ? 'Salvando...' : 'Salvar'}
                           </button>
                         </div>
+                        <label className="block mt-3">
+                          <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2 block">Observação interna</span>
+                          <textarea
+                            value={draft.internalNote}
+                            onChange={(e) => updateOrderDraft(order.id, { internalNote: e.target.value })}
+                            placeholder="Ex: separar brindes, confirmar complemento, cliente pediu contato antes da postagem..."
+                            className="w-full min-h-[96px] px-4 py-3 rounded-2xl border border-gray-200 focus:border-brand-orange focus:outline-none resize-y"
+                          />
+                        </label>
+                        {order.internalNote && !draft.internalNote && (
+                          <p className="text-xs text-gray-400 mt-2">Observação salva: {order.internalNote}</p>
+                        )}
                         {trackingLink && (
                           <div className="mt-3">
                             <a href={trackingLink} target="_blank" rel="noreferrer" className="text-sm font-bold text-brand-orange hover:underline">

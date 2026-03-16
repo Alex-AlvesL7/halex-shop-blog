@@ -249,6 +249,7 @@ const normalizeOrderRecord = (order: any) => {
     customer: metadataItem?.customer || null,
     shipping: metadataItem?.shipping || metadataItem?.customer?.address || null,
     frete: metadataItem?.frete || null,
+    internalNote: metadataItem?.internalNote || '',
     fulfillment: metadataItem?.fulfillment || {
       status: 'aguardando-envio',
       trackingCode: '',
@@ -285,6 +286,7 @@ const buildOrderEmailHtml = ({
   const shipping = order.shipping || {};
   const frete = order.frete || {};
   const fulfillment = order.fulfillment || {};
+  const internalNote = order.internalNote || '';
 
   return `
     <div style="font-family:Arial,Helvetica,sans-serif;background:#f8fafc;padding:32px 16px;color:#111827;">
@@ -333,6 +335,7 @@ const buildOrderEmailHtml = ({
               <div><strong>Frete:</strong> ${escapeHtml(frete.carrier || '')} ${escapeHtml(frete.name || '')} - ${escapeHtml(formatBRL(Number(frete.price) || 0))}</div>
               <div><strong>Status logístico:</strong> ${escapeHtml(fulfillmentStatusLabels[fulfillment.status] || 'Aguardando envio')}</div>
               <div><strong>Código de rastreio:</strong> ${escapeHtml(fulfillment.trackingCode || '—')}</div>
+              <div><strong>Observação interna:</strong> ${escapeHtml(internalNote || '—')}</div>
             </div>
           </div>
         </div>
@@ -348,6 +351,7 @@ const mergeOrderMetadataItems = (rawItems: any[], patch: any) => {
   const nextMetadata = {
     ...previousMetadata,
     ...patch,
+    internalNote: patch?.internalNote ?? previousMetadata?.internalNote ?? '',
     fulfillment: {
       status: patch?.fulfillment?.status ?? previousMetadata?.fulfillment?.status ?? 'aguardando-envio',
       trackingCode: patch?.fulfillment?.trackingCode ?? previousMetadata?.fulfillment?.trackingCode ?? '',
@@ -929,7 +933,7 @@ app.get("/api/health", async (req, res) => {
 
   app.put("/api/orders/:id/fulfillment", async (req, res) => {
     const { id } = req.params;
-    const { fulfillmentStatus, trackingCode, trackingUrl } = req.body || {};
+    const { fulfillmentStatus, trackingCode, trackingUrl, internalNote } = req.body || {};
     const allowedStatuses = ['aguardando-envio', 'separando', 'postado', 'entregue'];
     const normalizedStatus = allowedStatuses.includes(String(fulfillmentStatus)) ? String(fulfillmentStatus) : 'aguardando-envio';
     const normalizedTrackingCode = String(trackingCode || '').trim();
@@ -950,6 +954,7 @@ app.get("/api/health", async (req, res) => {
 
       const previousOrder = normalizeOrderRecord(rawOrder);
       const nextItems = mergeOrderMetadataItems(parsedItems, {
+        internalNote: String(internalNote || '').trim(),
         fulfillment: {
           status: normalizedStatus,
           trackingCode: normalizedTrackingCode,
