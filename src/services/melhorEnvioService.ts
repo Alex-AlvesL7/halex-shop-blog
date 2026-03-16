@@ -14,6 +14,9 @@ export interface FreteOption {
   delivery_range?: { min: number; max: number };
   scheduled_time?: number;
   arrival_at?: string;
+  // Campos auxiliares usados pelo app (normalizados no frontend)
+  value?: number;
+  cep?: string;
   // API retorna 'company' mas o componente usava 'carrier'
   company?: {
     id: number;

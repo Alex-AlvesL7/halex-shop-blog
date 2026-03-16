@@ -768,7 +768,29 @@ app.get("/api/health", async (req, res) => {
 
 app.post("/api/checkout", async (req, res) => {
   try {
-    const { items, total, customer_email, affiliate_id } = req.body;
+    const { items, total, customer_email, affiliate_id, frete } = req.body;
+
+    const parsedItems: any[] = Array.isArray(items) ? items : [];
+    const fretePrice = frete?.price != null ? Number(frete.price) : 0;
+    const normalizedFretePrice = Number.isFinite(fretePrice) ? fretePrice : 0;
+    const freteDescriptionBase = String(frete?.name || 'Frete');
+    const freteCarrier = String(frete?.carrier || '').trim();
+    const freteDescription = freteCarrier
+      ? `Frete - ${freteCarrier} ${freteDescriptionBase}`
+      : `Frete - ${freteDescriptionBase}`;
+
+    const itemsWithFrete = normalizedFretePrice > 0
+      ? [
+          ...parsedItems,
+          { id: 'frete', name: freteDescription, quantity: 1, price: normalizedFretePrice, type: 'frete' }
+        ]
+      : parsedItems;
+
+    const calculatedTotal = itemsWithFrete.reduce((sum: number, item: any) => {
+      const q = Number(item?.quantity) || 0;
+      const p = Number(item?.price) || 0;
+      return sum + (p * q);
+    }, 0);
     
     // Look up affiliate by ref_code
     let affiliateId = null;
@@ -797,8 +819,8 @@ app.post("/api/checkout", async (req, res) => {
       id: "ord_" + Date.now(),
       order_nsu: orderNsu,
       customer_email: customer_email || 'guest@example.com',
-      items: JSON.stringify(items),
-      total: total,
+      items: JSON.stringify(itemsWithFrete),
+      total: Number.isFinite(calculatedTotal) && calculatedTotal > 0 ? calculatedTotal : total,
       status: 'pending',
       affiliate_id: affiliateId
     };
@@ -826,12 +848,12 @@ app.post("/api/checkout", async (req, res) => {
       const payload = {
         handle: handle,
         order_nsu: orderNsu,
-        items: items.map((item: any) => ({
+        items: itemsWithFrete.map((item: any) => ({
           description: String(item.name),
           quantity: parseInt(item.quantity),
           price: Math.round(parseFloat(item.price) * 100)
         })),
-        itens: items.map((item: any) => ({
+        itens: itemsWithFrete.map((item: any) => ({
           description: String(item.name),
           quantity: parseInt(item.quantity),
           price: Math.round(parseFloat(item.price) * 100)

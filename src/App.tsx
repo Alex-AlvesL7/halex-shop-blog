@@ -1825,6 +1825,8 @@ function MainApp() {
       alert('Por favor, selecione uma opção de frete.');
       return;
     }
+
+    const freteValue = selectedFrete.value ?? (Number.parseFloat(String((selectedFrete as any).custom_price ?? (selectedFrete as any).price ?? '0')) || 0);
     
     setIsCheckingOut(true);
     try {
@@ -1842,7 +1844,8 @@ function MainApp() {
           frete: {
             id: selectedFrete.id,
             name: selectedFrete.name,
-            price: selectedFrete.value,
+            carrier: selectedFrete.carrier?.name || selectedFrete.company?.name || '',
+            price: freteValue,
             estimatedDays: selectedFrete.delivery_time,
             cep: selectedFrete.cep || ''
           }
@@ -1869,7 +1872,7 @@ function MainApp() {
     }
   };
 
-  const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0) + (selectedFrete?.value || 0);
+  const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0) + (selectedFrete?.value ?? (Number.parseFloat(String((selectedFrete as any)?.custom_price ?? (selectedFrete as any)?.price ?? '0')) || 0));
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
