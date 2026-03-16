@@ -89,12 +89,52 @@ const useAuth = () => useContext(AuthContext);
 
 // --- Components ---
 
-const Navbar = ({ cartCount, onCartClick, onNavigate }: { cartCount: number, onCartClick: () => void, onNavigate: (page: string) => void }) => {
+const ThemeToggle = ({
+  themePreference,
+  resolvedTheme,
+  onThemeChange,
+  compact = false,
+}: {
+  themePreference: 'light' | 'dark' | 'system';
+  resolvedTheme: 'light' | 'dark';
+  onThemeChange: (theme: 'light' | 'dark' | 'system') => void;
+  compact?: boolean;
+}) => {
+  const isDark = resolvedTheme === 'dark';
+
+  return (
+    <div className={`theme-toggle flex items-center gap-1 p-1 rounded-2xl ${isDark ? 'bg-white/5 border border-white/10' : 'bg-gray-100 border border-gray-200'} ${compact ? 'w-full justify-between' : ''}`}>
+      {[
+        { value: 'light', label: compact ? 'Claro' : '', icon: Sun },
+        { value: 'dark', label: compact ? 'Black' : '', icon: Moon },
+        { value: 'system', label: compact ? 'Sistema' : '', icon: Monitor },
+      ].map(option => {
+        const Icon = option.icon;
+        const active = themePreference === option.value;
+
+        return (
+          <button
+            key={option.value}
+            onClick={() => onThemeChange(option.value as 'light' | 'dark' | 'system')}
+            title={compact ? undefined : option.value === 'light' ? 'Tema claro' : option.value === 'dark' ? 'Tema black' : 'Seguir sistema'}
+            className={`inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${active ? 'bg-brand-orange text-white shadow-sm' : isDark ? 'text-gray-300 hover:bg-white/10' : 'text-gray-500 hover:bg-white'}`}
+          >
+            <Icon size={14} />
+            {compact && <span>{option.label}</span>}
+          </button>
+        );
+      })}
+    </div>
+  );
+};
+
+const Navbar = ({ cartCount, onCartClick, onNavigate, themePreference, resolvedTheme, onThemeChange }: { cartCount: number, onCartClick: () => void, onNavigate: (page: string) => void, themePreference: 'light' | 'dark' | 'system', resolvedTheme: 'light' | 'dark', onThemeChange: (theme: 'light' | 'dark' | 'system') => void }) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user, logout } = useAuth();
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const isDark = resolvedTheme === 'dark';
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20);
@@ -104,10 +144,10 @@ const Navbar = ({ cartCount, onCartClick, onNavigate }: { cartCount: number, onC
 
   return (
     <>
-      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? 'bg-white/90 backdrop-blur-md shadow-sm py-3' : 'bg-transparent py-6'}`}>
+      <nav className={`theme-nav fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? (isDark ? 'bg-black/85 backdrop-blur-md shadow-sm py-3' : 'bg-white/90 backdrop-blur-md shadow-sm py-3') : 'bg-transparent py-6'} ${isDark ? 'text-white' : ''}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
           <div className="flex items-center gap-8">
-            <button onClick={() => onNavigate('home')} className="text-2xl font-display font-black tracking-tighter text-brand-black hover:text-brand-orange transition-colors">
+            <button onClick={() => onNavigate('home')} className={`text-2xl font-display font-black tracking-tighter hover:text-brand-orange transition-colors ${isDark ? 'text-white' : 'text-brand-black'}`}>
               HALEX<span className="text-brand-orange">SHOP</span>
             </button>
             
@@ -120,6 +160,9 @@ const Navbar = ({ cartCount, onCartClick, onNavigate }: { cartCount: number, onC
           </div>
 
           <div className="flex items-center gap-4">
+            <div className="hidden md:block">
+              <ThemeToggle themePreference={themePreference} resolvedTheme={resolvedTheme} onThemeChange={onThemeChange} />
+            </div>
             <button className="p-2 text-gray-600 hover:text-brand-orange transition-colors hidden sm:block">
               <Search size={20} />
             </button>
@@ -161,9 +204,10 @@ const Navbar = ({ cartCount, onCartClick, onNavigate }: { cartCount: number, onC
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
-              className="md:hidden bg-white border-t border-gray-100 overflow-hidden"
+              className={`theme-mobile-menu md:hidden overflow-hidden ${isDark ? 'bg-[#0f0f0f] border-t border-white/10 text-white' : 'bg-white border-t border-gray-100'}`}
             >
               <div className="px-4 py-6 flex flex-col gap-4">
+                <ThemeToggle themePreference={themePreference} resolvedTheme={resolvedTheme} onThemeChange={onThemeChange} compact />
                 <button onClick={() => { onNavigate('home'); setIsMobileMenuOpen(false); }} className="text-left py-2 font-medium">Início</button>
                 <button onClick={() => { onNavigate('store'); setIsMobileMenuOpen(false); }} className="text-left py-2 font-medium">Loja</button>
                 <button onClick={() => { onNavigate('blog'); setIsMobileMenuOpen(false); }} className="text-left py-2 font-medium">Blog</button>
@@ -925,25 +969,7 @@ const CheckoutPage = ({
             </button>
           </div>
 
-          <div className={`flex items-center gap-2 p-1 rounded-2xl ${isDark ? 'bg-white/5' : 'bg-gray-100'}`}>
-            {[
-              { value: 'light', label: 'Claro', icon: Sun },
-              { value: 'dark', label: 'Black', icon: Moon },
-              { value: 'system', label: 'Sistema', icon: Monitor },
-            ].map(option => {
-              const Icon = option.icon;
-              const active = themePreference === option.value;
-              return (
-                <button
-                  key={option.value}
-                  onClick={() => onThemeChange(option.value as 'light' | 'dark' | 'system')}
-                  className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${active ? 'bg-brand-orange text-white shadow-sm' : isDark ? 'text-gray-300 hover:bg-white/10' : 'text-gray-500 hover:bg-white'}`}
-                >
-                  <Icon size={14} /> {option.label}
-                </button>
-              );
-            })}
-          </div>
+          <ThemeToggle themePreference={themePreference} resolvedTheme={resolvedTheme} onThemeChange={onThemeChange} compact />
         </div>
 
         <div className="mb-8 flex items-center justify-between gap-4 flex-wrap">
@@ -2314,8 +2340,8 @@ function MainApp() {
   const [selectedAffiliateRef, setSelectedAffiliateRef] = useState<string | null>(null);
   const [checkoutForm, setCheckoutForm] = useState<CheckoutFormData>(initialCheckoutForm);
   const [lastPageBeforeCheckout, setLastPageBeforeCheckout] = useState('home');
-  const [checkoutThemePreference, setCheckoutThemePreference] = useState<'light' | 'dark' | 'system'>('system');
-  const [resolvedCheckoutTheme, setResolvedCheckoutTheme] = useState<'light' | 'dark'>('light');
+  const [themePreference, setThemePreference] = useState<'light' | 'dark' | 'system'>('system');
+  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light');
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -2342,12 +2368,12 @@ function MainApp() {
     }
 
     try {
-      const savedThemePreference = localStorage.getItem('l7_checkout_theme');
+      const savedThemePreference = localStorage.getItem('l7_theme_preference');
       if (savedThemePreference === 'light' || savedThemePreference === 'dark' || savedThemePreference === 'system') {
-        setCheckoutThemePreference(savedThemePreference);
+        setThemePreference(savedThemePreference);
       }
     } catch (error) {
-      console.warn('Falha ao carregar tema do checkout:', error);
+      console.warn('Falha ao carregar tema do site:', error);
     }
   }, []);
 
@@ -2370,16 +2396,24 @@ function MainApp() {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
 
     const syncTheme = () => {
-      setResolvedCheckoutTheme(checkoutThemePreference === 'system' ? (mediaQuery.matches ? 'dark' : 'light') : checkoutThemePreference);
+      setResolvedTheme(themePreference === 'system' ? (mediaQuery.matches ? 'dark' : 'light') : themePreference);
     };
 
     syncTheme();
-    localStorage.setItem('l7_checkout_theme', checkoutThemePreference);
+    localStorage.setItem('l7_theme_preference', themePreference);
 
     const listener = () => syncTheme();
     mediaQuery.addEventListener('change', listener);
     return () => mediaQuery.removeEventListener('change', listener);
-  }, [checkoutThemePreference]);
+  }, [themePreference]);
+
+  useEffect(() => {
+    document.body.classList.remove('theme-light', 'theme-dark');
+    document.body.classList.add(`theme-${resolvedTheme}`);
+    return () => {
+      document.body.classList.remove('theme-light', 'theme-dark');
+    };
+  }, [resolvedTheme]);
 
   const fetchData = async () => {
     try {
@@ -2550,12 +2584,15 @@ function MainApp() {
   const isCheckoutFlowPage = currentPage === 'checkout' || currentPage === 'checkout-success';
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className={`min-h-screen flex flex-col theme-${resolvedTheme}`}>
         {!isCheckoutFlowPage && (
           <Navbar 
             cartCount={cartCount} 
             onCartClick={() => setIsCartOpen(true)} 
             onNavigate={setCurrentPage} 
+            themePreference={themePreference}
+            resolvedTheme={resolvedTheme}
+            onThemeChange={setThemePreference}
           />
         )}
 
@@ -2646,9 +2683,9 @@ function MainApp() {
                 }}
                 onSubmit={handleCheckout}
                 isProcessing={isCheckingOut}
-                themePreference={checkoutThemePreference}
-                resolvedTheme={resolvedCheckoutTheme}
-                onThemeChange={setCheckoutThemePreference}
+                themePreference={themePreference}
+                resolvedTheme={resolvedTheme}
+                onThemeChange={setThemePreference}
               />
             </motion.div>
           )}
