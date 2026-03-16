@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, createContext, useContext } from 'react';
-import { ShoppingBag, Menu, X, User, Search, ChevronRight, Instagram, Facebook, Youtube, Plus, Trash2, LayoutDashboard, Package, FileText, Edit, Upload, CheckCircle, TrendingUp, DollarSign, Users, BarChart3, Heart, LogOut, Tag } from 'lucide-react';
+import { ShoppingBag, Menu, X, User, Search, ChevronRight, Instagram, Facebook, Youtube, Plus, Trash2, LayoutDashboard, Package, FileText, Edit, Upload, CheckCircle, TrendingUp, DollarSign, Users, BarChart3, Heart, LogOut, Tag, ArrowLeft, Mail, Phone, MapPin, CreditCard } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import { Auth } from '@supabase/auth-ui-react';
@@ -774,6 +774,273 @@ const ProductDetailsPage: React.FC<{ product: Product, onAddToCart: (p: Product)
   );
 };
 
+interface CheckoutFormData {
+  name: string;
+  email: string;
+  phone: string;
+  document: string;
+  cep: string;
+  street: string;
+  number: string;
+  complement: string;
+  neighborhood: string;
+  city: string;
+  state: string;
+}
+
+const initialCheckoutForm: CheckoutFormData = {
+  name: '',
+  email: '',
+  phone: '',
+  document: '',
+  cep: '',
+  street: '',
+  number: '',
+  complement: '',
+  neighborhood: '',
+  city: '',
+  state: '',
+};
+
+const brazilStates = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'];
+
+const CheckoutPage = ({
+  cart,
+  selectedFrete,
+  formData,
+  onFieldChange,
+  onBack,
+  onSubmit,
+  isProcessing,
+}: {
+  cart: CartItem[];
+  selectedFrete: FreteOption | null;
+  formData: CheckoutFormData;
+  onFieldChange: (field: keyof CheckoutFormData, value: string) => void;
+  onBack: () => void;
+  onSubmit: () => void;
+  isProcessing: boolean;
+}) => {
+  const [cepLoading, setCepLoading] = useState(false);
+
+  const formatPhone = (value: string) => {
+    const digits = value.replace(/\D/g, '').slice(0, 11);
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+    if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+  };
+
+  const formatDocument = (value: string) => {
+    const digits = value.replace(/\D/g, '').slice(0, 11);
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+    if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+    return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+  };
+
+  const formatCep = (value: string) => {
+    const digits = value.replace(/\D/g, '').slice(0, 8);
+    if (digits.length <= 5) return digits;
+    return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+  };
+
+  const handleCepBlur = async () => {
+    const cepDigits = formData.cep.replace(/\D/g, '');
+    if (cepDigits.length !== 8) return;
+
+    setCepLoading(true);
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cepDigits}/json/`);
+      const data = await response.json();
+      if (!data.erro) {
+        if (!formData.street) onFieldChange('street', data.logradouro || '');
+        if (!formData.neighborhood) onFieldChange('neighborhood', data.bairro || '');
+        if (!formData.city) onFieldChange('city', data.localidade || '');
+        if (!formData.state) onFieldChange('state', data.uf || '');
+      }
+    } catch (error) {
+      console.warn('Falha ao buscar CEP:', error);
+    } finally {
+      setCepLoading(false);
+    }
+  };
+
+  const freteValue = selectedFrete?.value ?? (Number.parseFloat(String((selectedFrete as any)?.custom_price ?? (selectedFrete as any)?.price ?? '0')) || 0);
+  const productsTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const total = productsTotal + freteValue;
+
+  return (
+    <div className="max-w-7xl mx-auto px-6 py-12">
+      <div className="mb-8 flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.3em] text-gray-400 mb-4">
+            <span>Contato</span>
+            <ChevronRight size={14} />
+            <span>Entrega</span>
+            <ChevronRight size={14} />
+            <span>Pagamento</span>
+          </div>
+          <h1 className="text-4xl font-black uppercase text-brand-black">Checkout</h1>
+          <p className="text-gray-500 mt-2">Preencha seus dados completos para envio antes de seguir para a InfinitePay.</p>
+        </div>
+        <button onClick={onBack} className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl border border-gray-200 hover:border-brand-orange hover:text-brand-orange transition-colors">
+          <ArrowLeft size={18} /> Voltar ao carrinho
+        </button>
+      </div>
+
+      {cart.length === 0 ? (
+        <div className="bg-white rounded-[32px] border border-gray-100 p-10 text-center shadow-sm">
+          <ShoppingBag size={56} className="mx-auto text-gray-200 mb-4" />
+          <h2 className="text-2xl font-black mb-2">Seu carrinho está vazio</h2>
+          <p className="text-gray-500 mb-6">Adicione produtos ao carrinho para continuar com o checkout.</p>
+          <button onClick={onBack} className="btn-primary px-8 py-3">Voltar</button>
+        </div>
+      ) : (
+        <div className="grid lg:grid-cols-[1.2fr_0.8fr] gap-8 items-start">
+          <div className="space-y-6">
+            <div className="bg-white rounded-[32px] border border-gray-100 p-8 shadow-sm">
+              <div className="flex items-center gap-3 mb-6">
+                <Mail className="text-brand-orange" size={24} />
+                <div>
+                  <h2 className="text-2xl font-black">Dados de contato</h2>
+                  <p className="text-sm text-gray-500">Esses dados serão salvos junto ao pedido para contato posterior.</p>
+                </div>
+              </div>
+              <div className="grid md:grid-cols-2 gap-4">
+                <label className="block md:col-span-2">
+                  <span className="text-sm font-bold text-gray-700 mb-2 block">Nome completo</span>
+                  <input value={formData.name} onChange={(e) => onFieldChange('name', e.target.value)} className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:border-brand-orange focus:outline-none" placeholder="Digite seu nome completo" />
+                </label>
+                <label className="block">
+                  <span className="text-sm font-bold text-gray-700 mb-2 block">E-mail</span>
+                  <input type="email" value={formData.email} onChange={(e) => onFieldChange('email', e.target.value)} className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:border-brand-orange focus:outline-none" placeholder="seunome@provedor.com" />
+                </label>
+                <label className="block">
+                  <span className="text-sm font-bold text-gray-700 mb-2 block">Telefone / WhatsApp</span>
+                  <input value={formData.phone} onChange={(e) => onFieldChange('phone', formatPhone(e.target.value))} className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:border-brand-orange focus:outline-none" placeholder="(00) 00000-0000" />
+                </label>
+                <label className="block md:col-span-2">
+                  <span className="text-sm font-bold text-gray-700 mb-2 block">CPF</span>
+                  <input value={formData.document} onChange={(e) => onFieldChange('document', formatDocument(e.target.value))} className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:border-brand-orange focus:outline-none" placeholder="000.000.000-00" />
+                </label>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-[32px] border border-gray-100 p-8 shadow-sm">
+              <div className="flex items-center gap-3 mb-6">
+                <MapPin className="text-brand-orange" size={24} />
+                <div>
+                  <h2 className="text-2xl font-black">Endereço de entrega</h2>
+                  <p className="text-sm text-gray-500">Entrega somente no Brasil. O CEP pode preencher parte do endereço automaticamente.</p>
+                </div>
+              </div>
+              <div className="grid md:grid-cols-2 gap-4">
+                <label className="block">
+                  <span className="text-sm font-bold text-gray-700 mb-2 block">CEP</span>
+                  <input value={formData.cep} onChange={(e) => onFieldChange('cep', formatCep(e.target.value))} onBlur={handleCepBlur} className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:border-brand-orange focus:outline-none" placeholder="00000-000" />
+                  <span className="text-xs text-gray-400 mt-2 block">{cepLoading ? 'Buscando endereço pelo CEP...' : 'Somente endereços do Brasil'}</span>
+                </label>
+                <label className="block">
+                  <span className="text-sm font-bold text-gray-700 mb-2 block">País</span>
+                  <input value="Brasil" disabled className="w-full px-4 py-3 border-2 border-gray-100 bg-gray-50 rounded-2xl text-gray-500" />
+                </label>
+                <label className="block md:col-span-2">
+                  <span className="text-sm font-bold text-gray-700 mb-2 block">Rua / Logradouro</span>
+                  <input value={formData.street} onChange={(e) => onFieldChange('street', e.target.value)} className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:border-brand-orange focus:outline-none" placeholder="Rua, avenida, travessa..." />
+                </label>
+                <label className="block">
+                  <span className="text-sm font-bold text-gray-700 mb-2 block">Número</span>
+                  <input value={formData.number} onChange={(e) => onFieldChange('number', e.target.value)} className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:border-brand-orange focus:outline-none" placeholder="123" />
+                </label>
+                <label className="block">
+                  <span className="text-sm font-bold text-gray-700 mb-2 block">Complemento</span>
+                  <input value={formData.complement} onChange={(e) => onFieldChange('complement', e.target.value)} className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:border-brand-orange focus:outline-none" placeholder="Apto, bloco, referência..." />
+                </label>
+                <label className="block">
+                  <span className="text-sm font-bold text-gray-700 mb-2 block">Bairro</span>
+                  <input value={formData.neighborhood} onChange={(e) => onFieldChange('neighborhood', e.target.value)} className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:border-brand-orange focus:outline-none" placeholder="Seu bairro" />
+                </label>
+                <label className="block">
+                  <span className="text-sm font-bold text-gray-700 mb-2 block">Cidade</span>
+                  <input value={formData.city} onChange={(e) => onFieldChange('city', e.target.value)} className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:border-brand-orange focus:outline-none" placeholder="Sua cidade" />
+                </label>
+                <label className="block md:max-w-[180px]">
+                  <span className="text-sm font-bold text-gray-700 mb-2 block">UF</span>
+                  <select value={formData.state} onChange={(e) => onFieldChange('state', e.target.value)} className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:border-brand-orange focus:outline-none bg-white">
+                    <option value="">Selecione</option>
+                    {brazilStates.map(state => <option key={state} value={state}>{state}</option>)}
+                  </select>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div className="lg:sticky lg:top-24 space-y-6">
+            <div className="bg-brand-black text-white rounded-[32px] p-8 shadow-2xl">
+              <div className="flex items-center gap-3 mb-6">
+                <CreditCard size={22} className="text-brand-orange" />
+                <div>
+                  <h2 className="text-2xl font-black">Resumo do pedido</h2>
+                  <p className="text-sm text-gray-400">Confira seus dados antes de seguir para o pagamento.</p>
+                </div>
+              </div>
+
+              <div className="space-y-4 border-b border-white/10 pb-6 mb-6">
+                {cart.map(item => (
+                  <div key={item.id} className="flex items-center justify-between gap-4 text-sm">
+                    <div>
+                      <p className="font-bold">{item.quantity}x {item.name}</p>
+                      <p className="text-xs text-gray-400">R$ {item.price.toFixed(2)} cada</p>
+                    </div>
+                    <span className="font-black">R$ {(item.price * item.quantity).toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="space-y-3 text-sm border-b border-white/10 pb-6 mb-6">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-400">Subtotal</span>
+                  <span>R$ {productsTotal.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-gray-400">Frete</p>
+                    {selectedFrete && <p className="text-xs text-gray-500">{selectedFrete.carrier?.name || selectedFrete.company?.name} {selectedFrete.name}</p>}
+                  </div>
+                  <span>R$ {freteValue.toFixed(2)}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between mb-6">
+                <span className="text-lg font-bold">Total</span>
+                <span className="text-3xl font-black text-brand-orange">R$ {total.toFixed(2)}</span>
+              </div>
+
+              <button onClick={onSubmit} disabled={isProcessing || !selectedFrete} className={`w-full btn-primary py-4 text-lg flex items-center justify-center gap-2 ${(isProcessing || !selectedFrete) ? 'opacity-70 cursor-not-allowed' : ''}`}>
+                {isProcessing ? 'Processando...' : 'Ir para pagamento'}
+              </button>
+
+              <div className="mt-4 text-xs text-gray-400 leading-relaxed">
+                Seus dados de contato e entrega serão vinculados ao pedido e poderão ser consultados depois no painel administrativo.
+              </div>
+            </div>
+
+            {selectedFrete && (
+              <div className="bg-white rounded-[28px] border border-gray-100 p-6 shadow-sm">
+                <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">Frete selecionado</p>
+                <p className="font-black text-lg text-brand-black">{selectedFrete.carrier?.name || selectedFrete.company?.name} {selectedFrete.name}</p>
+                <p className="text-brand-orange font-black text-2xl mt-2">R$ {freteValue.toFixed(2)}</p>
+                <p className="text-sm text-gray-500 mt-1">Entrega estimada em {selectedFrete.delivery_time} dia(s).</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[], posts: BlogPost[], orders: any[], onRefresh: () => void }) => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'posts' | 'orders' | 'affiliates' | 'categories'>('dashboard');
   const [showForm, setShowForm] = useState(false);
@@ -1393,7 +1660,20 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                               {order.status === 'paid' ? 'Pago' : 'Pendente'}
                             </span>
                           </div>
-                          <p className="text-sm text-gray-500">{order.customer_email}</p>
+                          <p className="text-sm text-gray-500">{order.customer?.name || 'Cliente não informado'} • {order.customer_email}</p>
+                          {order.customer?.phone && (
+                            <p className="text-xs text-gray-400 mt-1">Tel/WhatsApp: {order.customer.phone}</p>
+                          )}
+                          {order.customer?.document && (
+                            <p className="text-xs text-gray-400">CPF: {order.customer.document}</p>
+                          )}
+                          {order.shipping && (
+                            <p className="text-xs text-gray-400 mt-1">
+                              Entrega: {order.shipping.street}, {order.shipping.number}
+                              {order.shipping.complement ? `, ${order.shipping.complement}` : ''}
+                              {' • '}{order.shipping.neighborhood} • {order.shipping.city}/{order.shipping.state} • CEP {order.shipping.cep}
+                            </p>
+                          )}
                           <p className="text-xs text-gray-400 mt-1">{new Date(order.created_at).toLocaleString('pt-BR')}</p>
                         </div>
                         <div className="text-right">
@@ -1697,6 +1977,11 @@ const ProfileModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => voi
                     <p className="text-xs text-gray-400">{new Date(order.created_at).toLocaleDateString('pt-BR')}</p>
                     <p className="text-sm font-black text-brand-orange">R$ {order.total.toFixed(2)}</p>
                   </div>
+                  {order.shipping && (
+                    <p className="text-xs text-gray-400 mt-3 leading-relaxed">
+                      Entrega em {order.shipping.city}/{order.shipping.state} • CEP {order.shipping.cep}
+                    </p>
+                  )}
                 </div>
               ))
             )}
@@ -1733,6 +2018,8 @@ function MainApp() {
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [selectedFrete, setSelectedFrete] = useState<FreteOption | null>(null);
   const [selectedAffiliateRef, setSelectedAffiliateRef] = useState<string | null>(null);
+  const [checkoutForm, setCheckoutForm] = useState<CheckoutFormData>(initialCheckoutForm);
+  const [lastPageBeforeCheckout, setLastPageBeforeCheckout] = useState('home');
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -1747,7 +2034,32 @@ function MainApp() {
       setSelectedAffiliateRef(refCode);
       setCurrentPage('affiliate-dashboard');
     }
+
+    try {
+      const savedCheckoutData = localStorage.getItem('l7_checkout_data');
+      if (savedCheckoutData) {
+        const parsed = JSON.parse(savedCheckoutData);
+        setCheckoutForm({ ...initialCheckoutForm, ...parsed, email: user?.email || parsed.email || '' });
+      }
+    } catch (error) {
+      console.warn('Falha ao carregar dados salvos do checkout:', error);
+    }
   }, []);
+
+  useEffect(() => {
+    setCheckoutForm(prev => ({
+      ...prev,
+      email: user?.email || prev.email,
+    }));
+  }, [user]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('l7_checkout_data', JSON.stringify(checkoutForm));
+    } catch (error) {
+      console.warn('Falha ao salvar dados do checkout:', error);
+    }
+  }, [checkoutForm]);
 
   const fetchData = async () => {
     try {
@@ -1826,7 +2138,32 @@ function MainApp() {
       return;
     }
 
+    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(checkoutForm.email.trim());
+    const phoneDigits = checkoutForm.phone.replace(/\D/g, '');
+    const documentDigits = checkoutForm.document.replace(/\D/g, '');
+    const cepDigits = checkoutForm.cep.replace(/\D/g, '');
+    const requiredFields = [checkoutForm.name, checkoutForm.street, checkoutForm.number, checkoutForm.neighborhood, checkoutForm.city, checkoutForm.state];
+
+    if (requiredFields.some(field => !field.trim()) || !emailOk || phoneDigits.length < 10 || documentDigits.length !== 11 || cepDigits.length !== 8 || !brazilStates.includes(checkoutForm.state)) {
+      alert('Preencha todos os dados de contato e entrega corretamente antes de seguir para o pagamento.');
+      return;
+    }
+
     const freteValue = selectedFrete.value ?? (Number.parseFloat(String((selectedFrete as any).custom_price ?? (selectedFrete as any).price ?? '0')) || 0);
+    const normalizedCustomer = {
+      ...checkoutForm,
+      email: checkoutForm.email.trim(),
+      name: checkoutForm.name.trim(),
+      phone: phoneDigits,
+      document: documentDigits,
+      cep: cepDigits,
+      street: checkoutForm.street.trim(),
+      number: checkoutForm.number.trim(),
+      complement: checkoutForm.complement.trim(),
+      neighborhood: checkoutForm.neighborhood.trim(),
+      city: checkoutForm.city.trim(),
+      state: checkoutForm.state.trim().toUpperCase(),
+    };
     
     setIsCheckingOut(true);
     try {
@@ -1839,8 +2176,9 @@ function MainApp() {
         body: JSON.stringify({
           items: cart,
           total: cartTotal,
-          customer_email: user?.email || 'guest@example.com',
+          customer_email: normalizedCustomer.email,
           affiliate_id: affiliateId,
+          customer: normalizedCustomer,
           frete: {
             id: selectedFrete.id,
             name: selectedFrete.name,
@@ -1859,6 +2197,8 @@ function MainApp() {
         setCart([]);
         setSelectedFrete(null);
         setIsCartOpen(false);
+        setCheckoutForm({ ...initialCheckoutForm, email: user?.email || '' });
+        localStorage.removeItem('l7_checkout_data');
         // Redirect to InfinitePay checkout
         window.location.href = data.url;
       } else {
@@ -1870,6 +2210,19 @@ function MainApp() {
     } finally {
       setIsCheckingOut(false);
     }
+  };
+
+  const handleStartCheckout = () => {
+    if (cart.length === 0) return;
+    if (!selectedFrete) {
+      alert('Por favor, selecione uma opção de frete.');
+      return;
+    }
+
+    setLastPageBeforeCheckout(currentPage);
+    setIsCartOpen(false);
+    setCurrentPage('checkout');
+    window.scrollTo(0, 0);
   };
 
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0) + (selectedFrete?.value ?? (Number.parseFloat(String((selectedFrete as any)?.custom_price ?? (selectedFrete as any)?.price ?? '0')) || 0));
@@ -1957,6 +2310,22 @@ function MainApp() {
               <AffiliateDashboard refCode={selectedAffiliateRef} />
             </motion.div>
           )}
+          {currentPage === 'checkout' && (
+            <motion.div key="checkout" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <CheckoutPage
+                cart={cart}
+                selectedFrete={selectedFrete}
+                formData={checkoutForm}
+                onFieldChange={(field, value) => setCheckoutForm(prev => ({ ...prev, [field]: value }))}
+                onBack={() => {
+                  setCurrentPage(lastPageBeforeCheckout);
+                  setIsCartOpen(true);
+                }}
+                onSubmit={handleCheckout}
+                isProcessing={isCheckingOut}
+              />
+            </motion.div>
+          )}
           {currentPage === 'checkout-success' && (
             <motion.div key="checkout-success" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <CheckoutSuccessPage onContinue={() => setCurrentPage('home')} />
@@ -2038,7 +2407,7 @@ function MainApp() {
                       <span className="text-2xl font-black">R$ {cartTotal.toFixed(2)}</span>
                     </div>
                     <button 
-                      onClick={handleCheckout}
+                      onClick={handleStartCheckout}
                       disabled={isCheckingOut || !selectedFrete}
                       className={`w-full btn-primary py-4 text-lg flex items-center justify-center gap-2 ${(isCheckingOut || !selectedFrete) ? 'opacity-70 cursor-not-allowed' : ''}`}
                       title={!selectedFrete ? 'Selecione uma opção de frete' : ''}
@@ -2049,7 +2418,7 @@ function MainApp() {
                           Processando...
                         </>
                       ) : (
-                        'Finalizar Compra'
+                        'Continuar para Entrega'
                       )}
                     </button>
                   </div>

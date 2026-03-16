@@ -219,6 +219,27 @@ const PORT = 3000;
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ limit: '100mb', extended: true }));
 
+const normalizeOrderRecord = (order: any) => {
+  let parsedItems: any[] = [];
+
+  try {
+    parsedItems = typeof order.items === 'string' ? JSON.parse(order.items) : (order.items || []);
+  } catch (e) {
+    console.warn(`Failed to parse items for order ${order.id}:`, e);
+  }
+
+  const metadataItem = parsedItems.find((item: any) => item?.type === 'customer_metadata');
+  const visibleItems = parsedItems.filter((item: any) => item?.type !== 'customer_metadata');
+
+  return {
+    ...order,
+    items: visibleItems,
+    customer: metadataItem?.customer || null,
+    shipping: metadataItem?.shipping || metadataItem?.customer?.address || null,
+    frete: metadataItem?.frete || null,
+  };
+};
+
 app.get("/api/health", async (req, res) => {
   let supabaseProductsCount = 0;
   let supabaseError = null;
@@ -396,15 +417,7 @@ app.get("/api/health", async (req, res) => {
         try {
           const { data, error } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
           if (error) throw error;
-          orders = (data || []).map(o => {
-            let items = [];
-            try {
-              items = typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || []);
-            } catch (e) {
-              console.warn(`Failed to parse items for order ${o.id}:`, e);
-            }
-            return { ...o, items };
-          });
+          orders = (data || []).map(normalizeOrderRecord);
           usedSupabase = true;
         } catch (supaError) {
           console.error("Supabase orders fetch failed, falling back to SQLite:", supaError);
@@ -414,29 +427,13 @@ app.get("/api/health", async (req, res) => {
       if (!usedSupabase && db) {
         try {
           const dbOrders = db.prepare("SELECT * FROM orders ORDER BY created_at DESC").all() as any[];
-          orders = dbOrders.map(o => {
-            let items = [];
-            try {
-              items = o.items ? JSON.parse(o.items) : [];
-            } catch (e) {
-              console.warn(`Failed to parse items for order ${o.id} from SQLite:`, e);
-            }
-            return { ...o, items };
-          });
+          orders = dbOrders.map(normalizeOrderRecord);
         } catch (sqliteError) {
           console.error("SQLite orders fetch failed:", sqliteError);
           // Try without ORDER BY if it fails (might be missing column)
           try {
             const dbOrders = db.prepare("SELECT * FROM orders").all() as any[];
-            orders = dbOrders.map(o => {
-              let items = [];
-              try {
-                items = o.items ? JSON.parse(o.items) : [];
-              } catch (e) {
-                console.warn(`Failed to parse items for order ${o.id} from SQLite:`, e);
-              }
-              return { ...o, items };
-            });
+            orders = dbOrders.map(normalizeOrderRecord);
           } catch (e2) {}
         }
       }
@@ -741,7 +738,7 @@ app.get("/api/health", async (req, res) => {
         try {
           const { data, error } = await supabase.from('orders').select('*').eq('customer_email', email).order('created_at', { ascending: false });
           if (error) throw error;
-          orders = data || [];
+          orders = (data || []).map(normalizeOrderRecord);
           usedSupabase = true;
         } catch (supaError: any) {
           console.error("Supabase orders fetch failed for email, falling back to SQLite:", supaError.message || supaError);
@@ -749,17 +746,9 @@ app.get("/api/health", async (req, res) => {
       }
 
       if (!usedSupabase && db) {
-        orders = db.prepare("SELECT * FROM orders WHERE customer_email = ? ORDER BY created_at DESC").all(email);
+        orders = db.prepare("SELECT * FROM orders WHERE customer_email = ? ORDER BY created_at DESC").all(email).map(normalizeOrderRecord);
       }
-      res.json(orders.map(o => {
-        let items = [];
-        try {
-          items = typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || []);
-        } catch (e) {
-          console.warn(`Failed to parse items for order ${o.id}:`, e);
-        }
-        return { ...o, items };
-      }));
+      res.json(orders);
     } catch (error) {
       console.error("Error in GET /api/orders/:email:", error);
       res.status(500).json({ error: "Failed to fetch orders", details: error instanceof Error ? error.message : String(error) });
@@ -768,7 +757,7 @@ app.get("/api/health", async (req, res) => {
 
 app.post("/api/checkout", async (req, res) => {
   try {
-    const { items, total, customer_email, affiliate_id, frete } = req.body;
+    const { items, total, customer_email, affiliate_id, frete, customer } = req.body;
 
     const parsedItems: any[] = Array.isArray(items) ? items : [];
     const fretePrice = frete?.price != null ? Number(frete.price) : 0;
@@ -785,6 +774,42 @@ app.post("/api/checkout", async (req, res) => {
           { id: 'frete', name: freteDescription, quantity: 1, price: normalizedFretePrice, type: 'frete' }
         ]
       : parsedItems;
+
+    const normalizedCustomer = {
+      name: String(customer?.name || '').trim(),
+      email: String(customer?.email || customer_email || 'guest@example.com').trim(),
+      phone: String(customer?.phone || '').trim(),
+      document: String(customer?.document || '').trim(),
+      address: {
+        country: 'Brasil',
+        cep: String(customer?.cep || '').trim(),
+        street: String(customer?.street || '').trim(),
+        number: String(customer?.number || '').trim(),
+        complement: String(customer?.complement || '').trim(),
+        neighborhood: String(customer?.neighborhood || '').trim(),
+        city: String(customer?.city || '').trim(),
+        state: String(customer?.state || '').trim(),
+      },
+    };
+
+    const storedItems = [
+      ...itemsWithFrete,
+      {
+        id: 'customer_metadata',
+        type: 'customer_metadata',
+        customer: normalizedCustomer,
+        shipping: normalizedCustomer.address,
+        frete: {
+          id: frete?.id || null,
+          name: freteDescriptionBase,
+          carrier: freteCarrier,
+          price: normalizedFretePrice,
+          estimatedDays: frete?.estimatedDays || null,
+          cep: frete?.cep || normalizedCustomer.address.cep,
+        },
+        created_at: new Date().toISOString(),
+      }
+    ];
 
     const calculatedTotal = itemsWithFrete.reduce((sum: number, item: any) => {
       const q = Number(item?.quantity) || 0;
@@ -818,8 +843,8 @@ app.post("/api/checkout", async (req, res) => {
     const orderData = {
       id: "ord_" + Date.now(),
       order_nsu: orderNsu,
-      customer_email: customer_email || 'guest@example.com',
-      items: JSON.stringify(itemsWithFrete),
+      customer_email: normalizedCustomer.email,
+      items: JSON.stringify(storedItems),
       total: Number.isFinite(calculatedTotal) && calculatedTotal > 0 ? calculatedTotal : total,
       status: 'pending',
       affiliate_id: affiliateId
