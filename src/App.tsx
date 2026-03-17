@@ -2683,35 +2683,104 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
               </div>
             ) : activeTab === 'products' ? (
               products.map(p => (
-                <div key={p.id} className="bg-white p-4 rounded-2xl border border-gray-100 flex items-center justify-between group hover:shadow-md transition-all">
-                  <div className="flex items-center gap-4">
-                    <img src={p.image} className="w-12 h-12 rounded-lg object-cover" referrerPolicy="no-referrer" />
-                    <div>
-                      <h4 className="font-bold">{p.name}</h4>
-                      <p className="text-xs text-gray-400 uppercase tracking-widest">
-                        {p.category} • {formatPriceBRL(p.price)} • Estoque: {p.stock}
-                      </p>
-                      {(p.promotionLabel || hasProductPromotion(p)) && (
-                        <div className="flex flex-wrap gap-2 mt-2">
+                <div key={p.id} className="bg-white p-5 rounded-3xl border border-gray-100 grid grid-cols-1 xl:grid-cols-[minmax(0,1.4fr)_360px] gap-5 group hover:shadow-md transition-all">
+                  <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-5">
+                    <div className="flex items-start gap-4 min-w-0">
+                      <img src={p.image} className="w-16 h-16 rounded-2xl object-cover bg-gray-50" referrerPolicy="no-referrer" />
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          <h4 className="font-black text-lg leading-tight">{p.name}</h4>
                           {p.promotionLabel && <span className="px-2 py-1 rounded-full bg-orange-50 text-brand-orange text-[10px] font-black uppercase tracking-widest border border-orange-100">{p.promotionLabel}</span>}
                           {hasProductPromotion(p) && <span className="px-2 py-1 rounded-full bg-brand-black text-white text-[10px] font-black uppercase tracking-widest">-{p.discountPercentage}% OFF</span>}
                         </div>
-                      )}
+                        <p className="text-xs text-gray-400 uppercase tracking-widest mb-3">
+                          {p.category} • Estoque: {p.stock} • {p.reviews || 0} avaliações
+                        </p>
+
+                        <div className="flex flex-wrap items-end gap-3 mb-3">
+                          <span className="text-2xl font-black text-brand-orange">{formatPriceBRL(p.price)}</span>
+                          {hasProductPromotion(p) && (
+                            <>
+                              <span className="text-sm text-gray-400 line-through font-bold">{formatPriceBRL(p.compareAtPrice)}</span>
+                              <span className="text-xs font-bold uppercase tracking-widest text-emerald-600">Desconto real ativo</span>
+                            </>
+                          )}
+                        </div>
+
+                        {(p.promotionBadge || p.promotionCta) && (
+                          <div className="space-y-2 mb-3">
+                            {p.promotionBadge && (
+                              <p className="text-sm text-gray-600">
+                                <span className="font-bold text-gray-900">Badge:</span> {p.promotionBadge}
+                              </p>
+                            )}
+                            {p.promotionCta && (
+                              <p className="text-sm text-gray-600">
+                                <span className="font-bold text-gray-900">CTA:</span> {p.promotionCta}
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        <p className="text-sm text-gray-500 leading-relaxed max-w-2xl">{p.description}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 lg:self-start">
+                      <button 
+                        onClick={() => handleEditProduct(p)}
+                        className="p-2 text-gray-300 hover:text-brand-orange transition-colors"
+                      >
+                        <Edit size={20} />
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteProduct(p.id)}
+                        className="p-2 text-gray-300 hover:text-red-500 transition-colors"
+                      >
+                        <Trash2 size={20} />
+                      </button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button 
-                      onClick={() => handleEditProduct(p)}
-                      className="p-2 text-gray-300 hover:text-brand-orange transition-colors"
-                    >
-                      <Edit size={20} />
-                    </button>
-                    <button 
-                      onClick={() => handleDeleteProduct(p.id)}
-                      className="p-2 text-gray-300 hover:text-red-500 transition-colors"
-                    >
-                      <Trash2 size={20} />
-                    </button>
+
+                  <div className="rounded-[28px] overflow-hidden bg-brand-black text-white border border-white/5 shadow-inner">
+                    <div className="p-4 border-b border-white/10 flex items-center justify-between">
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.22em] text-brand-orange font-black">Preview da oferta</p>
+                        <p className="text-xs text-gray-400 mt-1">Como a campanha está sendo exibida</p>
+                      </div>
+                      {p.promotionLabel && <span className="px-3 py-1 rounded-full bg-brand-orange text-white text-[10px] font-black uppercase tracking-widest">{p.promotionLabel}</span>}
+                    </div>
+
+                    <div className="p-4">
+                      <div className="rounded-[24px] bg-[#111318] border border-white/10 overflow-hidden">
+                        <div className="aspect-[16/10] bg-white/5 relative">
+                          <img src={p.image} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                          {hasProductPromotion(p) && (
+                            <div className="absolute top-3 right-3 px-3 py-1 rounded-full bg-brand-orange text-white text-[10px] font-black uppercase tracking-widest shadow-lg">
+                              {p.discountPercentage}% OFF
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="p-4">
+                          <div className="flex flex-wrap gap-2 mb-3">
+                            <span className="px-2 py-1 rounded-full bg-white/5 text-[10px] font-black uppercase tracking-widest text-gray-200">{p.category}</span>
+                            {p.promotionBadge && <span className="px-2 py-1 rounded-full bg-white/5 text-[10px] font-black uppercase tracking-widest text-brand-orange">{p.promotionBadge}</span>}
+                          </div>
+
+                          <h5 className="font-black text-lg leading-tight mb-3 line-clamp-2">{p.name}</h5>
+
+                          <div className="flex flex-wrap items-end gap-2 mb-4">
+                            <span className="text-2xl font-black text-brand-orange">{formatPriceBRL(p.price)}</span>
+                            {hasProductPromotion(p) && <span className="text-sm text-gray-500 line-through">{formatPriceBRL(p.compareAtPrice)}</span>}
+                          </div>
+
+                          <button className="w-full py-3 rounded-2xl bg-brand-orange text-white text-xs font-black uppercase tracking-widest">
+                            {p.promotionCta || 'Comprar agora'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))
