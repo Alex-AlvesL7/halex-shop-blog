@@ -297,11 +297,38 @@ const normalizeQuizLeadRecord = (lead: any) => {
     parsedMetadata = {};
   }
 
+  const crm = {
+    status: parsedMetadata?.crm?.status || 'new',
+    internalNote: parsedMetadata?.crm?.internalNote || '',
+    lastContactAt: parsedMetadata?.crm?.lastContactAt || null,
+    nextFollowUpAt: parsedMetadata?.crm?.nextFollowUpAt || null,
+  };
+
   return {
     ...lead,
     metadata: parsedMetadata,
+    crm,
     recommendedProductId: lead?.recommended_product_id || parsedMetadata?.recommended_product_id || null,
   };
+};
+
+const getRawQuizLeadById = async (id: string) => {
+  if (!id) return null;
+
+  if (supabase) {
+    const { data, error } = await supabase.from('quiz_leads').select('*').eq('id', id).single();
+    if (!error && data) return data;
+  }
+
+  if (db) {
+    try {
+      return db.prepare("SELECT * FROM quiz_leads WHERE id = ?").get(id);
+    } catch (error) {
+      console.warn('SQLite get quiz lead failed:', error);
+    }
+  }
+
+  return null;
 };
 
 const fulfillmentStatusLabels: Record<string, string> = {
@@ -978,6 +1005,16 @@ app.get("/api/health", async (req, res) => {
     }
 
     const leadId = `lead_${Date.now()}`;
+    const normalizedMetadata = {
+      ...(metadata || {}),
+      crm: {
+        status: metadata?.crm?.status || 'new',
+        internalNote: metadata?.crm?.internalNote || '',
+        lastContactAt: metadata?.crm?.lastContactAt || null,
+        nextFollowUpAt: metadata?.crm?.nextFollowUpAt || null,
+      }
+    };
+
     const leadData = {
       id: leadId,
       name: String(name).trim(),
@@ -991,7 +1028,7 @@ app.get("/api/health", async (req, res) => {
       activity_level: String(activity_level || '').trim(),
       restrictions: String(restrictions || '').trim(),
       recommended_product_id: String(recommended_product_id || '').trim() || null,
-      metadata: JSON.stringify(metadata || {}),
+      metadata: JSON.stringify(normalizedMetadata),
     };
 
     try {
@@ -1071,6 +1108,69 @@ app.get("/api/health", async (req, res) => {
     } catch (error) {
       console.error('Error in GET /api/quiz-leads:', error);
       return res.status(500).json({ success: false, error: 'Falha ao carregar leads do quiz.' });
+    }
+  });
+
+  app.put("/api/quiz-leads/:id/crm", async (req, res) => {
+    const { id } = req.params;
+    const { crmStatus, internalNote, lastContactAt, nextFollowUpAt } = req.body || {};
+    const allowedStatuses = ['new', 'contacted', 'interested', 'won', 'lost'];
+    const normalizedStatus = allowedStatuses.includes(String(crmStatus)) ? String(crmStatus) : 'new';
+    const normalizedNote = String(internalNote || '').trim();
+    const normalizedLastContactAt = String(lastContactAt || '').trim() || null;
+    const normalizedNextFollowUpAt = String(nextFollowUpAt || '').trim() || null;
+
+    try {
+      const existingLead = await getRawQuizLeadById(id);
+      if (!existingLead) {
+        return res.status(404).json({ success: false, error: 'Lead não encontrado.' });
+      }
+
+      let parsedMetadata: any = {};
+      try {
+        parsedMetadata = typeof existingLead.metadata === 'string'
+          ? JSON.parse(existingLead.metadata || '{}')
+          : (existingLead.metadata || {});
+      } catch (error) {
+        parsedMetadata = {};
+      }
+
+      const nextMetadata = {
+        ...parsedMetadata,
+        crm: {
+          ...(parsedMetadata?.crm || {}),
+          status: normalizedStatus,
+          internalNote: normalizedNote,
+          lastContactAt: normalizedLastContactAt,
+          nextFollowUpAt: normalizedNextFollowUpAt,
+        }
+      };
+
+      const serializedMetadata = JSON.stringify(nextMetadata);
+
+      if (supabase) {
+        const { error } = await supabase
+          .from('quiz_leads')
+          .update({ metadata: serializedMetadata })
+          .eq('id', id);
+
+        if (error) {
+          console.error('Supabase quiz_leads CRM update failed:', error);
+          return res.status(500).json({ success: false, error: 'Falha ao atualizar CRM no Supabase.' });
+        }
+      }
+
+      if (db) {
+        db.prepare("UPDATE quiz_leads SET metadata = ? WHERE id = ?").run(serializedMetadata, id);
+      }
+
+      return res.json({
+        success: true,
+        lead: normalizeQuizLeadRecord({ ...existingLead, metadata: serializedMetadata }),
+      });
+    } catch (error) {
+      console.error('Error in PUT /api/quiz-leads/:id/crm:', error);
+      return res.status(500).json({ success: false, error: 'Falha ao atualizar CRM do lead.' });
     }
   });
 

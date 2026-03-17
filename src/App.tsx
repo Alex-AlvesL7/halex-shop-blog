@@ -1148,6 +1148,13 @@ const getLeadWhatsAppLink = (phone?: string, lead?: any) => {
   return `https://wa.me/${normalized}?text=${message}`;
 };
 
+const formatLeadDate = (value?: string | null) => {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleString('pt-BR');
+};
+
 const getTrackingWhatsAppLink = (
   phone?: string,
   order?: any,
@@ -1481,6 +1488,8 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
   const [leadsLoading, setLeadsLoading] = useState(false);
   const [leadsSearch, setLeadsSearch] = useState('');
   const [leadStatusFilter, setLeadStatusFilter] = useState<'all' | 'no-purchase' | 'paid' | 'pending'>('all');
+  const [leadCrmDrafts, setLeadCrmDrafts] = useState<Record<string, { status: string; internalNote: string; lastContactAt: string; nextFollowUpAt: string }>>({});
+  const [savingLeadId, setSavingLeadId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/affiliates').then(res => res.json()).then(setAffiliates);
@@ -1657,6 +1666,21 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
     });
   }, [quizLeads, leadOrderSummaryByEmail, products]);
 
+  useEffect(() => {
+    setLeadCrmDrafts(prev => {
+      const next = { ...prev };
+      leadsWithStatus.forEach((lead: any) => {
+        next[lead.id] = {
+          status: prev[lead.id]?.status || lead.crm?.status || 'new',
+          internalNote: prev[lead.id]?.internalNote || lead.crm?.internalNote || '',
+          lastContactAt: prev[lead.id]?.lastContactAt || lead.crm?.lastContactAt || '',
+          nextFollowUpAt: prev[lead.id]?.nextFollowUpAt || (lead.crm?.nextFollowUpAt ? String(lead.crm.nextFollowUpAt).slice(0, 10) : ''),
+        };
+      });
+      return next;
+    });
+  }, [leadsWithStatus]);
+
   const filteredLeads = useMemo(() => {
     const query = leadsSearch.trim().toLowerCase();
     const byStatus = leadStatusFilter === 'all'
@@ -1676,6 +1700,54 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
       lead.restrictions,
     ].filter(Boolean).join(' ').toLowerCase().includes(query));
   }, [leadsWithStatus, leadsSearch, leadStatusFilter]);
+
+  const updateLeadDraft = (leadId: string, patch: Partial<{ status: string; internalNote: string; lastContactAt: string; nextFollowUpAt: string }>) => {
+    setLeadCrmDrafts(prev => ({
+      ...prev,
+      [leadId]: {
+        status: prev[leadId]?.status || 'new',
+        internalNote: prev[leadId]?.internalNote || '',
+        lastContactAt: prev[leadId]?.lastContactAt || '',
+        nextFollowUpAt: prev[leadId]?.nextFollowUpAt || '',
+        ...patch,
+      }
+    }));
+  };
+
+  const handleSaveLeadCrm = async (leadId: string, override?: Partial<{ status: string; internalNote: string; lastContactAt: string; nextFollowUpAt: string }>) => {
+    const base = leadCrmDrafts[leadId] || { status: 'new', internalNote: '', lastContactAt: '', nextFollowUpAt: '' };
+    const draft = { ...base, ...(override || {}) };
+
+    if (override) {
+      updateLeadDraft(leadId, override);
+    }
+
+    setSavingLeadId(leadId);
+    try {
+      const response = await fetch(`/api/quiz-leads/${leadId}/crm`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          crmStatus: draft.status,
+          internalNote: draft.internalNote,
+          lastContactAt: draft.lastContactAt || null,
+          nextFollowUpAt: draft.nextFollowUpAt || null,
+        })
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || 'Falha ao salvar CRM do lead');
+      }
+
+      await fetchQuizLeads();
+    } catch (error) {
+      console.error('Erro ao salvar CRM do lead:', error);
+      alert(error instanceof Error ? error.message : 'Falha ao salvar CRM do lead.');
+    } finally {
+      setSavingLeadId(null);
+    }
+  };
 
   // Product Form State
   const [newProduct, setNewProduct] = useState<Partial<Product>>({
@@ -2309,6 +2381,7 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                 ) : (
                   filteredLeads.map((lead: any) => {
                     const whatsappLink = getLeadWhatsAppLink(lead.phone, lead);
+                    const crmDraft = leadCrmDrafts[lead.id] || { status: lead.crm?.status || 'new', internalNote: lead.crm?.internalNote || '', lastContactAt: lead.crm?.lastContactAt || '', nextFollowUpAt: lead.crm?.nextFollowUpAt ? String(lead.crm.nextFollowUpAt).slice(0, 10) : '' };
                     const statusClasses = lead.purchaseStatus === 'paid'
                       ? 'bg-emerald-100 text-emerald-600'
                       : lead.purchaseStatus === 'pending'
@@ -2357,6 +2430,75 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                             <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-3">Abordagem comercial</p>
                             <p className="text-sm text-gray-600 leading-relaxed mb-3">{lead.metadata?.summary || 'Lead capturado pelo quiz com recomendação personalizada.'}</p>
                             <p className="text-xs text-gray-500 leading-relaxed">CTA sugerido: {lead.metadata?.cta || 'Entrar em contato para explicar uso e fechar pedido.'}</p>
+                          </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4 mb-4">
+                          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
+                            <div>
+                              <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-2">Mini CRM</p>
+                              <div className="flex flex-wrap gap-2">
+                                {[
+                                  ['new', 'Novo'],
+                                  ['contacted', 'Abordado'],
+                                  ['interested', 'Interessado'],
+                                  ['won', 'Fechado'],
+                                  ['lost', 'Perdido'],
+                                ].map(([value, label]) => (
+                                  <button
+                                    key={value}
+                                    onClick={() => updateLeadDraft(lead.id, { status: value })}
+                                    className={`px-3 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${crmDraft.status === value ? 'bg-brand-black text-white' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-100'}`}
+                                  >
+                                    {label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="text-sm text-gray-500 space-y-1">
+                              <p><span className="font-bold text-gray-700">Último contato:</span> {formatLeadDate(crmDraft.lastContactAt || lead.crm?.lastContactAt)}</p>
+                              <p><span className="font-bold text-gray-700">Próximo follow-up:</span> {crmDraft.nextFollowUpAt ? new Date(`${crmDraft.nextFollowUpAt}T12:00:00`).toLocaleDateString('pt-BR') : '—'}</p>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_220px_auto] gap-3 items-end">
+                            <label className="block">
+                              <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2 block">Observação interna</span>
+                              <textarea
+                                value={crmDraft.internalNote}
+                                onChange={(e) => updateLeadDraft(lead.id, { internalNote: e.target.value })}
+                                placeholder="Ex: prefere contato à noite, gostou do kit, pediu desconto, quer plano mensal..."
+                                className="w-full min-h-[96px] px-4 py-3 rounded-2xl border border-gray-200 focus:border-brand-orange focus:outline-none resize-y bg-white"
+                              />
+                            </label>
+                            <label className="block">
+                              <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2 block">Próximo follow-up</span>
+                              <input
+                                type="date"
+                                value={crmDraft.nextFollowUpAt}
+                                onChange={(e) => updateLeadDraft(lead.id, { nextFollowUpAt: e.target.value })}
+                                className="w-full px-4 py-3 rounded-2xl border border-gray-200 focus:border-brand-orange focus:outline-none bg-white"
+                              />
+                            </label>
+                            <div className="flex flex-col gap-2">
+                              <button
+                                onClick={() => handleSaveLeadCrm(lead.id, {
+                                  lastContactAt: new Date().toISOString(),
+                                  status: crmDraft.status === 'new' ? 'contacted' : crmDraft.status,
+                                })}
+                                disabled={savingLeadId === lead.id}
+                                className={`px-4 py-3 rounded-2xl text-xs font-bold uppercase tracking-widest ${savingLeadId === lead.id ? 'bg-gray-200 text-gray-500' : 'bg-green-600 text-white hover:bg-green-700 transition-colors'}`}
+                              >
+                                Marcar contato agora
+                              </button>
+                              <button
+                                onClick={() => handleSaveLeadCrm(lead.id)}
+                                disabled={savingLeadId === lead.id}
+                                className={`px-4 py-3 rounded-2xl text-xs font-bold uppercase tracking-widest ${savingLeadId === lead.id ? 'bg-gray-200 text-gray-500' : 'btn-primary'}`}
+                              >
+                                {savingLeadId === lead.id ? 'Salvando...' : 'Salvar CRM'}
+                              </button>
+                            </div>
                           </div>
                         </div>
 
