@@ -116,6 +116,22 @@ type ProductAdminContent = {
   hasStructuredContent: boolean;
 };
 
+type ProductAIAssistantResult = {
+  summary: string;
+  purpose: string;
+  kitContents: string;
+  composition: string;
+  capsules: string;
+  usage: string;
+  details: string;
+  promotionLabel: string;
+  promotionBadge: string;
+  promotionCta: string;
+  adsHeadline: string;
+  adsPrimaryText: string;
+  adsDescription: string;
+};
+
 type ProductCompositionPanel = {
   id: string;
   label: string;
@@ -2416,6 +2432,9 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
   const [savingLeadId, setSavingLeadId] = useState<string | null>(null);
   const [savingProduct, setSavingProduct] = useState(false);
   const [productActionFeedback, setProductActionFeedback] = useState<string | null>(null);
+  const [isGeneratingProductAI, setIsGeneratingProductAI] = useState(false);
+  const [productAIMode, setProductAIMode] = useState<'equilibrado' | 'conversao' | 'premium'>('equilibrado');
+  const [productAdSuggestions, setProductAdSuggestions] = useState<{ headline: string; primaryText: string; description: string } | null>(null);
 
   useEffect(() => {
     fetch('/api/affiliates').then(res => res.json()).then(setAffiliates);
@@ -2819,6 +2838,82 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
     });
   };
 
+  const handleGenerateProductContentAI = async () => {
+    if (!String(newProduct.name || '').trim()) {
+      alert('Informe o nome do produto antes de usar o preenchimento com IA.');
+      return;
+    }
+
+    setIsGeneratingProductAI(true);
+    try {
+      const current = parseStructuredProductContent(newProduct.description);
+
+      const response = await fetch('/api/ai/product-copy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: productAIMode,
+          product: {
+            name: newProduct.name,
+            category: newProduct.category,
+            price: newProduct.price,
+            compareAtPrice: newProduct.compareAtPrice,
+            summary: current.summary,
+            purpose: current.purpose,
+            kitContents: current.kitContents,
+            composition: current.composition,
+            capsules: current.capsules,
+            usage: current.usage,
+            details: current.details,
+            description: newProduct.description,
+            promotionLabel: newProduct.promotionLabel,
+            promotionBadge: newProduct.promotionBadge,
+            promotionCta: newProduct.promotionCta,
+          },
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data?.content) {
+        throw new Error(data?.error || 'Falha ao gerar conteúdo com IA.');
+      }
+
+      const aiContent = data.content as ProductAIAssistantResult;
+      const mergedStructured: ProductAdminContent = {
+        ...current,
+        summary: String(aiContent.summary || current.summary || '').trim(),
+        purpose: String(aiContent.purpose || current.purpose || '').trim(),
+        kitContents: String(aiContent.kitContents || current.kitContents || '').trim(),
+        composition: String(aiContent.composition || current.composition || '').trim(),
+        capsules: String(aiContent.capsules || current.capsules || '').trim(),
+        usage: String(aiContent.usage || current.usage || '').trim(),
+        details: String(aiContent.details || current.details || '').trim(),
+        hasStructuredContent: true,
+      };
+
+      setNewProduct((prev) => ({
+        ...prev,
+        promotionLabel: String(aiContent.promotionLabel || prev.promotionLabel || '').trim(),
+        promotionBadge: String(aiContent.promotionBadge || prev.promotionBadge || '').trim(),
+        promotionCta: String(aiContent.promotionCta || prev.promotionCta || '').trim(),
+        description: buildStructuredProductContent(mergedStructured),
+      }));
+
+      setProductAdSuggestions({
+        headline: String(aiContent.adsHeadline || '').trim(),
+        primaryText: String(aiContent.adsPrimaryText || '').trim(),
+        description: String(aiContent.adsDescription || '').trim(),
+      });
+
+      showProductFeedback('IA preencheu e otimizou os campos com sucesso.');
+    } catch (error) {
+      console.error('Erro ao gerar conteúdo de produto com IA:', error);
+      alert(error instanceof Error ? error.message : 'Falha ao gerar conteúdo com IA.');
+    } finally {
+      setIsGeneratingProductAI(false);
+    }
+  };
+
   const handleEditPost = (post: BlogPost) => {
     setNewPost(post);
     setEditingId(post.id);
@@ -3199,8 +3294,36 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                     <div className="space-y-4">
                       <div className="flex items-center justify-between gap-3">
                         <label className="block text-[11px] font-black uppercase tracking-widest text-gray-400">Conteúdo controlado no painel</label>
-                        <span className="text-[11px] font-bold text-brand-orange uppercase tracking-widest">Tudo abaixo reflete na loja</span>
+                        <div className="flex flex-wrap items-center justify-end gap-2">
+                          <select
+                            className="px-3 py-2 rounded-lg bg-gray-100 text-[11px] font-bold uppercase tracking-widest text-gray-500 border border-gray-200"
+                            value={productAIMode}
+                            onChange={(e) => setProductAIMode(e.target.value as 'equilibrado' | 'conversao' | 'premium')}
+                          >
+                            <option value="equilibrado">IA equilibrada</option>
+                            <option value="conversao">IA conversão</option>
+                            <option value="premium">IA premium</option>
+                          </select>
+                          <button
+                            type="button"
+                            onClick={handleGenerateProductContentAI}
+                            disabled={isGeneratingProductAI}
+                            className="px-4 py-2 rounded-lg bg-brand-black text-white text-[11px] font-black uppercase tracking-widest hover:bg-black/90 transition-colors disabled:opacity-60"
+                          >
+                            {isGeneratingProductAI ? 'IA gerando...' : 'Preencher com IA'}
+                          </button>
+                          <span className="text-[11px] font-bold text-brand-orange uppercase tracking-widest">Tudo abaixo reflete na loja</span>
+                        </div>
                       </div>
+
+                      {productAdSuggestions && (
+                        <div className="rounded-2xl border border-orange-100 bg-orange-50 p-4 space-y-2">
+                          <p className="text-[10px] uppercase tracking-widest text-brand-orange font-black">Sugestões para ads</p>
+                          <p className="text-sm text-gray-700"><span className="font-black">Headline:</span> {productAdSuggestions.headline}</p>
+                          <p className="text-sm text-gray-700"><span className="font-black">Texto principal:</span> {productAdSuggestions.primaryText}</p>
+                          <p className="text-sm text-gray-700"><span className="font-black">Descrição:</span> {productAdSuggestions.description}</p>
+                        </div>
+                      )}
 
                       <div>
                         <label className="block text-[11px] font-black uppercase tracking-widest text-gray-400 mb-2">Resumo da página do produto</label>

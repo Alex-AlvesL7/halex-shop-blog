@@ -11,6 +11,7 @@ import { applyPromotionToProduct } from "./src/promotionRules.js";
 import sharp from "sharp";
 import crypto from "crypto";
 import dotenv from "dotenv";
+import { GoogleGenAI, Type } from "@google/genai";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -251,6 +252,8 @@ const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL ||
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 const supabaseKey = supabaseServiceRoleKey || supabaseAnonKey;
+const geminiApiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+const ai = geminiApiKey ? new GoogleGenAI({ apiKey: geminiApiKey }) : null;
 
 const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
 
@@ -316,6 +319,54 @@ const serializeProductImages = (images: any) => {
   }
 
   return JSON.stringify([]);
+};
+
+const buildFallbackAICopy = (product: any) => {
+  const safeName = String(product?.name || 'Produto L7 Fitness').trim();
+  const safeCategory = String(product?.category || 'emagrecimento').trim();
+  const rawDescription = String(product?.description || '').trim();
+  const shortDescription = rawDescription.split(/[.!?]/).find(Boolean)?.trim() || `${safeName} com foco em ${safeCategory}.`;
+  const isKit = /kit|combo|full|\+/i.test(`${safeName} ${rawDescription}`);
+
+  return {
+    summary: shortDescription,
+    purpose: `Indicado para rotina de ${safeCategory}, com foco em consistência e melhor aderência ao plano diário.`,
+    kitContents: isKit ? `Itens do kit: ${safeName.replace(/^1\s*/i, '')}.` : `Produto principal: ${safeName.replace(/^1\s*/i, '')}.`,
+    composition: `Composição principal: ${safeName.replace(/^1\s*/i, '')}.`,
+    capsules: 'Consulte o rótulo para quantidade por cápsula, porção diária e volume total do frasco.',
+    usage: 'Use conforme orientação do rótulo e, quando necessário, com acompanhamento profissional.',
+    details: rawDescription || `${safeName} foi desenvolvido para apoiar uma rotina com mais constância, foco e praticidade.`,
+    promotionLabel: 'OFERTA LIMITADA',
+    promotionBadge: 'Combo inteligente',
+    promotionCta: 'GARANTIR AGORA',
+    adsHeadline: `${safeName}: resultado com constância`,
+    adsPrimaryText: `Aposte em ${safeName} para uma rotina mais focada, com estratégia e praticidade no dia a dia.`,
+    adsDescription: 'Frete rápido, pagamento facilitado e suporte para você manter consistência.',
+  };
+};
+
+const mergeAICopyWithCurrent = (current: any, generated: any) => {
+  const fallback = buildFallbackAICopy(current);
+  const pick = (value: any, fallbackValue: string) => {
+    const normalized = String(value || '').trim();
+    return normalized || String(fallbackValue || '').trim();
+  };
+
+  return {
+    summary: pick(generated?.summary, current?.summary || fallback.summary),
+    purpose: pick(generated?.purpose, current?.purpose || fallback.purpose),
+    kitContents: pick(generated?.kitContents, current?.kitContents || fallback.kitContents),
+    composition: pick(generated?.composition, current?.composition || fallback.composition),
+    capsules: pick(generated?.capsules, current?.capsules || fallback.capsules),
+    usage: pick(generated?.usage, current?.usage || fallback.usage),
+    details: pick(generated?.details, current?.details || fallback.details),
+    promotionLabel: pick(generated?.promotionLabel, current?.promotionLabel || fallback.promotionLabel),
+    promotionBadge: pick(generated?.promotionBadge, current?.promotionBadge || fallback.promotionBadge),
+    promotionCta: pick(generated?.promotionCta, current?.promotionCta || fallback.promotionCta),
+    adsHeadline: pick(generated?.adsHeadline, fallback.adsHeadline),
+    adsPrimaryText: pick(generated?.adsPrimaryText, fallback.adsPrimaryText),
+    adsDescription: pick(generated?.adsDescription, fallback.adsDescription),
+  };
 };
 
 const normalizeProductRecord = (product: any) => {
@@ -1217,6 +1268,108 @@ app.get("/api/health", async (req, res) => {
     } catch (error) {
       console.error("Error in GET /api/orders:", error);
       res.status(500).json({ error: "Failed to fetch orders", details: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  app.post('/api/ai/product-copy', async (req, res) => {
+    try {
+      const { product, mode } = req.body || {};
+      const current = {
+        name: String(product?.name || '').trim(),
+        category: String(product?.category || '').trim(),
+        price: Number(product?.price || 0),
+        compareAtPrice: Number(product?.compareAtPrice || 0),
+        summary: String(product?.summary || '').trim(),
+        purpose: String(product?.purpose || '').trim(),
+        kitContents: String(product?.kitContents || '').trim(),
+        composition: String(product?.composition || '').trim(),
+        capsules: String(product?.capsules || '').trim(),
+        usage: String(product?.usage || '').trim(),
+        details: String(product?.details || '').trim(),
+        description: String(product?.description || '').trim(),
+        promotionLabel: String(product?.promotionLabel || '').trim(),
+        promotionBadge: String(product?.promotionBadge || '').trim(),
+        promotionCta: String(product?.promotionCta || '').trim(),
+      };
+
+      if (!current.name) {
+        return res.status(400).json({ success: false, error: 'Informe o nome do produto para gerar conteúdo com IA.' });
+      }
+
+      if (!ai) {
+        return res.json({
+          success: true,
+          source: 'fallback-no-key',
+          content: mergeAICopyWithCurrent(current, {}),
+        });
+      }
+
+      const styleMode = String(mode || 'equilibrado').trim().toLowerCase();
+      const modeInstruction = styleMode === 'conversao'
+        ? 'priorize conversão e urgência com linguagem forte, porém sem exageros médicos'
+        : styleMode === 'premium'
+          ? 'priorize posicionamento premium e autoridade da marca'
+          : 'equilibre clareza comercial, confiança e objetividade';
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: `Você é um copywriter sênior de e-commerce da L7 Fitness.
+
+Objetivo:
+- Ler TODO o contexto do produto
+- Melhorar APENAS o necessário
+- Entregar texto comercial profissional, claro e persuasivo
+- Sugerir CTA e criativos de ads com alta qualidade
+
+Regras obrigatórias:
+- Escrever em português do Brasil
+- Evitar promessas médicas, cura, garantia absoluta de resultado
+- Não inventar ingredientes inexistentes
+- Manter tom profissional e focado em conversão responsável
+- Se algum campo já estiver bom, manter essência e apenas otimizar
+- Em "details", usar markdown simples (listas e negrito) para leitura limpa
+
+Modo editorial: ${modeInstruction}
+
+Dados atuais do produto:
+${JSON.stringify(current, null, 2)}
+
+Retorne APENAS JSON no schema pedido.`,
+        config: {
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              summary: { type: Type.STRING },
+              purpose: { type: Type.STRING },
+              kitContents: { type: Type.STRING },
+              composition: { type: Type.STRING },
+              capsules: { type: Type.STRING },
+              usage: { type: Type.STRING },
+              details: { type: Type.STRING },
+              promotionLabel: { type: Type.STRING },
+              promotionBadge: { type: Type.STRING },
+              promotionCta: { type: Type.STRING },
+              adsHeadline: { type: Type.STRING },
+              adsPrimaryText: { type: Type.STRING },
+              adsDescription: { type: Type.STRING },
+            },
+            required: ['summary', 'purpose', 'kitContents', 'composition', 'capsules', 'usage', 'details', 'promotionLabel', 'promotionBadge', 'promotionCta', 'adsHeadline', 'adsPrimaryText', 'adsDescription']
+          }
+        }
+      });
+
+      const parsed = JSON.parse(response.text || '{}');
+      const content = mergeAICopyWithCurrent(current, parsed);
+
+      return res.json({ success: true, source: 'gemini', content });
+    } catch (error) {
+      console.error('Error in POST /api/ai/product-copy:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Falha ao gerar conteúdo com IA para o produto.',
+        details: error instanceof Error ? error.message : String(error),
+      });
     }
   });
 
