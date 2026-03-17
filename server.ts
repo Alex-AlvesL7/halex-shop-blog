@@ -297,6 +297,13 @@ const normalizeQuizLeadRecord = (lead: any) => {
     parsedMetadata = {};
   }
 
+  const history = Array.isArray(parsedMetadata?.crm?.history)
+    ? parsedMetadata.crm.history
+        .map((entry: any) => normalizeLeadHistoryEntry(entry))
+        .filter(Boolean)
+        .sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+    : [];
+
   const crm = {
     status: parsedMetadata?.crm?.status || 'new',
     internalNote: parsedMetadata?.crm?.internalNote || '',
@@ -304,6 +311,7 @@ const normalizeQuizLeadRecord = (lead: any) => {
     nextFollowUpAt: parsedMetadata?.crm?.nextFollowUpAt || null,
     monthlyPlanInterest: parsedMetadata?.crm?.monthlyPlanInterest || 'unknown',
     planOfferedAt: parsedMetadata?.crm?.planOfferedAt || null,
+    history,
   };
 
   return {
@@ -311,6 +319,25 @@ const normalizeQuizLeadRecord = (lead: any) => {
     metadata: parsedMetadata,
     crm,
     recommendedProductId: lead?.recommended_product_id || parsedMetadata?.recommended_product_id || null,
+  };
+};
+
+const normalizeLeadHistoryEntry = (entry: any) => {
+  if (!entry || typeof entry !== 'object') return null;
+
+  const summary = String(entry.summary || '').trim();
+  if (!summary) return null;
+
+  const createdAt = String(entry.createdAt || new Date().toISOString()).trim();
+
+  return {
+    id: String(entry.id || `history_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`),
+    type: String(entry.type || 'note').trim() || 'note',
+    channel: String(entry.channel || 'crm').trim() || 'crm',
+    template: String(entry.template || '').trim() || null,
+    summary,
+    note: String(entry.note || '').trim() || null,
+    createdAt,
   };
 };
 
@@ -1016,6 +1043,9 @@ app.get("/api/health", async (req, res) => {
         nextFollowUpAt: metadata?.crm?.nextFollowUpAt || null,
         monthlyPlanInterest: metadata?.crm?.monthlyPlanInterest || 'unknown',
         planOfferedAt: metadata?.crm?.planOfferedAt || null,
+        history: Array.isArray(metadata?.crm?.history)
+          ? metadata.crm.history.map((entry: any) => normalizeLeadHistoryEntry(entry)).filter(Boolean)
+          : [],
       }
     };
 
@@ -1117,7 +1147,7 @@ app.get("/api/health", async (req, res) => {
 
   app.put("/api/quiz-leads/:id/crm", async (req, res) => {
     const { id } = req.params;
-    const { crmStatus, internalNote, lastContactAt, nextFollowUpAt, monthlyPlanInterest, planOfferedAt } = req.body || {};
+    const { crmStatus, internalNote, lastContactAt, nextFollowUpAt, monthlyPlanInterest, planOfferedAt, historyEntry } = req.body || {};
     const allowedStatuses = ['new', 'contacted', 'interested', 'won', 'lost'];
     const allowedMonthlyPlanInterest = ['unknown', 'interested', 'not_interested', 'closed'];
     const normalizedStatus = allowedStatuses.includes(String(crmStatus)) ? String(crmStatus) : 'new';
@@ -1126,6 +1156,7 @@ app.get("/api/health", async (req, res) => {
     const normalizedNextFollowUpAt = String(nextFollowUpAt || '').trim() || null;
     const normalizedMonthlyPlanInterest = allowedMonthlyPlanInterest.includes(String(monthlyPlanInterest)) ? String(monthlyPlanInterest) : 'unknown';
     const normalizedPlanOfferedAt = String(planOfferedAt || '').trim() || null;
+    const normalizedHistoryEntry = normalizeLeadHistoryEntry(historyEntry);
 
     try {
       const existingLead = await getRawQuizLeadById(id);
@@ -1152,6 +1183,14 @@ app.get("/api/health", async (req, res) => {
           nextFollowUpAt: normalizedNextFollowUpAt,
           monthlyPlanInterest: normalizedMonthlyPlanInterest,
           planOfferedAt: normalizedPlanOfferedAt,
+          history: [
+            ...((Array.isArray(parsedMetadata?.crm?.history)
+              ? parsedMetadata.crm.history.map((entry: any) => normalizeLeadHistoryEntry(entry)).filter(Boolean)
+              : [])),
+            ...(normalizedHistoryEntry ? [normalizedHistoryEntry] : []),
+          ]
+            .sort((a: any, b: any) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime())
+            .slice(-30),
         }
       };
 

@@ -1172,6 +1172,25 @@ interface CheckoutFormData {
   state: string;
 }
 
+interface LeadCrmDraft {
+  status: string;
+  internalNote: string;
+  lastContactAt: string;
+  nextFollowUpAt: string;
+  monthlyPlanInterest: string;
+  planOfferedAt: string;
+}
+
+interface LeadHistoryEntry {
+  id?: string;
+  type?: string;
+  channel?: string;
+  template?: string;
+  summary?: string;
+  note?: string;
+  createdAt?: string;
+}
+
 const initialCheckoutForm: CheckoutFormData = {
   name: '',
   email: '',
@@ -1279,6 +1298,18 @@ const formatLeadDate = (value?: string | null) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '—';
   return date.toLocaleString('pt-BR');
+};
+
+const getLeadHistoryTone = (entry?: LeadHistoryEntry) => {
+  const channel = String(entry?.channel || '').toLowerCase();
+  const template = String(entry?.template || '').toLowerCase();
+
+  if (channel === 'email') return 'bg-slate-100 text-slate-600 border-slate-200';
+  if (template.includes('plan')) return 'bg-purple-50 text-purple-600 border-purple-100';
+  if (template.includes('checkout')) return 'bg-orange-50 text-orange-600 border-orange-100';
+  if (channel === 'whatsapp') return 'bg-green-50 text-green-600 border-green-100';
+
+  return 'bg-gray-100 text-gray-600 border-gray-200';
 };
 
 const getTrackingWhatsAppLink = (
@@ -1614,7 +1645,7 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
   const [leadsLoading, setLeadsLoading] = useState(false);
   const [leadsSearch, setLeadsSearch] = useState('');
   const [leadStatusFilter, setLeadStatusFilter] = useState<'all' | 'no-purchase' | 'paid' | 'pending'>('all');
-  const [leadCrmDrafts, setLeadCrmDrafts] = useState<Record<string, { status: string; internalNote: string; lastContactAt: string; nextFollowUpAt: string; monthlyPlanInterest: string; planOfferedAt: string }>>({});
+  const [leadCrmDrafts, setLeadCrmDrafts] = useState<Record<string, LeadCrmDraft>>({});
   const [savingLeadId, setSavingLeadId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -1855,7 +1886,7 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
     };
   }, [leadsWithStatus]);
 
-  const updateLeadDraft = (leadId: string, patch: Partial<{ status: string; internalNote: string; lastContactAt: string; nextFollowUpAt: string; monthlyPlanInterest: string; planOfferedAt: string }>) => {
+  const updateLeadDraft = (leadId: string, patch: Partial<LeadCrmDraft>) => {
     setLeadCrmDrafts(prev => ({
       ...prev,
       [leadId]: {
@@ -1870,7 +1901,7 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
     }));
   };
 
-  const handleSaveLeadCrm = async (leadId: string, override?: Partial<{ status: string; internalNote: string; lastContactAt: string; nextFollowUpAt: string; monthlyPlanInterest: string; planOfferedAt: string }>) => {
+  const handleSaveLeadCrm = async (leadId: string, override?: Partial<LeadCrmDraft>, historyEntry?: LeadHistoryEntry) => {
     const base = leadCrmDrafts[leadId] || { status: 'new', internalNote: '', lastContactAt: '', nextFollowUpAt: '', monthlyPlanInterest: 'unknown', planOfferedAt: '' };
     const draft = { ...base, ...(override || {}) };
 
@@ -1890,6 +1921,7 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
           nextFollowUpAt: draft.nextFollowUpAt || null,
           monthlyPlanInterest: draft.monthlyPlanInterest,
           planOfferedAt: draft.planOfferedAt || null,
+          historyEntry: historyEntry || null,
         })
       });
 
@@ -1905,6 +1937,23 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
     } finally {
       setSavingLeadId(null);
     }
+  };
+
+  const registerLeadAction = (lead: any, options: {
+    url?: string;
+    sameTab?: boolean;
+    override?: Partial<LeadCrmDraft>;
+    historyEntry?: LeadHistoryEntry;
+  }) => {
+    if (options.url) {
+      if (options.sameTab) {
+        window.location.href = options.url;
+      } else {
+        window.open(options.url, '_blank', 'noopener,noreferrer');
+      }
+    }
+
+    void handleSaveLeadCrm(lead.id, options.override, options.historyEntry);
   };
 
   // Product Form State
@@ -2649,6 +2698,10 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                     const followUpLink = getLeadTemplateWhatsAppLink(lead.phone, lead, 'follow-up');
                     const planFollowUpLink = getLeadTemplateWhatsAppLink(lead.phone, lead, 'plan-follow-up');
                     const profileBadges = getLeadProfileBadges(lead);
+                    const mailtoLink = `mailto:${encodeURIComponent(lead.email || '')}?subject=${encodeURIComponent('Sua recomendação L7 Fitness')}`;
+                    const leadHistory = Array.isArray(lead.crm?.history)
+                      ? [...lead.crm.history].sort((a: LeadHistoryEntry, b: LeadHistoryEntry) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+                      : [];
 
                     return (
                       <div key={lead.id} className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-all">
@@ -2758,10 +2811,18 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                               {firstContactLink && (
                                 <button
                                   onClick={() => {
-                                    window.open(firstContactLink, '_blank', 'noopener,noreferrer');
-                                    handleSaveLeadCrm(lead.id, {
-                                      lastContactAt: new Date().toISOString(),
-                                      status: crmDraft.status === 'new' ? 'contacted' : crmDraft.status,
+                                    registerLeadAction(lead, {
+                                      url: firstContactLink,
+                                      override: {
+                                        lastContactAt: new Date().toISOString(),
+                                        status: crmDraft.status === 'new' ? 'contacted' : crmDraft.status,
+                                      },
+                                      historyEntry: {
+                                        type: 'outreach',
+                                        channel: 'whatsapp',
+                                        template: 'first-contact',
+                                        summary: 'Primeiro contato enviado pelo WhatsApp.',
+                                      }
                                     });
                                   }}
                                   className="px-3 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest bg-white text-gray-700 border border-gray-200 hover:bg-gray-100 transition-colors"
@@ -2772,10 +2833,18 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                               {lead.purchaseStatus === 'pending' && checkoutRecoveryLink && (
                                 <button
                                   onClick={() => {
-                                    window.open(checkoutRecoveryLink, '_blank', 'noopener,noreferrer');
-                                    handleSaveLeadCrm(lead.id, {
-                                      lastContactAt: new Date().toISOString(),
-                                      status: crmDraft.status === 'new' ? 'contacted' : crmDraft.status,
+                                    registerLeadAction(lead, {
+                                      url: checkoutRecoveryLink,
+                                      override: {
+                                        lastContactAt: new Date().toISOString(),
+                                        status: crmDraft.status === 'new' ? 'contacted' : crmDraft.status,
+                                      },
+                                      historyEntry: {
+                                        type: 'recovery',
+                                        channel: 'whatsapp',
+                                        template: 'checkout-recovery',
+                                        summary: 'Mensagem de recuperação de checkout enviada.',
+                                      }
                                     });
                                   }}
                                   className="px-3 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest bg-orange-50 text-orange-600 border border-orange-100 hover:bg-orange-100 transition-colors"
@@ -2786,10 +2855,18 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                               {followUpLink && (
                                 <button
                                   onClick={() => {
-                                    window.open(followUpLink, '_blank', 'noopener,noreferrer');
-                                    handleSaveLeadCrm(lead.id, {
-                                      lastContactAt: new Date().toISOString(),
-                                      status: crmDraft.status === 'new' ? 'contacted' : crmDraft.status,
+                                    registerLeadAction(lead, {
+                                      url: followUpLink,
+                                      override: {
+                                        lastContactAt: new Date().toISOString(),
+                                        status: crmDraft.status === 'new' ? 'contacted' : crmDraft.status,
+                                      },
+                                      historyEntry: {
+                                        type: 'follow_up',
+                                        channel: 'whatsapp',
+                                        template: 'follow-up',
+                                        summary: 'Follow-up comercial enviado pelo WhatsApp.',
+                                      }
                                     });
                                   }}
                                   className="px-3 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-100 transition-colors"
@@ -2800,12 +2877,20 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                               {planFollowUpLink && (
                                 <button
                                   onClick={() => {
-                                    window.open(planFollowUpLink, '_blank', 'noopener,noreferrer');
-                                    handleSaveLeadCrm(lead.id, {
-                                      lastContactAt: new Date().toISOString(),
-                                      planOfferedAt: new Date().toISOString(),
-                                      monthlyPlanInterest: crmDraft.monthlyPlanInterest === 'unknown' ? 'interested' : crmDraft.monthlyPlanInterest,
-                                      status: crmDraft.status === 'new' ? 'contacted' : crmDraft.status,
+                                    registerLeadAction(lead, {
+                                      url: planFollowUpLink,
+                                      override: {
+                                        lastContactAt: new Date().toISOString(),
+                                        planOfferedAt: new Date().toISOString(),
+                                        monthlyPlanInterest: crmDraft.monthlyPlanInterest === 'unknown' ? 'interested' : crmDraft.monthlyPlanInterest,
+                                        status: crmDraft.status === 'new' ? 'contacted' : crmDraft.status,
+                                      },
+                                      historyEntry: {
+                                        type: 'offer',
+                                        channel: 'whatsapp',
+                                        template: 'plan-follow-up',
+                                        summary: 'Oferta do plano mensal enviada pelo WhatsApp.',
+                                      }
                                     });
                                   }}
                                   className="px-3 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest bg-purple-50 text-purple-600 border border-purple-100 hover:bg-purple-100 transition-colors"
@@ -2814,6 +2899,30 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                                 </button>
                               )}
                             </div>
+                          </div>
+
+                          <div className="mb-4">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2 block">Histórico de contato</span>
+                            {leadHistory.length === 0 ? (
+                              <div className="rounded-2xl border border-dashed border-gray-200 bg-white px-4 py-5 text-sm text-gray-500">
+                                Nenhum contato registrado ainda para este lead.
+                              </div>
+                            ) : (
+                              <div className="space-y-3">
+                                {leadHistory.slice(0, 5).map((entry: LeadHistoryEntry, index: number) => (
+                                  <div key={entry.id || `${lead.id}-history-${index}`} className="rounded-2xl border border-gray-100 bg-white px-4 py-3">
+                                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2 mb-2">
+                                      <p className="text-sm font-bold text-gray-800">{entry.summary || 'Interação registrada no CRM.'}</p>
+                                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border ${getLeadHistoryTone(entry)}`}>
+                                        {entry.channel === 'email' ? 'E-mail' : entry.template === 'plan-follow-up' ? 'Plano mensal' : entry.template === 'checkout-recovery' ? 'Recuperação' : entry.channel === 'whatsapp' ? 'WhatsApp' : 'CRM'}
+                                      </span>
+                                    </div>
+                                    {entry.note && <p className="text-sm text-gray-600 leading-relaxed mb-2">{entry.note}</p>}
+                                    <p className="text-xs text-gray-400">{formatLeadDate(entry.createdAt)}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
 
                           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_220px_auto] gap-3 items-end">
@@ -2840,6 +2949,10 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                                 onClick={() => handleSaveLeadCrm(lead.id, {
                                   lastContactAt: new Date().toISOString(),
                                   status: crmDraft.status === 'new' ? 'contacted' : crmDraft.status,
+                                }, {
+                                  type: 'manual',
+                                  channel: 'crm',
+                                  summary: 'Contato manual marcado no CRM.',
                                 })}
                                 disabled={savingLeadId === lead.id}
                                 className={`px-4 py-3 rounded-2xl text-xs font-bold uppercase tracking-widest ${savingLeadId === lead.id ? 'bg-gray-200 text-gray-500' : 'bg-green-600 text-white hover:bg-green-700 transition-colors'}`}
@@ -2858,23 +2971,62 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                         </div>
 
                         <div className="flex flex-wrap gap-2">
-                          <a href={`mailto:${encodeURIComponent(lead.email || '')}?subject=${encodeURIComponent('Sua recomendação L7 Fitness')}`} className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-brand-black text-white text-xs font-bold uppercase tracking-widest hover:opacity-90 transition-opacity">
+                          <button
+                            onClick={() => registerLeadAction(lead, {
+                              url: mailtoLink,
+                              sameTab: true,
+                              override: {
+                                lastContactAt: new Date().toISOString(),
+                                status: crmDraft.status === 'new' ? 'contacted' : crmDraft.status,
+                              },
+                              historyEntry: {
+                                type: 'outreach',
+                                channel: 'email',
+                                template: 'recommendation-email',
+                                summary: 'E-mail de recomendação iniciado pelo CRM.',
+                              }
+                            })}
+                            className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-brand-black text-white text-xs font-bold uppercase tracking-widest hover:opacity-90 transition-opacity"
+                          >
                             <Mail size={14} /> E-mail
-                          </a>
+                          </button>
                           {whatsappLink && (
-                            <a href={whatsappLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-green-600 text-white text-xs font-bold uppercase tracking-widest hover:bg-green-700 transition-colors">
+                            <button
+                              onClick={() => registerLeadAction(lead, {
+                                url: whatsappLink,
+                                override: {
+                                  lastContactAt: new Date().toISOString(),
+                                  status: crmDraft.status === 'new' ? 'contacted' : crmDraft.status,
+                                },
+                                historyEntry: {
+                                  type: 'outreach',
+                                  channel: 'whatsapp',
+                                  template: 'generic-whatsapp',
+                                  summary: 'WhatsApp genérico aberto a partir do CRM.',
+                                }
+                              })}
+                              className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-green-600 text-white text-xs font-bold uppercase tracking-widest hover:bg-green-700 transition-colors"
+                            >
                               <Phone size={14} /> WhatsApp
-                            </a>
+                            </button>
                           )}
                           {monthlyPlanLink && (
                             <button
                               onClick={() => {
-                                window.open(monthlyPlanLink, '_blank', 'noopener,noreferrer');
-                                handleSaveLeadCrm(lead.id, {
-                                  planOfferedAt: new Date().toISOString(),
-                                  monthlyPlanInterest: crmDraft.monthlyPlanInterest === 'unknown' ? 'interested' : crmDraft.monthlyPlanInterest,
-                                  lastContactAt: new Date().toISOString(),
-                                  status: crmDraft.status === 'new' ? 'contacted' : crmDraft.status,
+                                registerLeadAction(lead, {
+                                  url: monthlyPlanLink,
+                                  override: {
+                                    planOfferedAt: new Date().toISOString(),
+                                    monthlyPlanInterest: crmDraft.monthlyPlanInterest === 'unknown' ? 'interested' : crmDraft.monthlyPlanInterest,
+                                    lastContactAt: new Date().toISOString(),
+                                    status: crmDraft.status === 'new' ? 'contacted' : crmDraft.status,
+                                  },
+                                  historyEntry: {
+                                    type: 'offer',
+                                    channel: 'whatsapp',
+                                    template: 'monthly-plan-offer',
+                                    summary: 'Oferta direta do plano mensal enviada.',
+                                  }
                                 });
                               }}
                               className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-purple-600 text-white text-xs font-bold uppercase tracking-widest hover:bg-purple-700 transition-colors"
