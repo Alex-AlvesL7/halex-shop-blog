@@ -1657,7 +1657,7 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
   }, [activeTab, onRefresh]);
 
   useEffect(() => {
-    if (activeTab !== 'leads') return;
+    if (activeTab !== 'leads' && activeTab !== 'dashboard') return;
     fetchQuizLeads();
   }, [activeTab]);
 
@@ -1776,6 +1776,32 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
       lead.restrictions,
     ].filter(Boolean).join(' ').toLowerCase().includes(query));
   }, [leadsWithStatus, leadsSearch, leadStatusFilter]);
+
+  const leadMetrics = useMemo(() => {
+    const totalLeads = leadsWithStatus.length;
+    const noPurchase = leadsWithStatus.filter((lead: any) => lead.purchaseStatus === 'no-purchase').length;
+    const checkoutStarted = leadsWithStatus.filter((lead: any) => lead.purchaseStatus === 'pending').length;
+    const paidCustomers = leadsWithStatus.filter((lead: any) => lead.purchaseStatus === 'paid').length;
+    const contacted = leadsWithStatus.filter((lead: any) => ['contacted', 'interested', 'won'].includes(lead.crm?.status)).length;
+    const interestedPlan = leadsWithStatus.filter((lead: any) => lead.crm?.monthlyPlanInterest === 'interested').length;
+    const closedPlan = leadsWithStatus.filter((lead: any) => lead.crm?.monthlyPlanInterest === 'closed').length;
+    const offeredPlan = leadsWithStatus.filter((lead: any) => !!lead.crm?.planOfferedAt).length;
+
+    return {
+      totalLeads,
+      noPurchase,
+      checkoutStarted,
+      paidCustomers,
+      contacted,
+      interestedPlan,
+      closedPlan,
+      offeredPlan,
+      quizConversionRate: totalLeads > 0 ? (paidCustomers / totalLeads) * 100 : 0,
+      contactRate: totalLeads > 0 ? (contacted / totalLeads) * 100 : 0,
+      planInterestRate: totalLeads > 0 ? (interestedPlan / totalLeads) * 100 : 0,
+      planCloseRate: offeredPlan > 0 ? (closedPlan / offeredPlan) * 100 : 0,
+    };
+  }, [leadsWithStatus]);
 
   const updateLeadDraft = (leadId: string, patch: Partial<{ status: string; internalNote: string; lastContactAt: string; nextFollowUpAt: string; monthlyPlanInterest: string; planOfferedAt: string }>) => {
     setLeadCrmDrafts(prev => ({
@@ -2270,6 +2296,52 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                   </div>
                 </div>
 
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
+                  <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+                    <div className="flex items-center gap-4 mb-4">
+                      <div className="w-12 h-12 bg-orange-50 rounded-2xl flex items-center justify-center text-brand-orange">
+                        <Mail size={24} />
+                      </div>
+                      <span className="text-xs font-bold uppercase tracking-widest text-gray-400">Leads Quiz</span>
+                    </div>
+                    <p className="text-3xl font-black">{leadMetrics.totalLeads}</p>
+                    <p className="text-xs text-gray-500 font-bold mt-2">{leadMetrics.noPurchase} ainda sem compra</p>
+                  </div>
+
+                  <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+                    <div className="flex items-center gap-4 mb-4">
+                      <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-500">
+                        <Phone size={24} />
+                      </div>
+                      <span className="text-xs font-bold uppercase tracking-widest text-gray-400">Leads abordados</span>
+                    </div>
+                    <p className="text-3xl font-black">{leadMetrics.contacted}</p>
+                    <p className="text-xs text-blue-500 font-bold mt-2">Taxa de contato: {leadMetrics.contactRate.toFixed(1)}%</p>
+                  </div>
+
+                  <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+                    <div className="flex items-center gap-4 mb-4">
+                      <div className="w-12 h-12 bg-purple-50 rounded-2xl flex items-center justify-center text-purple-500">
+                        <Users size={24} />
+                      </div>
+                      <span className="text-xs font-bold uppercase tracking-widest text-gray-400">Plano mensal</span>
+                    </div>
+                    <p className="text-3xl font-black">{leadMetrics.interestedPlan}</p>
+                    <p className="text-xs text-purple-500 font-bold mt-2">Interessados no acompanhamento</p>
+                  </div>
+
+                  <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+                    <div className="flex items-center gap-4 mb-4">
+                      <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-500">
+                        <CheckCircle size={24} />
+                      </div>
+                      <span className="text-xs font-bold uppercase tracking-widest text-gray-400">Conversão Quiz</span>
+                    </div>
+                    <p className="text-3xl font-black">{leadMetrics.quizConversionRate.toFixed(1)}%</p>
+                    <p className="text-xs text-emerald-500 font-bold mt-2">{leadMetrics.paidCustomers} leads já viraram clientes</p>
+                  </div>
+                </div>
+
                 {/* Charts Grid */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                   <div className="bg-white p-8 rounded-[40px] border border-gray-100 shadow-sm">
@@ -2361,6 +2433,53 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                       </p>
                     </div>
                     <button onClick={() => setActiveTab('posts')} className="btn-primary w-full mt-8 py-3 text-sm">Ver Estratégia Completa</button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  <div className="bg-white p-8 rounded-[40px] border border-gray-100 shadow-sm">
+                    <h3 className="text-xl font-black mb-6 uppercase">Funil do Quiz</h3>
+                    <div className="space-y-5">
+                      {[
+                        ['Leads captados', leadMetrics.totalLeads, '#FF6321'],
+                        ['Sem compra', leadMetrics.noPurchase, '#3B82F6'],
+                        ['Checkout iniciado', leadMetrics.checkoutStarted, '#F59E0B'],
+                        ['Cliente pago', leadMetrics.paidCustomers, '#10B981'],
+                      ].map(([label, value, color]) => (
+                        <div key={String(label)}>
+                          <div className="flex items-center justify-between mb-2 text-sm">
+                            <span className="font-bold text-gray-700">{label}</span>
+                            <span className="font-black" style={{ color: String(color) }}>{value}</span>
+                          </div>
+                          <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
+                            <div className="h-full rounded-full" style={{ width: `${leadMetrics.totalLeads > 0 ? (Number(value) / leadMetrics.totalLeads) * 100 : 0}%`, backgroundColor: String(color) }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="bg-white p-8 rounded-[40px] border border-gray-100 shadow-sm">
+                    <h3 className="text-xl font-black mb-6 uppercase">Plano Mensal</h3>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between p-4 rounded-2xl bg-gray-50 border border-gray-100">
+                        <span className="text-sm font-bold text-gray-700">Ofertas enviadas</span>
+                        <span className="text-2xl font-black text-brand-orange">{leadMetrics.offeredPlan}</span>
+                      </div>
+                      <div className="flex items-center justify-between p-4 rounded-2xl bg-gray-50 border border-gray-100">
+                        <span className="text-sm font-bold text-gray-700">Interessados</span>
+                        <span className="text-2xl font-black text-purple-600">{leadMetrics.interestedPlan}</span>
+                      </div>
+                      <div className="flex items-center justify-between p-4 rounded-2xl bg-gray-50 border border-gray-100">
+                        <span className="text-sm font-bold text-gray-700">Fechados</span>
+                        <span className="text-2xl font-black text-emerald-600">{leadMetrics.closedPlan}</span>
+                      </div>
+                      <div className="p-5 rounded-3xl bg-brand-black text-white">
+                        <p className="text-[10px] uppercase tracking-widest text-brand-orange font-bold mb-2">Taxa de fechamento</p>
+                        <p className="text-4xl font-black mb-2">{leadMetrics.planCloseRate.toFixed(1)}%</p>
+                        <p className="text-sm text-gray-400">Com base nas ofertas do plano mensal já enviadas pelo CRM.</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
