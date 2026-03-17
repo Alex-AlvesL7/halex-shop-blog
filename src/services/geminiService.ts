@@ -56,19 +56,74 @@ export interface SalesQuizResult {
   cta: string;
 }
 
+const normalizeText = (value: string) => String(value || '')
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase();
+
+const isComboProduct = (product?: Product | null) => {
+  const name = normalizeText(product?.name || '');
+  return name.includes('kit') || name.includes('combo') || name.includes('full') || name.includes('+');
+};
+
+const extractKeywords = (product: Product) => {
+  const source = normalizeText(`${product.name} ${product.description} ${product.category || ''}`);
+  const keywordMap = [
+    { token: 'emagrecimento', aliases: ['emagrec', 'queima de gordura', 'queima calorica', 'gordura abdominal'] },
+    { token: 'saciedade', aliases: ['saciedade', 'apetite', 'fome'] },
+    { token: 'energia', aliases: ['energia', 'disposicao', 'termogenico'] },
+    { token: 'detox', aliases: ['detox'] },
+    { token: 'colageno', aliases: ['colageno', 'pele', 'articulacoes'] },
+    { token: 'rotina-diurna', aliases: ['dia a dia', 'rotina'] },
+    { token: 'potencia-alta', aliases: ['maxima', 'potente', 'resultados maximos'] },
+    { token: 'natural', aliases: ['natural', 'laranja moro', 'psyllium'] },
+  ];
+
+  return keywordMap
+    .filter(({ aliases }) => aliases.some(alias => source.includes(alias)))
+    .map(({ token }) => token);
+};
+
+const buildCatalogForAI = (products: Product[]) => products.map((product) => ({
+  id: product.id,
+  name: product.name,
+  price: product.price,
+  category: product.category,
+  format: isComboProduct(product) ? 'combo' : 'single',
+  keywords: extractKeywords(product),
+  shortDescription: product.description.split('.').shift()?.trim() || product.description,
+  stock: product.stock,
+  rating: product.rating,
+}));
+
+const shouldKeepSecondary = (primary?: Product | null, secondary?: Product | null) => {
+  if (!primary || !secondary) return false;
+  if (primary.id === secondary.id) return false;
+
+  const primaryKeywords = new Set(extractKeywords(primary));
+  const secondaryKeywords = new Set(extractKeywords(secondary));
+  const sharedKeywordCount = [...primaryKeywords].filter(keyword => secondaryKeywords.has(keyword)).length;
+
+  if (isComboProduct(primary)) return false;
+  if ((primary.category || '') === 'emagrecedores' && (secondary.category || '') === 'emagrecedores' && sharedKeywordCount >= 1) return false;
+
+  return true;
+};
+
 const buildFallbackRecommendation = (profile: SalesQuizProfile, products: Product[]): SalesQuizResult => {
   const bmi = profile.height > 0 ? profile.weight / ((profile.height / 100) ** 2) : 0;
   const normalizedGoal = profile.goal.toLowerCase();
   const sortedProducts = [...products].sort((a, b) => b.price - a.price);
 
   const primary = normalizedGoal.includes('emag') || bmi >= 27
-    ? products.find(p => p.id === 'l7-nitro-750-kit') || products.find(p => p.id === 'l7-turbo-500-kit') || sortedProducts[0]
+    ? products.find(p => p.id === 'l7-nitro-750-kit') || products.find(p => p.id === 'l7-turbo-500-kit') || products.find(p => p.id === 'l7-ultra-450-kit') || sortedProducts[0]
     : products.find(p => p.id === 'l7-ultra-450-kit') || products.find(p => p.id === 'l7-turbo-500') || sortedProducts[0];
 
-  const secondary = products.find(p => p.id !== primary?.id && p.category === primary?.category) || products.find(p => p.id !== primary?.id);
+  const secondaryCandidate = products.find(p => p.id !== primary?.id && p.category !== primary?.category) || products.find(p => p.id !== primary?.id);
+  const secondary = shouldKeepSecondary(primary, secondaryCandidate) ? secondaryCandidate : undefined;
 
   return {
-    summary: `${profile.name}, seu perfil mostra foco em ${profile.goal}. A melhor entrada é um produto que ajude consistência, saciedade e rotina diária.` ,
+    summary: `${profile.name}, seu perfil mostra foco em ${profile.goal}. Para esse caso, faz mais sentido começar com um único produto principal bem aderente à rotina.` ,
     dietTips: [
       'Priorize refeições com proteína e fibras para melhorar saciedade ao longo do dia.',
       'Mantenha hidratação constante e reduza bebidas muito calóricas na rotina.',
@@ -82,26 +137,20 @@ const buildFallbackRecommendation = (profile: SalesQuizProfile, products: Produc
     whyItMatches: [
       `O ${primary?.name || 'produto recomendado'} combina com o objetivo de ${profile.goal}.`,
       'Ajuda a manter rotina mais consistente, que é o principal fator de resultado.',
-      'Foi priorizado um produto da loja com melhor aderência comercial para esse perfil.'
+      'Foi priorizado um produto principal sem empilhar dois emagrecedores de função parecida.'
     ],
     leadHook: 'Se seguir esse plano por 30 dias com constância, você já consegue perceber mudança de ritmo e disciplina.',
     primaryProductId: primary?.id || products[0]?.id || '',
     secondaryProductId: secondary?.id,
-    cta: `Comece pelo ${primary?.name || 'produto recomendado'} e, se quiser potencializar, leve também o complementar sugerido.`
+    cta: secondary?.name
+      ? `Comece pelo ${primary?.name || 'produto recomendado'} e só depois avalie o complementar ${secondary.name} se houver necessidade real.`
+      : `Comece pelo ${primary?.name || 'produto recomendado'} e foque em consistência antes de adicionar qualquer outro item.`
   };
 };
 
 export const generateSalesQuizRecommendation = async (profile: SalesQuizProfile, products: Product[]): Promise<SalesQuizResult> => {
   try {
-    const productCatalog = products.map((product) => ({
-      id: product.id,
-      name: product.name,
-      price: product.price,
-      category: product.category,
-      description: product.description,
-      stock: product.stock,
-      rating: product.rating,
-    }));
+    const productCatalog = buildCatalogForAI(products);
 
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
@@ -122,7 +171,10 @@ ${JSON.stringify(productCatalog)}
 
 Retorne uma recomendação comercial em português, objetiva e persuasiva. Regras:
 - escolha obrigatoriamente um produto principal usando o campo primaryProductId
-- escolha opcionalmente um segundo produto complementar em secondaryProductId
+- só use secondaryProductId quando o item for realmente complementar e não redundante
+- se o produto principal já for kit, combo ou full, prefira deixar secondaryProductId vazio
+- evite recomendar dois emagrecedores com a mesma função na mesma recomendação
+- prefira uma recomendação principal clara em vez de empilhar produtos parecidos
 - não invente produtos fora do catálogo
 - explique por que o produto combina com o perfil
 - dê dicas simples e seguras de rotina/alimentação/treino
@@ -151,6 +203,15 @@ Retorne uma recomendação comercial em português, objetiva e persuasiva. Regra
     const existsPrimary = products.some(product => product.id === parsed.primaryProductId);
     if (!existsPrimary) {
       return buildFallbackRecommendation(profile, products);
+    }
+
+    const primary = products.find(product => product.id === parsed.primaryProductId) || null;
+    const secondary = parsed.secondaryProductId
+      ? products.find(product => product.id === parsed.secondaryProductId) || null
+      : null;
+
+    if (!shouldKeepSecondary(primary, secondary)) {
+      delete parsed.secondaryProductId;
     }
 
     return parsed as SalesQuizResult;

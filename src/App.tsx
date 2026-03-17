@@ -87,6 +87,37 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
 const useAuth = () => useContext(AuthContext);
 
+const normalizeProductText = (value: string) => String(value || '')
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase();
+
+const getProductMarketingSummary = (product?: Product | null) => {
+  if (!product) return '';
+
+  const source = normalizeProductText(`${product.name} ${product.description} ${product.category || ''}`);
+  const benefits: string[] = [];
+
+  if (source.includes('nitro')) benefits.push('foco em saciedade alta e queima de gordura');
+  else if (source.includes('turbo')) benefits.push('apoio para energia e aceleração da rotina');
+  else if (source.includes('ultra')) benefits.push('controle do apetite com uso mais equilibrado no dia a dia');
+
+  if (source.includes('detox')) benefits.push('suporte detox para rotina mais leve');
+  if (source.includes('colageno')) benefits.push('cuidado extra com firmeza da pele e articulações');
+  if (source.includes('psyllium') || source.includes('laranja moro')) benefits.push('com apelo mais natural para constância');
+
+  const uniqueBenefits = [...new Set(benefits)].slice(0, 2);
+  if (uniqueBenefits.length > 0) {
+    const prefix = source.includes('kit') || source.includes('combo') || source.includes('full') ? 'Kit indicado para' : 'Produto indicado para';
+    return `${prefix} ${uniqueBenefits.join(' + ')}.`;
+  }
+
+  const firstSentence = String(product.description || '').split(/[.!?]/).find(Boolean)?.trim();
+  if (firstSentence) return `${firstSentence}.`;
+
+  return 'Produto indicado para uma rotina mais consistente e objetiva.';
+};
+
 // --- Components ---
 
 const ThemeToggle = ({
@@ -599,6 +630,12 @@ const TipsPage = ({
   const [result, setResult] = useState<any>(null);
   const [leadSaved, setLeadSaved] = useState(false);
 
+  const truncateText = (value: string, maxLength: number) => {
+    const text = String(value || '').trim();
+    if (text.length <= maxLength) return text;
+    return `${text.slice(0, maxLength).trimEnd()}...`;
+  };
+
   const handleChange = (field: string, value: string | number) => {
     setForm(prev => ({ ...prev, [field]: value }));
   };
@@ -822,7 +859,7 @@ const TipsPage = ({
                     <img src={result.primaryProduct.image} alt={result.primaryProduct.name} className="w-24 h-24 rounded-2xl object-cover bg-gray-50" referrerPolicy="no-referrer" />
                     <div className="flex-1 min-w-0">
                       <h3 className="font-black text-lg mb-1">{result.primaryProduct.name}</h3>
-                      <p className="text-sm text-gray-500 mb-3">{result.primaryProduct.description}</p>
+                      <p className="text-sm text-gray-500 mb-3">{truncateText(getProductMarketingSummary(result.primaryProduct), 95)}</p>
                       <p className="text-2xl font-black text-brand-orange mb-4">R$ {result.primaryProduct.price.toFixed(2)}</p>
                       <div className="flex flex-wrap gap-3">
                         <button onClick={() => onProductClick(result.primaryProduct)} className="btn-secondary text-sm">
@@ -844,7 +881,7 @@ const TipsPage = ({
                     <img src={result.secondaryProduct.image} alt={result.secondaryProduct.name} className="w-20 h-20 rounded-2xl object-cover bg-gray-50" referrerPolicy="no-referrer" />
                     <div className="flex-1 min-w-0">
                       <h3 className="font-black text-base mb-1">{result.secondaryProduct.name}</h3>
-                      <p className="text-sm text-gray-500 mb-2">{result.secondaryProduct.description}</p>
+                      <p className="text-sm text-gray-500 mb-2">{truncateText(getProductMarketingSummary(result.secondaryProduct), 90)}</p>
                       <p className="text-lg font-black text-brand-orange mb-3">R$ {result.secondaryProduct.price.toFixed(2)}</p>
                       <button onClick={() => onAddToCart(result.secondaryProduct)} className="btn-primary text-sm">
                         Adicionar complementar
@@ -945,7 +982,7 @@ const ProductDetailsPage: React.FC<{ product: Product, onAddToCart: (p: Product)
           </div>
 
           <p className="text-gray-600 text-lg mb-10 leading-relaxed">
-            {product.description || "Este produto premium da Halex Shop foi desenvolvido com os mais altos padrões de qualidade para garantir que você alcance seus objetivos físicos com eficiência e segurança."}
+            {getProductMarketingSummary(product) || "Este produto premium da Halex Shop foi desenvolvido com os mais altos padrões de qualidade para garantir que você alcance seus objetivos físicos com eficiência e segurança."}
           </p>
 
           <div className="flex items-center gap-8 mb-10">
