@@ -1221,6 +1221,152 @@ const ProductDetailsPage: React.FC<{ product: Product, onAddToCart: (p: Product)
   );
 };
 
+const CampaignOfferPage: React.FC<{ product: Product, onAddToCart: (p: Product) => void, onBack: () => void, onShowToast: (msg: string) => void, onNavigate: (page: string, options?: any) => void }> = ({ product, onAddToCart, onBack, onShowToast, onNavigate }) => {
+  const marketing = getProductMarketingSummary(product);
+  const whatsappLink = getProductOfferWhatsAppLink(product);
+
+  return (
+    <div className="pt-24 pb-24 bg-gradient-to-b from-[#fff7ed] via-white to-white min-h-screen">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-2 text-gray-500 hover:text-brand-orange transition-colors mb-8 font-bold uppercase text-xs tracking-widest"
+        >
+          <ChevronRight className="rotate-180" size={16} /> Voltar
+        </button>
+
+        <div className="rounded-[40px] overflow-hidden bg-brand-black text-white border border-white/5 shadow-2xl">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
+            <div className="p-8 lg:p-12 flex flex-col justify-center">
+              <div className="flex flex-wrap gap-3 mb-6">
+                {product.promotionLabel && (
+                  <span className="px-4 py-2 rounded-full bg-brand-orange text-white text-xs font-black uppercase tracking-widest">
+                    {product.promotionLabel}
+                  </span>
+                )}
+                {hasProductPromotion(product) && (
+                  <span className="px-4 py-2 rounded-full bg-white text-brand-black text-xs font-black uppercase tracking-widest">
+                    {product.discountPercentage}% OFF REAL
+                  </span>
+                )}
+                {product.promotionBadge && (
+                  <span className="px-4 py-2 rounded-full bg-white/10 text-white text-xs font-black uppercase tracking-widest border border-white/10">
+                    {product.promotionBadge}
+                  </span>
+                )}
+              </div>
+
+              <p className="text-[11px] uppercase tracking-[0.3em] text-brand-orange font-black mb-4">Oferta dedicada</p>
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black uppercase leading-[1.05] mb-6">{product.name}</h1>
+              <p className="text-base sm:text-lg text-gray-300 leading-relaxed mb-8">{marketing.summary}</p>
+
+              <div className="flex flex-wrap items-end gap-4 mb-8">
+                <span className="text-5xl font-black text-brand-orange">{formatPriceBRL(product.price)}</span>
+                {hasProductPromotion(product) && (
+                  <div className="pb-1">
+                    <p className="text-sm text-gray-400 line-through font-bold">{formatPriceBRL(product.compareAtPrice)}</p>
+                    <p className="text-sm text-emerald-400 font-black uppercase tracking-widest">Economize {product.discountPercentage}%</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+                <div className="rounded-3xl bg-white/5 border border-white/10 p-4">
+                  <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black mb-2">Prova social</p>
+                  <p className="text-2xl font-black text-white">{product.reviews || 0}</p>
+                  <p className="text-xs text-gray-400">avaliações de clientes</p>
+                </div>
+                <div className="rounded-3xl bg-white/5 border border-white/10 p-4">
+                  <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black mb-2">Nota média</p>
+                  <p className="text-2xl font-black text-white">{Number(product.rating || 0).toFixed(1)} ★</p>
+                  <p className="text-xs text-gray-400">produto premium</p>
+                </div>
+                <div className="rounded-3xl bg-white/5 border border-white/10 p-4">
+                  <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black mb-2">Disponibilidade</p>
+                  <p className="text-2xl font-black text-white">{product.stock}</p>
+                  <p className="text-xs text-gray-400">unidades em estoque</p>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-4">
+                <button
+                  onClick={() => {
+                    onAddToCart(product);
+                    onShowToast('Oferta adicionada ao carrinho.');
+                  }}
+                  className="flex-1 bg-brand-orange text-white py-5 text-base font-black rounded-2xl flex items-center justify-center gap-3 hover:bg-brand-orange/90 transition-all"
+                >
+                  <ShoppingBag size={22} /> {product.promotionCta || 'Garantir oferta agora'}
+                </button>
+                <a
+                  href={whatsappLink}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex-1 bg-white text-brand-black py-5 text-base font-black rounded-2xl flex items-center justify-center gap-3 hover:bg-gray-100 transition-all"
+                >
+                  <Phone size={22} /> Tirar dúvida no WhatsApp
+                </a>
+              </div>
+            </div>
+
+            <div className="relative min-h-[420px] lg:min-h-full bg-gradient-to-br from-[#111318] to-[#0b0b0f] p-8 lg:p-12 flex items-center justify-center">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,99,33,0.25),transparent_35%),radial-gradient(circle_at_bottom_left,rgba(255,99,33,0.18),transparent_28%)]" />
+              <div className="relative w-full max-w-xl">
+                <div className="rounded-[36px] overflow-hidden border border-white/10 bg-white shadow-2xl">
+                  <img src={product.image} alt={product.name} className="w-full aspect-square object-cover" referrerPolicy="no-referrer" />
+                </div>
+                {hasProductPromotion(product) && (
+                  <div className="absolute -top-4 -right-4 bg-brand-orange text-white px-5 py-3 rounded-2xl shadow-xl text-center">
+                    <p className="text-[10px] uppercase tracking-widest font-black">Desconto ativo</p>
+                    <p className="text-2xl font-black">-{product.discountPercentage}%</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
+          <div className="lg:col-span-2 bg-white rounded-[32px] border border-gray-100 p-8 shadow-sm">
+            <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black mb-3">Por que essa oferta converte</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="rounded-2xl bg-gray-50 border border-gray-100 p-5">
+                <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black mb-2">Para que serve</p>
+                <p className="text-sm text-gray-600 leading-relaxed">{marketing.purpose}</p>
+              </div>
+              <div className="rounded-2xl bg-gray-50 border border-gray-100 p-5">
+                <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black mb-2">Composição</p>
+                <p className="text-sm text-gray-600 leading-relaxed">{marketing.composition}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-[32px] border border-gray-100 p-8 shadow-sm">
+            <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black mb-3">Próxima ação</p>
+            <div className="space-y-4">
+              <button
+                onClick={() => {
+                  onAddToCart(product);
+                  onShowToast('Oferta adicionada ao carrinho.');
+                }}
+                className="w-full bg-brand-black text-white py-4 rounded-2xl text-sm font-black uppercase tracking-widest hover:bg-black transition-colors"
+              >
+                Adicionar ao carrinho
+              </button>
+              <button
+                onClick={() => onNavigate('product-details', { productId: product.id })}
+                className="w-full bg-gray-100 text-gray-700 py-4 rounded-2xl text-sm font-black uppercase tracking-widest hover:bg-gray-200 transition-colors"
+              >
+                Ver detalhes completos
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 interface CheckoutFormData {
   name: string;
   email: string;
@@ -1301,6 +1447,15 @@ const getLeadMonthlyPlanWhatsAppLink = (phone?: string, lead?: any) => {
   const normalized = digits.startsWith('55') ? digits : `55${digits}`;
   const productName = lead?.recommendedProduct?.name || lead?.recommendedProductName || 'o produto recomendado';
   const message = encodeURIComponent(`Olá, ${lead?.name || 'tudo bem'}! Além da recomendação com ${productName}, temos um plano mensal de acompanhamento com ajustes semanais de alimentação, treino e suporte próximo. Se quiser, te explico como funciona e os valores.`);
+  return `https://wa.me/${normalized}?text=${message}`;
+};
+
+const getProductOfferWhatsAppLink = (product?: Product | null) => {
+  const digits = '5551999999999';
+  const normalized = digits.startsWith('55') ? digits : `55${digits}`;
+  const productName = product?.name || 'o produto da oferta';
+  const cta = product?.promotionCta || 'Quero aproveitar a oferta';
+  const message = encodeURIComponent(`Olá! Vi a página da campanha de ${productName} na L7 Fitness. ${cta}. Pode me explicar como comprar e como usar corretamente?`);
   return `https://wa.me/${normalized}?text=${message}`;
 };
 
@@ -2177,17 +2332,18 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
   };
 
   const getPublicProductUrl = (productId?: string | null) => `${window.location.origin}/produto/${encodeURIComponent(String(productId || ''))}`;
+  const getCampaignOfferUrl = (productId?: string | null) => `${window.location.origin}/oferta/${encodeURIComponent(String(productId || ''))}`;
   const getProductOgUrl = (productId?: string | null) => `${window.location.origin}/og/product/${encodeURIComponent(String(productId || ''))}.png`;
 
-  const handleCopyProductLink = async (productId?: string | null) => {
-    const url = getPublicProductUrl(productId);
+  const handleCopyProductLink = async (productId?: string | null, mode: 'product' | 'campaign' = 'campaign') => {
+    const url = mode === 'campaign' ? getCampaignOfferUrl(productId) : getPublicProductUrl(productId);
 
     try {
       await navigator.clipboard.writeText(url);
-      showProductFeedback('Link da oferta copiado.');
+      showProductFeedback(mode === 'campaign' ? 'Link da campanha copiado.' : 'Link do produto copiado.');
     } catch (error) {
       console.error('Falha ao copiar link da oferta:', error);
-      window.prompt('Copie o link da oferta:', url);
+      window.prompt(mode === 'campaign' ? 'Copie o link da campanha:' : 'Copie o link do produto:', url);
     }
   };
 
@@ -2758,16 +2914,22 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
 
                         <div className="flex flex-wrap gap-2 mt-4">
                           <button
-                            onClick={() => handleCopyProductLink(p.id)}
+                            onClick={() => handleCopyProductLink(p.id, 'campaign')}
                             className="px-3 py-2 rounded-xl bg-gray-100 text-gray-700 text-[10px] font-black uppercase tracking-widest hover:bg-gray-200 transition-colors"
                           >
-                            Copiar link da oferta
+                            Copiar link da campanha
+                          </button>
+                          <button
+                            onClick={() => window.open(getCampaignOfferUrl(p.id), '_blank', 'noopener,noreferrer')}
+                            className="px-3 py-2 rounded-xl bg-white text-gray-700 border border-gray-200 text-[10px] font-black uppercase tracking-widest hover:bg-gray-50 transition-colors"
+                          >
+                            Abrir página da campanha
                           </button>
                           <button
                             onClick={() => window.open(getPublicProductUrl(p.id), '_blank', 'noopener,noreferrer')}
                             className="px-3 py-2 rounded-xl bg-white text-gray-700 border border-gray-200 text-[10px] font-black uppercase tracking-widest hover:bg-gray-50 transition-colors"
                           >
-                            Abrir oferta
+                            Abrir produto
                           </button>
                           <button
                             onClick={() => handleOpenOgPreview(p.id)}
@@ -2845,7 +3007,7 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                         </div>
                         <div className="p-4">
                           <p className="text-sm font-black text-white mb-1">www.l7fitness.com.br</p>
-                          <p className="text-xs text-emerald-100/90 mb-2 break-all">{getPublicProductUrl(p.id)}</p>
+                          <p className="text-xs text-emerald-100/90 mb-2 break-all">{getCampaignOfferUrl(p.id)}</p>
                           <p className="text-sm text-emerald-100 font-bold leading-snug mb-2">{p.name}</p>
                           <p className="text-xs text-emerald-100/80 leading-relaxed mb-3 line-clamp-3">
                             {p.promotionCta || p.description || 'Oferta ativa com frete rápido e atendimento direto no WhatsApp.'}
@@ -3864,6 +4026,7 @@ function MainApp() {
     if (page === 'blog') return '/blog';
     if (page === 'blog-details' && options?.postId) return `/blog/${encodeURIComponent(options.postId)}`;
     if (page === 'product-details' && options?.productId) return `/produto/${encodeURIComponent(options.productId)}`;
+    if (page === 'campaign-offer' && options?.productId) return `/oferta/${encodeURIComponent(options.productId)}`;
     if (page === 'admin') return '/admin';
     if (page === 'checkout') return '/checkout';
     if (page === 'checkout-success') return '/checkout/success';
@@ -3894,6 +4057,14 @@ function MainApp() {
       setSelectedProductId(null);
       setSelectedPostId(null);
       setCurrentPage('checkout');
+      return;
+    }
+
+    if (pathname.startsWith('/oferta/')) {
+      const productId = decodeURIComponent(pathname.split('/')[2] || '');
+      setSelectedProductId(productId || null);
+      setSelectedPostId(null);
+      setCurrentPage('campaign-offer');
       return;
     }
 
@@ -4225,6 +4396,24 @@ function MainApp() {
                     onBack={() => navigateTo('store')} 
                     onNavigate={navigateTo}
                     onShowToast={showToast}
+                  />
+                );
+              })()}
+            </motion.div>
+          )}
+          {currentPage === 'campaign-offer' && selectedProductId && (
+            <motion.div key="campaign-offer" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              {(() => {
+                const product = products.find(p => p.id === selectedProductId);
+                if (!product) return null;
+                return (
+                  <CampaignOfferPage
+                    key={`offer-${product.id}`}
+                    product={product}
+                    onAddToCart={addToCart}
+                    onBack={() => navigateTo('store')}
+                    onShowToast={showToast}
+                    onNavigate={navigateTo}
                   />
                 );
               })()}

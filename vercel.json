@@ -29,6 +29,10 @@
       "dest": "server.ts"
     },
     {
+      "src": "/oferta/(.*)",
+      "dest": "server.ts"
+    },
+    {
       "src": "/blog",
       "dest": "server.ts"
     },
