@@ -432,6 +432,50 @@ const getOrderByNsu = async (orderNsu: string) => {
   return null;
 };
 
+const extractInfinitePayOrderNsu = (data: any): string | null => {
+  const candidates = [
+    data?.order_nsu,
+    data?.orderNsu,
+    data?.data?.order_nsu,
+    data?.data?.orderNsu,
+    data?.invoice?.order_nsu,
+    data?.invoice?.orderNsu,
+    data?.payment?.order_nsu,
+    data?.payment?.orderNsu,
+    data?.payload?.order_nsu,
+    data?.payload?.orderNsu,
+    data?.resource?.order_nsu,
+    data?.resource?.orderNsu,
+    data?.external_reference,
+    data?.externalReference,
+  ];
+
+  const value = candidates.find((candidate) => typeof candidate === 'string' && candidate.trim().length > 0);
+  return value ? String(value).trim() : null;
+};
+
+const extractInfinitePayStatus = (data: any): string => {
+  const candidates = [
+    data?.status,
+    data?.data?.status,
+    data?.invoice?.status,
+    data?.payment?.status,
+    data?.resource?.status,
+    data?.event,
+    data?.type,
+    data?.data?.event,
+    data?.data?.type,
+  ];
+
+  const value = candidates.find((candidate) => typeof candidate === 'string' && candidate.trim().length > 0);
+  return value ? String(value).trim().toLowerCase() : '';
+};
+
+const isInfinitePayPaidStatus = (status: string) => {
+  const normalized = String(status || '').toLowerCase();
+  return ['paid', 'approved', 'completed', 'success', 'succeeded', 'invoice.paid', 'payment.approved', 'payment.paid'].includes(normalized);
+};
+
 app.get("/api/health", async (req, res) => {
   let supabaseProductsCount = 0;
   let supabaseError = null;
@@ -1258,8 +1302,15 @@ app.post("/api/checkout", async (req, res) => {
     const data = req.body;
     console.log("InfinitePay Webhook Received:", JSON.stringify(data));
     
-    const orderNsu = data.order_nsu || data.data?.order_nsu;
-    const status = (data.status === 'paid' || data.data?.status === 'paid') ? 'paid' : 'failed';
+    const orderNsu = extractInfinitePayOrderNsu(data);
+    const incomingStatus = extractInfinitePayStatus(data);
+    const status = isInfinitePayPaidStatus(incomingStatus) ? 'paid' : 'failed';
+
+    if (!orderNsu) {
+      console.warn('InfinitePay webhook recebido sem `order_nsu` identificável.');
+      return res.status(200).send("IGNORED");
+    }
+
     const previousOrder = orderNsu ? await getOrderByNsu(orderNsu) : null;
     const previousStatus = previousOrder?.status;
 

@@ -1207,6 +1207,24 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
   }, [activeTab, metrics]);
 
   useEffect(() => {
+    if (activeTab !== 'orders') return;
+
+    onRefresh();
+
+    const intervalId = window.setInterval(() => {
+      onRefresh();
+    }, 20000);
+
+    const handleFocus = () => onRefresh();
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [activeTab, onRefresh]);
+
+  useEffect(() => {
     setOrderFulfillmentDrafts(prev => {
       const next = { ...prev };
       orders.forEach((order: any) => {
