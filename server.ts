@@ -286,6 +286,24 @@ const normalizeOrderRecord = (order: any) => {
   };
 };
 
+const normalizeQuizLeadRecord = (lead: any) => {
+  let parsedMetadata: any = {};
+
+  try {
+    parsedMetadata = typeof lead?.metadata === 'string'
+      ? JSON.parse(lead.metadata || '{}')
+      : (lead?.metadata || {});
+  } catch (error) {
+    parsedMetadata = {};
+  }
+
+  return {
+    ...lead,
+    metadata: parsedMetadata,
+    recommendedProductId: lead?.recommended_product_id || parsedMetadata?.recommended_product_id || null,
+  };
+};
+
 const fulfillmentStatusLabels: Record<string, string> = {
   'aguardando-envio': 'Aguardando envio',
   'separando': 'Separando',
@@ -1025,6 +1043,34 @@ app.get("/api/health", async (req, res) => {
     } catch (error) {
       console.error('Error in POST /api/quiz-leads:', error);
       res.status(500).json({ success: false, error: 'Falha ao salvar lead do quiz.' });
+    }
+  });
+
+  app.get("/api/quiz-leads", async (req, res) => {
+    try {
+      if (supabase) {
+        const { data, error } = await supabase
+          .from('quiz_leads')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('Supabase quiz_leads fetch failed:', error);
+          return res.status(500).json({ success: false, error: 'Falha ao carregar leads no Supabase.' });
+        }
+
+        return res.json({ success: true, leads: (data || []).map(normalizeQuizLeadRecord), source: 'supabase' });
+      }
+
+      if (db) {
+        const leads = db.prepare("SELECT * FROM quiz_leads ORDER BY created_at DESC").all();
+        return res.json({ success: true, leads: leads.map(normalizeQuizLeadRecord), source: 'sqlite' });
+      }
+
+      return res.status(500).json({ success: false, error: 'Nenhum banco configurado para listar leads.' });
+    } catch (error) {
+      console.error('Error in GET /api/quiz-leads:', error);
+      return res.status(500).json({ success: false, error: 'Falha ao carregar leads do quiz.' });
     }
   });
 

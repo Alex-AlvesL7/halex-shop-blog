@@ -1139,6 +1139,15 @@ const getWhatsAppLink = (phone?: string, orderNsu?: string) => {
   return `https://wa.me/${normalized}?text=${message}`;
 };
 
+const getLeadWhatsAppLink = (phone?: string, lead?: any) => {
+  const digits = String(phone || '').replace(/\D/g, '');
+  if (!digits) return '';
+  const normalized = digits.startsWith('55') ? digits : `55${digits}`;
+  const productName = lead?.recommendedProduct?.name || lead?.recommendedProductName || 'a recomendação ideal';
+  const message = encodeURIComponent(`Olá, ${lead?.name || 'tudo bem'}! Aqui é da L7 Fitness. Vi seu quiz de ${lead?.goal || 'objetivo fitness'} e separei ${productName} para o seu perfil. Se quiser, posso te explicar como usar e montar um plano inicial.`);
+  return `https://wa.me/${normalized}?text=${message}`;
+};
+
 const getTrackingWhatsAppLink = (
   phone?: string,
   order?: any,
@@ -1458,7 +1467,7 @@ const CheckoutPage = ({
 };
 
 const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[], posts: BlogPost[], orders: any[], onRefresh: () => void }) => {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'posts' | 'orders' | 'affiliates' | 'categories'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'posts' | 'orders' | 'affiliates' | 'categories' | 'leads'>('dashboard');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [orderFulfillmentDrafts, setOrderFulfillmentDrafts] = useState<Record<string, { status: string; trackingCode: string; trackingUrl: string; internalNote: string }>>({});
@@ -1468,10 +1477,31 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
   const [aiInsight, setAiInsight] = useState<string | null>(null);
   const [loadingInsight, setLoadingInsight] = useState(false);
   const [affiliates, setAffiliates] = useState<any[]>([]);
+  const [quizLeads, setQuizLeads] = useState<any[]>([]);
+  const [leadsLoading, setLeadsLoading] = useState(false);
+  const [leadsSearch, setLeadsSearch] = useState('');
+  const [leadStatusFilter, setLeadStatusFilter] = useState<'all' | 'no-purchase' | 'paid' | 'pending'>('all');
 
   useEffect(() => {
     fetch('/api/affiliates').then(res => res.json()).then(setAffiliates);
   }, []);
+
+  const fetchQuizLeads = async () => {
+    setLeadsLoading(true);
+    try {
+      const response = await fetch('/api/quiz-leads');
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Falha ao carregar leads');
+      }
+      setQuizLeads(Array.isArray(data.leads) ? data.leads : []);
+    } catch (error) {
+      console.error('Erro ao carregar leads do quiz:', error);
+      setQuizLeads([]);
+    } finally {
+      setLeadsLoading(false);
+    }
+  };
 
   // --- Dashboard Metrics Calculation ---
   const metrics = useMemo(() => {
@@ -1544,6 +1574,11 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
   }, [activeTab, onRefresh]);
 
   useEffect(() => {
+    if (activeTab !== 'leads') return;
+    fetchQuizLeads();
+  }, [activeTab]);
+
+  useEffect(() => {
     setOrderFulfillmentDrafts(prev => {
       const next = { ...prev };
       orders.forEach((order: any) => {
@@ -1587,6 +1622,60 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
   }, [orders, orderStatusFilter, orderSearch]);
 
   const COLORS = ['#FF6321', '#141414', '#10B981', '#6366F1', '#F59E0B'];
+
+  const leadOrderSummaryByEmail = useMemo(() => {
+    const summary = new Map<string, { hasPaid: boolean; hasPending: boolean; orderCount: number }>();
+
+    orders.forEach((order: any) => {
+      const email = String(order.customer_email || order.customer?.email || '').trim().toLowerCase();
+      if (!email) return;
+
+      const current = summary.get(email) || { hasPaid: false, hasPending: false, orderCount: 0 };
+      current.orderCount += 1;
+      if (order.status === 'paid') current.hasPaid = true;
+      if (order.status === 'pending') current.hasPending = true;
+      summary.set(email, current);
+    });
+
+    return summary;
+  }, [orders]);
+
+  const leadsWithStatus = useMemo(() => {
+    return quizLeads.map((lead: any) => {
+      const email = String(lead.email || '').trim().toLowerCase();
+      const orderSummary = leadOrderSummaryByEmail.get(email) || { hasPaid: false, hasPending: false, orderCount: 0 };
+      const recommendedProduct = products.find((product) => product.id === lead.recommendedProductId) || null;
+      const status = orderSummary.hasPaid ? 'paid' : orderSummary.hasPending ? 'pending' : 'no-purchase';
+
+      return {
+        ...lead,
+        recommendedProduct,
+        recommendedProductName: recommendedProduct?.name || lead?.metadata?.primaryProductName || 'Produto recomendado',
+        purchaseStatus: status,
+        orderCount: orderSummary.orderCount,
+      };
+    });
+  }, [quizLeads, leadOrderSummaryByEmail, products]);
+
+  const filteredLeads = useMemo(() => {
+    const query = leadsSearch.trim().toLowerCase();
+    const byStatus = leadStatusFilter === 'all'
+      ? leadsWithStatus
+      : leadsWithStatus.filter((lead: any) => lead.purchaseStatus === leadStatusFilter);
+
+    if (!query) return byStatus;
+
+    return byStatus.filter((lead: any) => [
+      lead.name,
+      lead.email,
+      lead.phone,
+      lead.goal,
+      lead.gender,
+      lead.activity_level,
+      lead.recommendedProductName,
+      lead.restrictions,
+    ].filter(Boolean).join(' ').toLowerCase().includes(query));
+  }, [leadsWithStatus, leadsSearch, leadStatusFilter]);
 
   // Product Form State
   const [newProduct, setNewProduct] = useState<Partial<Product>>({
@@ -1746,7 +1835,7 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
           </h1>
           <p className="text-gray-500">Gerencie seus produtos, conteúdo do blog e pedidos.</p>
         </div>
-        {activeTab !== 'orders' && activeTab !== 'affiliates' && (
+        {activeTab !== 'orders' && activeTab !== 'affiliates' && activeTab !== 'leads' && (
           <button 
             onClick={() => { if(showForm) resetForm(); else setShowForm(true); }}
             className="btn-primary flex items-center gap-2"
@@ -1768,6 +1857,14 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
             className="btn-secondary border border-gray-200 flex items-center gap-2"
           >
             <Upload size={20} className="rotate-180" /> Atualizar
+          </button>
+        )}
+        {activeTab === 'leads' && (
+          <button 
+            onClick={fetchQuizLeads}
+            className="btn-secondary border border-gray-200 flex items-center gap-2"
+          >
+            <Upload size={20} className="rotate-180" /> {leadsLoading ? 'Atualizando...' : 'Atualizar Leads'}
           </button>
         )}
       </div>
@@ -1808,6 +1905,12 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
           className={`flex items-center gap-2 px-6 py-2 rounded-full font-bold uppercase text-xs tracking-widest transition-all whitespace-nowrap ${activeTab === 'affiliates' ? 'bg-brand-black text-white' : 'text-gray-400 hover:text-brand-orange'}`}
         >
           <Users size={16} /> Afiliados
+        </button>
+        <button 
+          onClick={() => { setActiveTab('leads'); resetForm(); }}
+          className={`flex items-center gap-2 px-6 py-2 rounded-full font-bold uppercase text-xs tracking-widest transition-all whitespace-nowrap ${activeTab === 'leads' ? 'bg-brand-black text-white' : 'text-gray-400 hover:text-brand-orange'}`}
+        >
+          <Mail size={16} /> Leads Quiz
         </button>
       </div>
 
@@ -2167,6 +2270,116 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
               ))
             ) : activeTab === 'affiliates' ? (
               <AffiliatesManagement affiliates={affiliates} onRefresh={onRefresh} />
+            ) : activeTab === 'leads' ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto] gap-3 items-center">
+                  <input
+                    value={leadsSearch}
+                    onChange={(e) => setLeadsSearch(e.target.value)}
+                    placeholder="Buscar por nome, e-mail, WhatsApp, objetivo ou produto recomendado"
+                    className="w-full px-4 py-3 rounded-2xl border border-gray-200 bg-white focus:border-brand-orange focus:outline-none"
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      ['all', 'Todos'],
+                      ['no-purchase', 'Sem compra'],
+                      ['pending', 'Checkout iniciado'],
+                      ['paid', 'Pagos'],
+                    ].map(([value, label]) => (
+                      <button
+                        key={value}
+                        onClick={() => setLeadStatusFilter(value as any)}
+                        className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${leadStatusFilter === value ? 'bg-brand-black text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {leadsLoading ? (
+                  <div className="text-center py-12 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200 text-gray-500">
+                    Carregando leads do quiz...
+                  </div>
+                ) : filteredLeads.length === 0 ? (
+                  <div className="text-center py-12 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
+                    <Mail className="mx-auto text-gray-300 mb-4" size={48} />
+                    <p className="text-gray-500">Nenhum lead encontrado para esse filtro.</p>
+                  </div>
+                ) : (
+                  filteredLeads.map((lead: any) => {
+                    const whatsappLink = getLeadWhatsAppLink(lead.phone, lead);
+                    const statusClasses = lead.purchaseStatus === 'paid'
+                      ? 'bg-emerald-100 text-emerald-600'
+                      : lead.purchaseStatus === 'pending'
+                        ? 'bg-orange-100 text-orange-600'
+                        : 'bg-blue-100 text-blue-600';
+                    const statusLabel = lead.purchaseStatus === 'paid'
+                      ? 'Cliente pago'
+                      : lead.purchaseStatus === 'pending'
+                        ? 'Checkout iniciado'
+                        : 'Sem compra';
+
+                    return (
+                      <div key={lead.id} className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-all">
+                        <div className="flex flex-col lg:flex-row justify-between gap-4 mb-4">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-3 mb-2">
+                              <h3 className="text-xl font-black">{lead.name || 'Lead sem nome'}</h3>
+                              <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${statusClasses}`}>{statusLabel}</span>
+                              <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest bg-gray-100 text-gray-500">{lead.goal || 'Objetivo não informado'}</span>
+                            </div>
+                            <p className="text-sm text-gray-500">{lead.email || 'Sem e-mail'}{lead.phone ? ` • ${lead.phone}` : ''}</p>
+                            <p className="text-xs text-gray-400 mt-1">Criado em {new Date(lead.created_at).toLocaleString('pt-BR')}</p>
+                          </div>
+                          <div className="text-left lg:text-right">
+                            <p className="text-xs uppercase tracking-widest text-gray-400 font-bold mb-1">Produto recomendado</p>
+                            <p className="font-bold text-brand-orange">{lead.recommendedProductName}</p>
+                            <p className="text-xs text-gray-400 mt-1">Pedidos vinculados: {lead.orderCount}</p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+                          <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                            <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-3">Perfil</p>
+                            <div className="space-y-2 text-sm text-gray-600">
+                              <p><span className="font-bold text-gray-900">Idade:</span> {lead.age || '—'}</p>
+                              <p><span className="font-bold text-gray-900">Sexo:</span> {lead.gender || '—'}</p>
+                              <p><span className="font-bold text-gray-900">Peso/Altura:</span> {lead.weight || '—'}kg • {lead.height || '—'}cm</p>
+                              <p><span className="font-bold text-gray-900">Atividade:</span> {lead.activity_level || '—'}</p>
+                            </div>
+                          </div>
+                          <div className="rounded-2xl border border-gray-100 bg-orange-50/40 p-4">
+                            <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-3">Observações</p>
+                            <p className="text-sm text-gray-600 leading-relaxed">{lead.restrictions || 'Sem observações registradas.'}</p>
+                          </div>
+                          <div className="rounded-2xl border border-gray-100 bg-white p-4">
+                            <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-3">Abordagem comercial</p>
+                            <p className="text-sm text-gray-600 leading-relaxed mb-3">{lead.metadata?.summary || 'Lead capturado pelo quiz com recomendação personalizada.'}</p>
+                            <p className="text-xs text-gray-500 leading-relaxed">CTA sugerido: {lead.metadata?.cta || 'Entrar em contato para explicar uso e fechar pedido.'}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          <a href={`mailto:${encodeURIComponent(lead.email || '')}?subject=${encodeURIComponent('Sua recomendação L7 Fitness')}`} className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-brand-black text-white text-xs font-bold uppercase tracking-widest hover:opacity-90 transition-opacity">
+                            <Mail size={14} /> E-mail
+                          </a>
+                          {whatsappLink && (
+                            <a href={whatsappLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-green-600 text-white text-xs font-bold uppercase tracking-widest hover:bg-green-700 transition-colors">
+                              <Phone size={14} /> WhatsApp
+                            </a>
+                          )}
+                          {lead.recommendedProduct && (
+                            <button onClick={() => handleEditProduct(lead.recommendedProduct)} className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-100 text-gray-700 text-xs font-bold uppercase tracking-widest hover:bg-gray-200 transition-colors">
+                              <Edit size={14} /> Ver produto recomendado
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             ) : (
               <div className="space-y-4">
                 <div className="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
