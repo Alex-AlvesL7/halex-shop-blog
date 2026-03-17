@@ -303,6 +303,44 @@ const getPostByIdForMeta = (id?: string | null) => {
   return getPostsCatalog().find((post: any) => String(post.id) === String(id)) || null;
 };
 
+const truncateText = (value: any, maxLength: number) => {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  if (!text) return '';
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
+};
+
+const getProductBenefitLine = (product: any) => {
+  const description = String(product?.description || '').trim();
+  if (!description) return 'Oferta especial com frete rápido e atendimento direto no WhatsApp.';
+
+  const sentence = description.split(/[.!?]/).map((item) => item.trim()).find(Boolean) || description;
+  return truncateText(sentence, 88);
+};
+
+const getProductOfferLine = (product: any) => {
+  const reviews = Number(product?.reviews) || 0;
+  const rating = Number(product?.rating) || 0;
+  const stock = Number(product?.stock) || 0;
+
+  if (reviews > 0 && rating > 0) {
+    return `${rating.toFixed(1)} ★ com ${reviews} avaliações`;
+  }
+
+  if (stock > 0) {
+    return `${stock} unidades em estoque`;
+  }
+
+  return 'Parcele em até 12x com compra segura';
+};
+
+const getProductSocialDescription = (product: any) => {
+  const benefit = getProductBenefitLine(product);
+  const stock = Number(product?.stock) || 0;
+  const urgency = stock > 0 && stock <= 20 ? ` Restam ${stock} unidades.` : ' Estoque limitado.';
+  return `${benefit} Compre hoje com frete rápido, parcelamento em até 12x e atendimento no WhatsApp.${urgency}`;
+};
+
 const buildMetaBlock = (meta: {
   title: string;
   description: string;
@@ -358,7 +396,7 @@ const getRouteMeta = (pathname: string, appUrl: string) => {
     if (product) {
       return {
         title: `${product.name} | Compre agora na L7 Fitness`,
-        description: `${String(product.description || 'Suplemento L7 Fitness').trim()} Compre hoje com frete rápido, parcelamento em até 12x e atendimento no WhatsApp.`,
+        description: getProductSocialDescription(product),
         canonicalUrl: `${appUrl}/produto/${encodeURIComponent(productId)}`,
         imageUrl: `${appUrl}/og/product/${encodeURIComponent(productId)}.svg`,
         imageAlt: `${product.name} com CTA de compra da L7 Fitness`,
@@ -424,12 +462,18 @@ const renderOgSvg = ({
   subtitle,
   cta,
   footer,
+  imageUrl,
+  priceLabel,
+  badges = [],
 }: {
   eyebrow: string;
   title: string;
   subtitle: string;
   cta: string;
   footer: string;
+  imageUrl?: string;
+  priceLabel?: string;
+  badges?: string[];
 }) => {
   const words = String(title || '').trim().split(/\s+/).filter(Boolean);
   const lines: string[] = [];
@@ -450,6 +494,38 @@ const renderOgSvg = ({
 
   const visibleLines = lines.slice(0, 3);
   const titleSvg = visibleLines.map((line, index) => `<text x="100" y="${210 + (index * 76)}" fill="${index === visibleLines.length - 1 ? '#FF6321' : '#FFFFFF'}" font-family="Arial, Helvetica, sans-serif" font-size="68" font-weight="900">${escapeXml(line)}</text>`).join('');
+  const safeBadges = badges.slice(0, 3).filter(Boolean);
+  const badgeSvg = safeBadges.map((badge, index) => {
+    const x = 100 + (index * 184);
+    return `
+      <rect x="${x}" y="470" width="168" height="42" rx="21" fill="#161922" stroke="rgba(255,255,255,0.08)" />
+      <text x="${x + 84}" y="497" text-anchor="middle" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="800">${escapeXml(truncateText(badge, 18))}</text>
+    `;
+  }).join('');
+
+  const imagePanelSvg = imageUrl
+    ? `
+  <rect x="710" y="128" width="410" height="374" rx="34" fill="#0F1118" stroke="rgba(255,255,255,0.10)"/>
+  <rect x="732" y="150" width="366" height="330" rx="26" fill="#FFFFFF"/>
+  <image href="${escapeXml(imageUrl)}" x="732" y="150" width="366" height="330" preserveAspectRatio="xMidYMid meet"/>
+  <rect x="742" y="400" width="150" height="52" rx="18" fill="#111318" opacity="0.92"/>
+  <text x="817" y="433" text-anchor="middle" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="900">L7 FITNESS</text>
+  `
+    : `
+  <rect x="714" y="190" width="196" height="220" rx="32" fill="url(#accent)"/>
+  <rect x="742" y="218" width="140" height="164" rx="24" fill="#111318"/>
+  <text x="812" y="285" text-anchor="middle" fill="#FF6321" font-family="Arial, Helvetica, sans-serif" font-size="60" font-weight="900">L7</text>
+  <text x="812" y="324" text-anchor="middle" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" letter-spacing="4">FITNESS</text>
+  <text x="812" y="356" text-anchor="middle" fill="#D1D5DB" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700">FRETE RÁPIDO</text>
+  <rect x="748" y="410" width="128" height="12" rx="6" fill="#2A2D35"/>
+  `;
+
+  const priceSvg = priceLabel
+    ? `
+  <rect x="714" y="520" width="240" height="64" rx="24" fill="#FF6321"/>
+  <text x="834" y="560" text-anchor="middle" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="900">${escapeXml(priceLabel)}</text>
+  `
+    : '';
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -470,16 +546,13 @@ const renderOgSvg = ({
   <rect x="100" y="96" width="210" height="46" rx="23" fill="#FF6321"/>
   <text x="205" y="126" text-anchor="middle" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="800">${escapeXml(eyebrow)}</text>
   ${titleSvg}
-  <text x="100" y="466" fill="#D1D5DB" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="500">${escapeXml(subtitle)}</text>
-  <rect x="100" y="500" width="360" height="64" rx="32" fill="#FF6321"/>
-  <text x="280" y="542" text-anchor="middle" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="900">${escapeXml(cta)}</text>
-  <text x="100" y="590" fill="#9CA3AF" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700">${escapeXml(footer)}</text>
-  <rect x="714" y="190" width="196" height="220" rx="32" fill="url(#accent)"/>
-  <rect x="742" y="218" width="140" height="164" rx="24" fill="#111318"/>
-  <text x="812" y="285" text-anchor="middle" fill="#FF6321" font-family="Arial, Helvetica, sans-serif" font-size="60" font-weight="900">L7</text>
-  <text x="812" y="324" text-anchor="middle" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" letter-spacing="4">FITNESS</text>
-  <text x="812" y="356" text-anchor="middle" fill="#D1D5DB" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700">FRETE RÁPIDO</text>
-  <rect x="748" y="410" width="128" height="12" rx="6" fill="#2A2D35"/>
+  <text x="100" y="440" fill="#D1D5DB" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="500">${escapeXml(subtitle)}</text>
+  ${badgeSvg}
+  <rect x="100" y="528" width="360" height="64" rx="32" fill="#FF6321"/>
+  <text x="280" y="570" text-anchor="middle" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="900">${escapeXml(cta)}</text>
+  <text x="100" y="618" fill="#9CA3AF" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700">${escapeXml(footer)}</text>
+  ${imagePanelSvg}
+  ${priceSvg}
 </svg>`;
 };
 
@@ -2253,15 +2326,21 @@ app.post("/api/checkout", async (req, res) => {
 
   app.get('/og/product/:id.svg', (req, res) => {
     const product = getProductByIdForMeta(decodeURIComponent(req.params.id || ''));
+    const benefit = getProductBenefitLine(product);
+    const offerLine = getProductOfferLine(product);
+    const imageUrl = String(product?.image || product?.images?.[0] || '').trim() || undefined;
 
     res.setHeader('Content-Type', 'image/svg+xml');
     res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=86400');
     res.send(renderOgSvg({
       eyebrow: 'OFERTA L7',
       title: product?.name || 'Suplemento L7 Fitness',
-      subtitle: product?.description || 'Compre com frete rápido, parcelamento em até 12x e atendimento no WhatsApp.',
+      subtitle: benefit,
       cta: 'COMPRAR AGORA',
-      footer: `L7 Fitness • ${product ? formatBRL(Number(product.price) || 0) : 'Oferta especial'}`,
+      footer: `L7 Fitness • ${offerLine}`,
+      imageUrl,
+      priceLabel: product ? formatBRL(Number(product.price) || 0) : undefined,
+      badges: [offerLine, 'Frete rápido', 'Até 12x'],
     }));
   });
 
@@ -2276,6 +2355,8 @@ app.post("/api/checkout", async (req, res) => {
       subtitle: post?.excerpt || 'Leia uma dica prática para acelerar seus resultados com mais estratégia.',
       cta: 'LER AGORA',
       footer: `Blog L7 Fitness • ${post?.readTime || 'Leitura rápida'}`,
+      imageUrl: String(post?.image || '').trim() || undefined,
+      badges: [post?.category || 'Conteúdo', post?.readTime || 'Leitura rápida'],
     }));
   });
 
