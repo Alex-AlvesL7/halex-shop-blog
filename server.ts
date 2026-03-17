@@ -7,6 +7,7 @@ import { fileURLToPath } from "url";
 import { createClient } from "@supabase/supabase-js";
 import { enviarEmail } from "./mailer.js";
 import { PRODUCTS, POSTS } from "./src/data.js";
+import { applyPromotionToProduct } from "./src/promotionRules.js";
 import crypto from "crypto";
 import dotenv from "dotenv";
 
@@ -271,13 +272,13 @@ const getProductsCatalog = () => {
   if (db) {
     try {
       const products = db.prepare('SELECT * FROM products').all();
-      if (Array.isArray(products) && products.length > 0) return products;
+      if (Array.isArray(products) && products.length > 0) return products.map((product: any) => applyPromotionToProduct(product));
     } catch (error) {
       console.warn('Falha ao carregar catálogo de produtos para SEO:', error);
     }
   }
 
-  return PRODUCTS;
+  return PRODUCTS.map((product) => applyPromotionToProduct(product));
 };
 
 const getPostsCatalog = () => {
@@ -319,9 +320,14 @@ const getProductBenefitLine = (product: any) => {
 };
 
 const getProductOfferLine = (product: any) => {
+  const discountPercentage = Number(product?.discountPercentage) || 0;
   const reviews = Number(product?.reviews) || 0;
   const rating = Number(product?.rating) || 0;
   const stock = Number(product?.stock) || 0;
+
+  if (discountPercentage > 0) {
+    return `${discountPercentage}% OFF hoje`;
+  }
 
   if (reviews > 0 && rating > 0) {
     return `${rating.toFixed(1)} ★ com ${reviews} avaliações`;
@@ -337,11 +343,14 @@ const getProductOfferLine = (product: any) => {
 const getProductSocialDescription = (product: any) => {
   const benefit = getProductBenefitLine(product);
   const stock = Number(product?.stock) || 0;
+  const discountPercentage = Number(product?.discountPercentage) || 0;
   const urgency = stock > 0 && stock <= 20 ? ` Restam ${stock} unidades.` : ' Estoque limitado.';
-  return `${benefit} Compre hoje com frete rápido, parcelamento em até 12x e atendimento no WhatsApp.${urgency}`;
+  const discountCopy = discountPercentage > 0 ? ` Aproveite ${discountPercentage}% de desconto nesta promoção.` : '';
+  return `${benefit}${discountCopy} Compre hoje com frete rápido, parcelamento em até 12x e atendimento no WhatsApp.${urgency}`;
 };
 
 const getProductCampaignLabel = (product: any) => {
+  if (product?.promotionLabel) return String(product.promotionLabel);
   const reviews = Number(product?.reviews) || 0;
   const rating = Number(product?.rating) || 0;
   const stock = Number(product?.stock) || 0;
@@ -355,6 +364,7 @@ const getProductCampaignLabel = (product: any) => {
 };
 
 const getProductCtaLabel = (product: any) => {
+  if (product?.promotionCta) return String(product.promotionCta);
   const campaign = getProductCampaignLabel(product);
 
   if (campaign === 'ESTOQUE LIMITADO') return 'GARANTIR AGORA';
@@ -364,7 +374,9 @@ const getProductCtaLabel = (product: any) => {
 };
 
 const getProductBadgeList = (product: any) => {
+  const discountPercentage = Number(product?.discountPercentage) || 0;
   const badges = [
+    discountPercentage > 0 ? `${discountPercentage}% OFF` : product?.promotionBadge,
     getProductOfferLine(product),
     'Frete rápido',
     'Até 12x',
@@ -376,6 +388,16 @@ const getProductBadgeList = (product: any) => {
   }
 
   return badges.slice(0, 3);
+};
+
+const getProductComparePriceLabel = (product: any) => {
+  const compareAtPrice = Number(product?.compareAtPrice) || 0;
+  const price = Number(product?.price) || 0;
+  if (compareAtPrice > price) {
+    return `de ${formatBRL(compareAtPrice)}`;
+  }
+
+  return undefined;
 };
 
 const buildMetaBlock = (meta: {
@@ -501,6 +523,7 @@ const renderOgSvg = ({
   footer,
   imageUrl,
   priceLabel,
+  comparePriceLabel,
   badges = [],
   highlightLabel,
 }: {
@@ -511,6 +534,7 @@ const renderOgSvg = ({
   footer: string;
   imageUrl?: string;
   priceLabel?: string;
+  comparePriceLabel?: string;
   badges?: string[];
   highlightLabel?: string;
 }) => {
@@ -564,6 +588,7 @@ const renderOgSvg = ({
     ? `
   <rect x="714" y="520" width="240" height="64" rx="24" fill="#FF6321"/>
   <text x="834" y="560" text-anchor="middle" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="900">${escapeXml(priceLabel)}</text>
+  ${comparePriceLabel ? `<text x="970" y="558" fill="#D1D5DB" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700">${escapeXml(comparePriceLabel)}</text>` : ''}
   `
     : '';
 
@@ -1011,12 +1036,12 @@ app.get("/api/health", async (req, res) => {
             } catch (e) {
               console.warn(`Failed to parse images for product ${p.id}:`, e);
             }
-            return {
+            return applyPromotionToProduct({
               ...p,
               images,
               // Map single category to categories array for frontend compatibility
               categories: p.category ? [p.category] : []
-            };
+            });
           });
           usedSupabase = true;
         } catch (supaError: any) {
@@ -1035,11 +1060,11 @@ app.get("/api/health", async (req, res) => {
             } catch (e) {
               console.warn(`Failed to parse images for product ${p.id} from SQLite:`, e);
             }
-            return {
+            return applyPromotionToProduct({
               ...p,
               images,
               categories: p.category ? [p.category] : []
-            };
+            });
           });
         } catch (sqliteError) {
           console.error("SQLite products fetch failed:", sqliteError);
@@ -2381,6 +2406,7 @@ app.post("/api/checkout", async (req, res) => {
       footer: `L7 Fitness • ${offerLine}`,
       imageUrl,
       priceLabel: product ? formatBRL(Number(product.price) || 0) : undefined,
+      comparePriceLabel: getProductComparePriceLabel(product),
       badges: getProductBadgeList(product),
       highlightLabel: campaignLabel,
     }));

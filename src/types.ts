@@ -2,6 +2,11 @@ export interface Product {
   id: string;
   name: string;
   price: number;
+  compareAtPrice?: number;
+  discountPercentage?: number;
+  promotionLabel?: string;
+  promotionCta?: string;
+  promotionBadge?: string;
   description: string;
   category?: string;
   categories?: string[];

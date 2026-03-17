@@ -164,6 +164,10 @@ const getProductMarketingSummary = (product?: Product | null): ProductSalesCopy 
   };
 };
 
+const formatPriceBRL = (value?: number | null) => `R$ ${Number(value || 0).toFixed(2)}`;
+
+const hasProductPromotion = (product?: Product | null) => Boolean(product?.compareAtPrice && product.compareAtPrice > product.price && product.discountPercentage);
+
 // --- Components ---
 
 const ThemeToggle = ({
@@ -331,6 +335,11 @@ const ProductCard: React.FC<{ product: Product, onAddToCart: (p: Product) => voi
         <span className="bg-white/90 backdrop-blur-sm px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider text-brand-black">
           {product.category}
         </span>
+        {product.promotionLabel && (
+          <span className="bg-brand-orange text-white px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider shadow-sm">
+            {product.promotionLabel}
+          </span>
+        )}
         {product.stock <= 0 && (
           <span className="bg-red-500 text-white px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider">
             Esgotado
@@ -348,8 +357,18 @@ const ProductCard: React.FC<{ product: Product, onAddToCart: (p: Product) => voi
         </div>
         <span className="text-xs text-gray-400">({product.reviews})</span>
       </div>
-      <div className="flex items-center justify-between">
-        <span className="text-lg font-bold text-brand-orange">R$ {product.price.toFixed(2)}</span>
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          {hasProductPromotion(product) && (
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xs text-gray-400 line-through">{formatPriceBRL(product.compareAtPrice)}</span>
+              <span className="px-2 py-1 rounded-full bg-orange-50 text-brand-orange text-[10px] font-black uppercase tracking-widest">
+                -{product.discountPercentage}%
+              </span>
+            </div>
+          )}
+          <span className="text-lg font-bold text-brand-orange">{formatPriceBRL(product.price)}</span>
+        </div>
         <button 
           onClick={(e) => {
             e.stopPropagation();
@@ -948,7 +967,18 @@ const TipsPage = ({
                       <p className="text-sm text-gray-600 mb-2 leading-relaxed">{getProductMarketingSummary(result.primaryProduct).summary}</p>
                       <p className="text-xs text-gray-500 mb-1 leading-relaxed"><span className="font-bold text-gray-700">Para que serve:</span> {truncateText(getProductMarketingSummary(result.primaryProduct).purpose, 180)}</p>
                       <p className="text-xs text-gray-500 mb-3 leading-relaxed"><span className="font-bold text-gray-700">Composição:</span> {truncateText(getProductMarketingSummary(result.primaryProduct).composition, 180)}</p>
-                      <p className="text-2xl font-black text-brand-orange mb-4">R$ {result.primaryProduct.price.toFixed(2)}</p>
+                      {result.primaryProduct.promotionLabel && (
+                        <span className="inline-flex mb-3 px-3 py-1 rounded-full bg-orange-50 text-brand-orange text-[10px] font-black uppercase tracking-widest border border-orange-100">
+                          {result.primaryProduct.promotionLabel}
+                        </span>
+                      )}
+                      {hasProductPromotion(result.primaryProduct) && (
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs text-gray-400 line-through">{formatPriceBRL(result.primaryProduct.compareAtPrice)}</span>
+                          <span className="px-2 py-1 rounded-full bg-brand-black text-white text-[10px] font-black uppercase tracking-widest">-{result.primaryProduct.discountPercentage}%</span>
+                        </div>
+                      )}
+                      <p className="text-2xl font-black text-brand-orange mb-4">{formatPriceBRL(result.primaryProduct.price)}</p>
                       <div className="flex flex-col sm:flex-row flex-wrap gap-3">
                         <button onClick={() => onProductClick(result.primaryProduct)} className="btn-secondary text-sm w-full sm:w-auto">
                           Ver produto
@@ -972,7 +1002,18 @@ const TipsPage = ({
                       <p className="text-sm text-gray-600 mb-2 leading-relaxed">{getProductMarketingSummary(result.secondaryProduct).summary}</p>
                       <p className="text-xs text-gray-500 mb-1 leading-relaxed"><span className="font-bold text-gray-700">Para que serve:</span> {truncateText(getProductMarketingSummary(result.secondaryProduct).purpose, 160)}</p>
                       <p className="text-xs text-gray-500 mb-2 leading-relaxed"><span className="font-bold text-gray-700">Composição:</span> {truncateText(getProductMarketingSummary(result.secondaryProduct).composition, 160)}</p>
-                      <p className="text-lg font-black text-brand-orange mb-3">R$ {result.secondaryProduct.price.toFixed(2)}</p>
+                      {result.secondaryProduct.promotionLabel && (
+                        <span className="inline-flex mb-2 px-3 py-1 rounded-full bg-orange-50 text-brand-orange text-[10px] font-black uppercase tracking-widest border border-orange-100">
+                          {result.secondaryProduct.promotionLabel}
+                        </span>
+                      )}
+                      {hasProductPromotion(result.secondaryProduct) && (
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs text-gray-400 line-through">{formatPriceBRL(result.secondaryProduct.compareAtPrice)}</span>
+                          <span className="px-2 py-1 rounded-full bg-brand-black text-white text-[10px] font-black uppercase tracking-widest">-{result.secondaryProduct.discountPercentage}%</span>
+                        </div>
+                      )}
+                      <p className="text-lg font-black text-brand-orange mb-3">{formatPriceBRL(result.secondaryProduct.price)}</p>
                       <button onClick={() => onAddToCart(result.secondaryProduct)} className="btn-primary text-sm w-full sm:w-auto">
                         Adicionar complementar
                       </button>
@@ -1075,6 +1116,18 @@ const ProductDetailsPage: React.FC<{ product: Product, onAddToCart: (p: Product)
           <span className="text-brand-orange font-bold uppercase text-xs tracking-widest mb-4">
             {product.category}
           </span>
+          {product.promotionLabel && (
+            <div className="mb-4 inline-flex items-center gap-2">
+              <span className="px-4 py-2 rounded-full bg-orange-50 text-brand-orange text-xs font-black uppercase tracking-widest border border-orange-100">
+                {product.promotionLabel}
+              </span>
+              {hasProductPromotion(product) && (
+                <span className="px-4 py-2 rounded-full bg-brand-black text-white text-xs font-black uppercase tracking-widest">
+                  {product.discountPercentage}% OFF REAL
+                </span>
+              )}
+            </div>
+          )}
           <h1 className="text-5xl font-black mb-6 uppercase leading-tight">
             {product.name}
           </h1>
@@ -1104,10 +1157,20 @@ const ProductDetailsPage: React.FC<{ product: Product, onAddToCart: (p: Product)
             </div>
           </div>
 
-          <div className="flex items-center gap-8 mb-10">
-            <span className="text-4xl font-black text-brand-orange">
-              R$ {product.price.toFixed(2)}
-            </span>
+          <div className="flex flex-wrap items-center gap-6 mb-10">
+            <div>
+              {hasProductPromotion(product) && (
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-lg text-gray-400 line-through font-bold">{formatPriceBRL(product.compareAtPrice)}</span>
+                  <span className="px-3 py-1 rounded-full bg-orange-50 text-brand-orange text-xs font-black uppercase tracking-widest border border-orange-100">
+                    Economize {product.discountPercentage}%
+                  </span>
+                </div>
+              )}
+              <span className="text-4xl font-black text-brand-orange">
+                {formatPriceBRL(product.price)}
+              </span>
+            </div>
             <div className="h-8 w-px bg-gray-200" />
             {product.stock > 0 ? (
               <span className="text-green-500 font-bold flex items-center gap-2">
