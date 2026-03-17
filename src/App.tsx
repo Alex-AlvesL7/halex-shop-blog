@@ -1146,6 +1146,7 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
   const [orderFulfillmentDrafts, setOrderFulfillmentDrafts] = useState<Record<string, { status: string; trackingCode: string; trackingUrl: string; internalNote: string }>>({});
   const [savingOrderId, setSavingOrderId] = useState<string | null>(null);
   const [orderStatusFilter, setOrderStatusFilter] = useState<'all' | 'paid' | 'pending' | 'aguardando-envio' | 'separando' | 'postado' | 'entregue'>('all');
+  const [orderSearch, setOrderSearch] = useState('');
   const [aiInsight, setAiInsight] = useState<string | null>(null);
   const [loadingInsight, setLoadingInsight] = useState(false);
   const [affiliates, setAffiliates] = useState<any[]>([]);
@@ -1240,12 +1241,32 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
   }, [orders]);
 
   const filteredOrders = useMemo(() => {
-    if (orderStatusFilter === 'all') return orders;
-    if (orderStatusFilter === 'paid' || orderStatusFilter === 'pending') {
-      return orders.filter((order: any) => order.status === orderStatusFilter);
-    }
-    return orders.filter((order: any) => (order.fulfillment?.status || 'aguardando-envio') === orderStatusFilter);
-  }, [orders, orderStatusFilter]);
+    const byStatus = orderStatusFilter === 'all'
+      ? orders
+      : orderStatusFilter === 'paid' || orderStatusFilter === 'pending'
+        ? orders.filter((order: any) => order.status === orderStatusFilter)
+        : orders.filter((order: any) => (order.fulfillment?.status || 'aguardando-envio') === orderStatusFilter);
+
+    const query = orderSearch.trim().toLowerCase();
+    if (!query) return byStatus;
+
+    return byStatus.filter((order: any) => {
+      const haystack = [
+        order.order_nsu,
+        order.customer_email,
+        order.customer?.name,
+        order.customer?.phone,
+        order.customer?.document,
+        order.shipping?.city,
+        order.shipping?.cep,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      return haystack.includes(query);
+    });
+  }, [orders, orderStatusFilter, orderSearch]);
 
   const COLORS = ['#FF6321', '#141414', '#10B981', '#6366F1', '#F59E0B'];
 
@@ -1830,6 +1851,24 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
               <AffiliatesManagement affiliates={affiliates} onRefresh={onRefresh} />
             ) : (
               <div className="space-y-4">
+                <div className="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
+                  <div className="flex-1 max-w-xl">
+                    <input
+                      value={orderSearch}
+                      onChange={(e) => setOrderSearch(e.target.value)}
+                      placeholder="Buscar por pedido, nome, e-mail, telefone, CPF, cidade ou CEP"
+                      className="w-full px-4 py-3 rounded-2xl border border-gray-200 bg-white focus:border-brand-orange focus:outline-none"
+                    />
+                  </div>
+                  {orderSearch && (
+                    <button
+                      onClick={() => setOrderSearch('')}
+                      className="px-4 py-3 rounded-2xl bg-gray-100 text-gray-600 text-sm font-bold uppercase tracking-widest hover:bg-gray-200 transition-colors"
+                    >
+                      Limpar busca
+                    </button>
+                  )}
+                </div>
                 <div className="flex flex-wrap gap-2 mb-2">
                   {[
                     ['all', 'Todos'],
