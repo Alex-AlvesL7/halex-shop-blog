@@ -1222,6 +1222,37 @@ const getLeadMonthlyPlanWhatsAppLink = (phone?: string, lead?: any) => {
   return `https://wa.me/${normalized}?text=${message}`;
 };
 
+const normalizeLeadText = (value?: string | null) => String(value || '')
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase();
+
+const getLeadProfileContext = (lead?: any) => {
+  const goal = normalizeLeadText(lead?.goal);
+  const restrictions = normalizeLeadText(lead?.restrictions);
+  const activity = normalizeLeadText(lead?.activity_level);
+
+  const traits: string[] = [];
+
+  if (goal.includes('emag')) traits.push('foco em emagrecimento');
+  else if (goal.includes('hipertrof')) traits.push('foco em ganho de massa');
+  else if (goal.includes('performance')) traits.push('foco em performance');
+  else if (goal.includes('saude')) traits.push('foco em saúde e constância');
+
+  if (activity.includes('baixo')) traits.push('rotina com atividade física baixa');
+  if (activity.includes('moderado')) traits.push('rotina com atividade moderada');
+  if (restrictions.includes('corrida') || restrictions.includes('sem tempo') || restrictions.includes('rotina')) traits.push('dia a dia corrido');
+  if (restrictions.includes('noite')) traits.push('treina ou organiza rotina mais à noite');
+  if (restrictions.includes('cafeina')) traits.push('atenção com sensibilidade à cafeína');
+  if (restrictions.includes('pos parto') || restrictions.includes('pos-parto') || restrictions.includes('matern')) traits.push('momento de pós-parto ou maternidade');
+
+  return traits.slice(0, 3);
+};
+
+const getLeadProfileBadges = (lead?: any) => {
+  return getLeadProfileContext(lead).map((item) => item.replace(/^foco em /, '').replace(/^rotina com /, '')).slice(0, 3);
+};
+
 const getLeadTemplateWhatsAppLink = (phone?: string, lead?: any, template?: 'first-contact' | 'checkout-recovery' | 'follow-up' | 'plan-follow-up') => {
   const digits = String(phone || '').replace(/\D/g, '');
   if (!digits) return '';
@@ -1230,12 +1261,14 @@ const getLeadTemplateWhatsAppLink = (phone?: string, lead?: any, template?: 'fir
   const name = lead?.name || 'tudo bem';
   const goal = lead?.goal || 'seu objetivo';
   const productName = lead?.recommendedProduct?.name || lead?.recommendedProductName || 'o produto recomendado';
+  const profileContext = getLeadProfileContext(lead);
+  const contextLine = profileContext.length > 0 ? `Considerando seu perfil (${profileContext.join(', ')}), ` : '';
 
   const templates: Record<string, string> = {
-    'first-contact': `Olá, ${name}! Aqui é da L7 Fitness. Vi seu resultado no quiz para ${goal} e separei ${productName} como melhor ponto de partida. Se quiser, posso te explicar como usar e te orientar no começo.`,
-    'checkout-recovery': `Olá, ${name}! Vi que você chegou perto de concluir sua compra na L7 Fitness. Se quiser, eu posso te ajudar a finalizar ${productName} e tirar qualquer dúvida antes de fechar.`,
-    'follow-up': `Olá, ${name}! Passando para acompanhar sua recomendação da L7 Fitness. Você ainda quer ajuda para escolher a melhor forma de começar com ${productName}?`,
-    'plan-follow-up': `Olá, ${name}! Além do ${productName}, queria te mostrar nosso acompanhamento mensal com alimentação, treino e ajustes semanais. Se fizer sentido para você, te explico como funciona.`
+    'first-contact': `Olá, ${name}! Aqui é da L7 Fitness. Vi seu resultado no quiz para ${goal} e separei ${productName} como melhor ponto de partida. ${contextLine}posso te explicar como usar e te orientar no começo.`,
+    'checkout-recovery': `Olá, ${name}! Vi que você chegou perto de concluir sua compra na L7 Fitness. ${contextLine}se quiser, eu posso te ajudar a finalizar ${productName} e tirar qualquer dúvida antes de fechar.`,
+    'follow-up': `Olá, ${name}! Passando para acompanhar sua recomendação da L7 Fitness. ${contextLine}você ainda quer ajuda para escolher a melhor forma de começar com ${productName}?`,
+    'plan-follow-up': `Olá, ${name}! Além do ${productName}, queria te mostrar nosso acompanhamento mensal com alimentação, treino e ajustes semanais. ${contextLine}se fizer sentido para você, te explico como funciona.`
   };
 
   return `https://wa.me/${normalized}?text=${encodeURIComponent(templates[template || 'follow-up'])}`;
@@ -2615,6 +2648,7 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                     const checkoutRecoveryLink = getLeadTemplateWhatsAppLink(lead.phone, lead, 'checkout-recovery');
                     const followUpLink = getLeadTemplateWhatsAppLink(lead.phone, lead, 'follow-up');
                     const planFollowUpLink = getLeadTemplateWhatsAppLink(lead.phone, lead, 'plan-follow-up');
+                    const profileBadges = getLeadProfileBadges(lead);
 
                     return (
                       <div key={lead.id} className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-all">
@@ -2627,6 +2661,15 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                             </div>
                             <p className="text-sm text-gray-500">{lead.email || 'Sem e-mail'}{lead.phone ? ` • ${lead.phone}` : ''}</p>
                             <p className="text-xs text-gray-400 mt-1">Criado em {new Date(lead.created_at).toLocaleString('pt-BR')}</p>
+                            {profileBadges.length > 0 && (
+                              <div className="flex flex-wrap gap-2 mt-3">
+                                {profileBadges.map((badge) => (
+                                  <span key={badge} className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest bg-orange-50 text-brand-orange border border-orange-100">
+                                    {badge}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </div>
                           <div className="text-left lg:text-right">
                             <p className="text-xs uppercase tracking-widest text-gray-400 font-bold mb-1">Produto recomendado</p>
