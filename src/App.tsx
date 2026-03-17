@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, createContext, useContext } from '
 import { ShoppingBag, Menu, X, User, Search, ChevronRight, Instagram, Facebook, Youtube, Plus, Trash2, LayoutDashboard, Package, FileText, Edit, Upload, CheckCircle, TrendingUp, DollarSign, Users, BarChart3, Heart, LogOut, Tag, ArrowLeft, Mail, Phone, MapPin, CreditCard, Sun, Moon, Monitor, Sparkles, ShieldCheck, Truck, Pill, Leaf, Droplets } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
+import ReactMarkdown from 'react-markdown';
 import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from './services/supabaseClient';
@@ -341,7 +342,42 @@ const getProductDetailContent = (product?: Product | null) => {
 const getProductCompositionPanels = (product?: Product | null): ProductCompositionPanel[] => {
   if (!product) return [];
 
+  const structured = parseStructuredProductContent(product.description);
   const summary = getProductMarketingSummary(product);
+
+  if (structured.hasStructuredContent) {
+    const kitItems = String(structured.kitContents || '')
+      .replace(/\r/g, '')
+      .split(/\n|\+/)
+      .map((item) => item.replace(/^[•*\-\d.\s]+/, '').trim())
+      .filter(Boolean);
+
+    if (kitItems.length > 1) {
+      return kitItems.slice(0, 4).map((item, index) => ({
+        id: `${product.id}-item-${index}`,
+        label: index === 0 ? 'Principal' : 'Complemento',
+        title: item,
+        purpose: structured.purpose || summary.purpose,
+        composition: structured.composition || structured.kitContents || summary.composition,
+        icon: index === 0 ? Pill : index % 2 === 0 ? Droplets : Leaf,
+        iconAccent: index === 0 ? 'from-orange-500 via-amber-400 to-yellow-300' : index % 2 === 0 ? 'from-cyan-500 via-sky-400 to-teal-300' : 'from-emerald-500 via-lime-400 to-green-300',
+        surfaceAccent: index === 0 ? 'from-orange-50 via-white to-amber-50' : index % 2 === 0 ? 'from-cyan-50 via-white to-teal-50' : 'from-emerald-50 via-white to-lime-50',
+      }));
+    }
+
+    return [
+      {
+        id: product.id,
+        label: 'Fórmula',
+        title: product.name.replace(/^1\s*/i, ''),
+        purpose: structured.purpose || summary.purpose,
+        composition: structured.composition || structured.kitContents || summary.composition,
+        icon: Pill,
+        iconAccent: 'from-orange-500 via-amber-400 to-yellow-300',
+        surfaceAccent: 'from-orange-50 via-white to-amber-50',
+      },
+    ];
+  }
 
   switch (product.id) {
     case 'l7-ultra-450-kit':
@@ -1723,7 +1759,9 @@ const ProductInfoPage: React.FC<{ product: Product, onAddToCart: (p: Product) =>
           ].filter(([, value]) => String(value || '').trim()).map(([title, value]) => (
             <div key={title} className="bg-white rounded-[32px] border border-gray-100 shadow-sm p-6">
               <p className="text-[10px] uppercase tracking-[0.22em] text-brand-orange font-black mb-3">{title}</p>
-              <div className="text-sm text-gray-600 leading-7 whitespace-pre-line">{value}</div>
+              <div className="markdown-body text-sm text-gray-600 leading-7">
+                <ReactMarkdown>{String(value || '')}</ReactMarkdown>
+              </div>
             </div>
           ))}
         </div>
