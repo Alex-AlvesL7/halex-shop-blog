@@ -21,6 +21,30 @@
       "dest": "server.ts"
     },
     {
+      "src": "/og/(.*)",
+      "dest": "server.ts"
+    },
+    {
+      "src": "/produto/(.*)",
+      "dest": "server.ts"
+    },
+    {
+      "src": "/blog",
+      "dest": "server.ts"
+    },
+    {
+      "src": "/blog/(.*)",
+      "dest": "server.ts"
+    },
+    {
+      "src": "/loja",
+      "dest": "server.ts"
+    },
+    {
+      "src": "/dicas-ai",
+      "dest": "server.ts"
+    },
+    {
       "src": "/(.*)",
       "dest": "/$1",
       "check": true

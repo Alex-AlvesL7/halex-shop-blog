@@ -2,9 +2,11 @@ import express from "express";
 import axios from "axios";
 import Database from "better-sqlite3";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 import { createClient } from "@supabase/supabase-js";
 import { enviarEmail } from "./mailer.js";
+import { PRODUCTS, POSTS } from "./src/data.js";
 import crypto from "crypto";
 import dotenv from "dotenv";
 
@@ -257,6 +259,229 @@ const formatBRL = (value: number) => Number(value || 0).toLocaleString('pt-BR', 
   style: 'currency',
   currency: 'BRL',
 });
+
+const escapeXml = (value: any) => String(value ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&apos;');
+
+const getProductsCatalog = () => {
+  if (db) {
+    try {
+      const products = db.prepare('SELECT * FROM products').all();
+      if (Array.isArray(products) && products.length > 0) return products;
+    } catch (error) {
+      console.warn('Falha ao carregar catálogo de produtos para SEO:', error);
+    }
+  }
+
+  return PRODUCTS;
+};
+
+const getPostsCatalog = () => {
+  if (db) {
+    try {
+      const posts = db.prepare('SELECT * FROM posts').all();
+      if (Array.isArray(posts) && posts.length > 0) return posts;
+    } catch (error) {
+      console.warn('Falha ao carregar posts para SEO:', error);
+    }
+  }
+
+  return POSTS;
+};
+
+const getProductByIdForMeta = (id?: string | null) => {
+  if (!id) return null;
+  return getProductsCatalog().find((product: any) => String(product.id) === String(id)) || null;
+};
+
+const getPostByIdForMeta = (id?: string | null) => {
+  if (!id) return null;
+  return getPostsCatalog().find((post: any) => String(post.id) === String(id)) || null;
+};
+
+const buildMetaBlock = (meta: {
+  title: string;
+  description: string;
+  canonicalUrl: string;
+  imageUrl: string;
+  imageAlt: string;
+  type?: string;
+}) => `
+    <title>${escapeHtml(meta.title)}</title>
+    <meta name="description" content="${escapeHtml(meta.description)}" />
+    <meta name="keywords" content="L7 Fitness, suplementos, emagrecedores, loja fitness, frete rápido, parcelamento, acompanhamento mensal" />
+    <meta name="robots" content="index,follow" />
+    <meta name="theme-color" content="#111111" />
+    <link rel="canonical" href="${escapeHtml(meta.canonicalUrl)}" />
+
+    <meta property="og:locale" content="pt_BR" />
+    <meta property="og:type" content="${escapeHtml(meta.type || 'website')}" />
+    <meta property="og:site_name" content="L7 Fitness" />
+    <meta property="og:title" content="${escapeHtml(meta.title)}" />
+    <meta property="og:description" content="${escapeHtml(meta.description)}" />
+    <meta property="og:url" content="${escapeHtml(meta.canonicalUrl)}" />
+    <meta property="og:image" content="${escapeHtml(meta.imageUrl)}" />
+    <meta property="og:image:secure_url" content="${escapeHtml(meta.imageUrl)}" />
+    <meta property="og:image:type" content="image/svg+xml" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="${escapeHtml(meta.imageAlt)}" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="${escapeHtml(meta.title)}" />
+    <meta name="twitter:description" content="${escapeHtml(meta.description)}" />
+    <meta name="twitter:image" content="${escapeHtml(meta.imageUrl)}" />
+    <meta name="twitter:image:alt" content="${escapeHtml(meta.imageAlt)}" />
+  `;
+
+const getRouteMeta = (pathname: string, appUrl: string) => {
+  const normalizedPath = String(pathname || '/').split('?')[0] || '/';
+  const productMatch = normalizedPath.match(/^\/produto\/([^/]+)$/);
+  const blogDetailMatch = normalizedPath.match(/^\/blog\/([^/]+)$/);
+
+  const defaultMeta = {
+    title: 'L7 Fitness | Garanta seu suplemento com frete rápido',
+    description: 'Garanta hoje seus suplementos L7 Fitness com frete rápido, parcelamento em até 12x e atendimento direto no WhatsApp. Estoque limitado.',
+    canonicalUrl: `${appUrl}${normalizedPath === '/' ? '/' : normalizedPath}`,
+    imageUrl: `${appUrl}/og/default.svg`,
+    imageAlt: 'Arte promocional da L7 Fitness com CTA de compra',
+    type: 'website',
+  };
+
+  if (productMatch) {
+    const productId = decodeURIComponent(productMatch[1]);
+    const product = getProductByIdForMeta(productId);
+    if (product) {
+      return {
+        title: `${product.name} | Compre agora na L7 Fitness`,
+        description: `${String(product.description || 'Suplemento L7 Fitness').trim()} Compre hoje com frete rápido, parcelamento em até 12x e atendimento no WhatsApp.`,
+        canonicalUrl: `${appUrl}/produto/${encodeURIComponent(productId)}`,
+        imageUrl: `${appUrl}/og/product/${encodeURIComponent(productId)}.svg`,
+        imageAlt: `${product.name} com CTA de compra da L7 Fitness`,
+        type: 'product',
+      };
+    }
+  }
+
+  if (blogDetailMatch) {
+    const postId = decodeURIComponent(blogDetailMatch[1]);
+    const post = getPostByIdForMeta(postId);
+    if (post) {
+      return {
+        title: `${post.title} | Blog L7 Fitness`,
+        description: `${String(post.excerpt || post.content || '').trim()} Leia agora no blog da L7 Fitness e descubra a melhor estratégia para acelerar seus resultados.`,
+        canonicalUrl: `${appUrl}/blog/${encodeURIComponent(postId)}`,
+        imageUrl: `${appUrl}/og/blog/${encodeURIComponent(postId)}.svg`,
+        imageAlt: `${post.title} no blog da L7 Fitness`,
+        type: 'article',
+      };
+    }
+  }
+
+  if (normalizedPath === '/loja') {
+    return {
+      ...defaultMeta,
+      title: 'Loja L7 Fitness | Ofertas fortes e frete rápido',
+      description: 'Veja os suplementos e kits da L7 Fitness com ofertas fortes, frete rápido e parcelamento em até 12x.',
+      canonicalUrl: `${appUrl}/loja`,
+      imageUrl: `${appUrl}/og/store.svg`,
+      imageAlt: 'Loja L7 Fitness com ofertas e frete rápido',
+    };
+  }
+
+  if (normalizedPath === '/dicas-ai') {
+    return {
+      ...defaultMeta,
+      title: 'Quiz AI L7 Fitness | Descubra sua melhor recomendação',
+      description: 'Faça o quiz da L7 Fitness e receba uma recomendação personalizada com produto, alimentação, treino e oferta especial.',
+      canonicalUrl: `${appUrl}/dicas-ai`,
+      imageUrl: `${appUrl}/og/quiz.svg`,
+      imageAlt: 'Quiz AI da L7 Fitness com recomendação personalizada',
+    };
+  }
+
+  if (normalizedPath === '/blog') {
+    return {
+      ...defaultMeta,
+      title: 'Blog L7 Fitness | Dicas de treino, dieta e resultados',
+      description: 'Leia dicas práticas de emagrecimento, treino e alimentação no blog da L7 Fitness e acelere seus resultados.',
+      canonicalUrl: `${appUrl}/blog`,
+      imageUrl: `${appUrl}/og/blog.svg`,
+      imageAlt: 'Blog L7 Fitness com dicas de treino e alimentação',
+    };
+  }
+
+  return defaultMeta;
+};
+
+const renderOgSvg = ({
+  eyebrow,
+  title,
+  subtitle,
+  cta,
+  footer,
+}: {
+  eyebrow: string;
+  title: string;
+  subtitle: string;
+  cta: string;
+  footer: string;
+}) => {
+  const words = String(title || '').trim().split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let currentLine = '';
+
+  for (const word of words) {
+    const candidate = currentLine ? `${currentLine} ${word}` : word;
+    if (candidate.length <= 22) {
+      currentLine = candidate;
+    } else {
+      if (currentLine) lines.push(currentLine);
+      currentLine = word;
+      if (lines.length === 2) break;
+    }
+  }
+
+  if (currentLine && lines.length < 3) lines.push(currentLine);
+
+  const visibleLines = lines.slice(0, 3);
+  const titleSvg = visibleLines.map((line, index) => `<text x="100" y="${210 + (index * 76)}" fill="${index === visibleLines.length - 1 ? '#FF6321' : '#FFFFFF'}" font-family="Arial, Helvetica, sans-serif" font-size="68" font-weight="900">${escapeXml(line)}</text>`).join('');
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="60" y1="40" x2="1120" y2="600" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0B0B0F"/>
+      <stop offset="1" stop-color="#1D1D27"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="712" y1="180" x2="988" y2="470" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FF7A1A"/>
+      <stop offset="1" stop-color="#FF4D00"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" rx="32" fill="url(#bg)"/>
+  <circle cx="1050" cy="118" r="180" fill="#FF6321" opacity="0.10"/>
+  <circle cx="140" cy="560" r="200" fill="#FF6321" opacity="0.08"/>
+  <rect x="62" y="58" width="1076" height="514" rx="30" fill="white" fill-opacity="0.03" stroke="white" stroke-opacity="0.08"/>
+  <rect x="100" y="96" width="210" height="46" rx="23" fill="#FF6321"/>
+  <text x="205" y="126" text-anchor="middle" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="800">${escapeXml(eyebrow)}</text>
+  ${titleSvg}
+  <text x="100" y="466" fill="#D1D5DB" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="500">${escapeXml(subtitle)}</text>
+  <rect x="100" y="500" width="360" height="64" rx="32" fill="#FF6321"/>
+  <text x="280" y="542" text-anchor="middle" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="900">${escapeXml(cta)}</text>
+  <text x="100" y="590" fill="#9CA3AF" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700">${escapeXml(footer)}</text>
+  <rect x="714" y="190" width="196" height="220" rx="32" fill="url(#accent)"/>
+  <rect x="742" y="218" width="140" height="164" rx="24" fill="#111318"/>
+  <text x="812" y="285" text-anchor="middle" fill="#FF6321" font-family="Arial, Helvetica, sans-serif" font-size="60" font-weight="900">L7</text>
+  <text x="812" y="324" text-anchor="middle" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" letter-spacing="4">FITNESS</text>
+  <text x="812" y="356" text-anchor="middle" fill="#D1D5DB" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700">FRETE RÁPIDO</text>
+  <rect x="748" y="410" width="128" height="12" rx="6" fill="#2A2D35"/>
+</svg>`;
+};
 
 const normalizeOrderRecord = (order: any) => {
   let parsedItems: any[] = [];
@@ -1987,6 +2212,94 @@ app.post("/api/checkout", async (req, res) => {
     }
   });
 
+  app.get('/og/:variant(default|store|quiz|blog).svg', (req, res) => {
+    const variant = req.params.variant;
+
+    const presets: Record<string, { eyebrow: string; title: string; subtitle: string; cta: string; footer: string }> = {
+      default: {
+        eyebrow: 'L7 FITNESS',
+        title: 'Garanta seus suplementos com frete rápido',
+        subtitle: 'Ofertas fortes, parcelamento em até 12x e atendimento direto no WhatsApp.',
+        cta: 'COMPRE AGORA',
+        footer: 'www.l7fitness.com.br',
+      },
+      store: {
+        eyebrow: 'LOJA OFICIAL',
+        title: 'Ofertas fortes para acelerar seus resultados',
+        subtitle: 'Kits e suplementos L7 Fitness com frete rápido para todo o Brasil.',
+        cta: 'VER OFERTAS',
+        footer: 'Loja L7 Fitness',
+      },
+      quiz: {
+        eyebrow: 'QUIZ AI',
+        title: 'Descubra sua melhor recomendação personalizada',
+        subtitle: 'Receba produto, alimentação e treino ideais para o seu perfil.',
+        cta: 'FAZER QUIZ',
+        footer: 'Diagnóstico comercial inteligente',
+      },
+      blog: {
+        eyebrow: 'BLOG L7',
+        title: 'Dicas práticas de treino dieta e emagrecimento',
+        subtitle: 'Conteúdo rápido para transformar constância em resultado.',
+        cta: 'LER AGORA',
+        footer: 'Blog oficial L7 Fitness',
+      },
+    };
+
+    res.setHeader('Content-Type', 'image/svg+xml');
+    res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=86400');
+    res.send(renderOgSvg(presets[variant] || presets.default));
+  });
+
+  app.get('/og/product/:id.svg', (req, res) => {
+    const product = getProductByIdForMeta(decodeURIComponent(req.params.id || ''));
+
+    res.setHeader('Content-Type', 'image/svg+xml');
+    res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=86400');
+    res.send(renderOgSvg({
+      eyebrow: 'OFERTA L7',
+      title: product?.name || 'Suplemento L7 Fitness',
+      subtitle: product?.description || 'Compre com frete rápido, parcelamento em até 12x e atendimento no WhatsApp.',
+      cta: 'COMPRAR AGORA',
+      footer: `L7 Fitness • ${product ? formatBRL(Number(product.price) || 0) : 'Oferta especial'}`,
+    }));
+  });
+
+  app.get('/og/blog/:id.svg', (req, res) => {
+    const post = getPostByIdForMeta(decodeURIComponent(req.params.id || ''));
+
+    res.setHeader('Content-Type', 'image/svg+xml');
+    res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=86400');
+    res.send(renderOgSvg({
+      eyebrow: 'BLOG L7',
+      title: post?.title || 'Conteúdo L7 Fitness',
+      subtitle: post?.excerpt || 'Leia uma dica prática para acelerar seus resultados com mais estratégia.',
+      cta: 'LER AGORA',
+      footer: `Blog L7 Fitness • ${post?.readTime || 'Leitura rápida'}`,
+    }));
+  });
+
+  const renderAppWithMeta = (req: any, res: any, next?: any) => {
+    try {
+      const htmlPath = process.env.NODE_ENV === 'production'
+        ? path.join(__dirname, 'dist', 'index.html')
+        : path.join(__dirname, 'index.html');
+      const html = fs.readFileSync(htmlPath, 'utf-8');
+      const meta = getRouteMeta(req.path, resolveAppUrl(req));
+      const injectedHtml = html.replace(
+        /<!-- SEO_META_START -->([\s\S]*?)<!-- SEO_META_END -->/,
+        `<!-- SEO_META_START -->${buildMetaBlock(meta)}<!-- SEO_META_END -->`
+      );
+
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.send(injectedHtml);
+    } catch (error) {
+      console.error('Falha ao renderizar HTML com meta tags dinâmicas:', error);
+      if (next) return next(error);
+      res.status(500).send('Erro ao renderizar página.');
+    }
+  };
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     (async () => {
@@ -1999,9 +2312,10 @@ app.post("/api/checkout", async (req, res) => {
     })();
   } else {
     app.use(express.static(path.join(__dirname, "dist")));
+    app.get(['/', '/loja', '/dicas-ai', '/produto/:id', '/blog', '/blog/:id', '/admin', '/checkout', '/checkout/success', '/afiliado/:refCode'], renderAppWithMeta);
     app.get("*", (req, res, next) => {
       if (req.path.startsWith("/api")) return next();
-      res.sendFile(path.join(__dirname, "dist", "index.html"));
+      renderAppWithMeta(req, res, next);
     });
   }
 

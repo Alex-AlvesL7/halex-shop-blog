@@ -3605,9 +3605,107 @@ function MainApp() {
   const [selectedFrete, setSelectedFrete] = useState<FreteOption | null>(null);
   const [selectedAffiliateRef, setSelectedAffiliateRef] = useState<string | null>(null);
   const [checkoutForm, setCheckoutForm] = useState<CheckoutFormData>(initialCheckoutForm);
-  const [lastPageBeforeCheckout, setLastPageBeforeCheckout] = useState('home');
+  const [lastPageBeforeCheckout, setLastPageBeforeCheckout] = useState('/');
   const [themePreference, setThemePreference] = useState<'light' | 'dark' | 'system'>('system');
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light');
+
+  const getPathForPage = (page: string, options?: { productId?: string | null; postId?: string | null; affiliateRef?: string | null }) => {
+    if (page === 'store') return '/loja';
+    if (page === 'tips') return '/dicas-ai';
+    if (page === 'blog') return '/blog';
+    if (page === 'blog-details' && options?.postId) return `/blog/${encodeURIComponent(options.postId)}`;
+    if (page === 'product-details' && options?.productId) return `/produto/${encodeURIComponent(options.productId)}`;
+    if (page === 'admin') return '/admin';
+    if (page === 'checkout') return '/checkout';
+    if (page === 'checkout-success') return '/checkout/success';
+    if (page === 'affiliate-dashboard' && options?.affiliateRef) return `/afiliado/${encodeURIComponent(options.affiliateRef)}`;
+    return '/';
+  };
+
+  const syncStateWithPath = (pathname: string) => {
+    if (pathname.startsWith('/afiliado/')) {
+      const refCode = decodeURIComponent(pathname.split('/')[2] || '');
+      setSelectedAffiliateRef(refCode || null);
+      setSelectedProductId(null);
+      setSelectedPostId(null);
+      setCurrentPage('affiliate-dashboard');
+      return;
+    }
+
+    if (pathname === '/checkout/success') {
+      setSelectedProductId(null);
+      setSelectedPostId(null);
+      setCurrentPage('checkout-success');
+      setCart([]);
+      setSelectedFrete(null);
+      return;
+    }
+
+    if (pathname === '/checkout') {
+      setSelectedProductId(null);
+      setSelectedPostId(null);
+      setCurrentPage('checkout');
+      return;
+    }
+
+    if (pathname.startsWith('/produto/')) {
+      const productId = decodeURIComponent(pathname.split('/')[2] || '');
+      setSelectedProductId(productId || null);
+      setSelectedPostId(null);
+      setCurrentPage('product-details');
+      return;
+    }
+
+    if (pathname.startsWith('/blog/')) {
+      const postId = decodeURIComponent(pathname.split('/')[2] || '');
+      setSelectedPostId(postId || null);
+      setSelectedProductId(null);
+      setCurrentPage('blog-details');
+      return;
+    }
+
+    if (pathname === '/blog') {
+      setSelectedProductId(null);
+      setSelectedPostId(null);
+      setCurrentPage('blog');
+      return;
+    }
+
+    if (pathname === '/loja') {
+      setSelectedProductId(null);
+      setSelectedPostId(null);
+      setCurrentPage('store');
+      return;
+    }
+
+    if (pathname === '/dicas-ai') {
+      setSelectedProductId(null);
+      setSelectedPostId(null);
+      setCurrentPage('tips');
+      return;
+    }
+
+    if (pathname === '/admin') {
+      setSelectedProductId(null);
+      setSelectedPostId(null);
+      setCurrentPage('admin');
+      return;
+    }
+
+    setSelectedProductId(null);
+    setSelectedPostId(null);
+    setCurrentPage('home');
+  };
+
+  const navigateTo = (page: string, options?: { productId?: string | null; postId?: string | null; affiliateRef?: string | null; replace?: boolean }) => {
+    const nextPath = getPathForPage(page, options);
+    const historyMethod = options?.replace ? 'replaceState' : 'pushState';
+    if (window.location.pathname !== nextPath) {
+      window.history[historyMethod]({}, '', nextPath);
+    }
+    syncStateWithPath(nextPath);
+    window.scrollTo(0, 0);
+  };
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -3615,13 +3713,11 @@ function MainApp() {
     if (ref) {
       localStorage.setItem('affiliate_ref', ref);
     }
-    
-    // Check for affiliate dashboard route
-    if (window.location.pathname.startsWith('/afiliado/')) {
-      const refCode = window.location.pathname.split('/')[2];
-      setSelectedAffiliateRef(refCode);
-      setCurrentPage('affiliate-dashboard');
-    }
+
+    syncStateWithPath(window.location.pathname);
+
+    const handlePopState = () => syncStateWithPath(window.location.pathname);
+    window.addEventListener('popstate', handlePopState);
 
     try {
       const savedCheckoutData = localStorage.getItem('l7_checkout_data');
@@ -3641,6 +3737,10 @@ function MainApp() {
     } catch (error) {
       console.warn('Falha ao carregar tema do site:', error);
     }
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
   }, []);
 
   useEffect(() => {
@@ -3708,12 +3808,6 @@ function MainApp() {
 
   useEffect(() => {
     fetchData();
-    if (window.location.pathname === '/checkout/success') {
-      setCurrentPage('checkout-success');
-      setCart([]);
-      // Clean up URL
-      window.history.replaceState({}, '', '/');
-    }
   }, []);
 
   const addToCart = (product: Product) => {
@@ -3740,15 +3834,11 @@ function MainApp() {
   };
 
   const handleProductClick = (product: Product) => {
-    setSelectedProductId(product.id);
-    setCurrentPage('product-details');
-    window.scrollTo(0, 0);
+    navigateTo('product-details', { productId: product.id });
   };
 
   const handlePostClick = (post: BlogPost) => {
-    setSelectedPostId(post.id);
-    setCurrentPage('blog-details');
-    window.scrollTo(0, 0);
+    navigateTo('blog-details', { postId: post.id });
   };
 
   const handleCheckout = async () => {
@@ -3839,10 +3929,9 @@ function MainApp() {
       return;
     }
 
-    setLastPageBeforeCheckout(currentPage);
+    setLastPageBeforeCheckout(window.location.pathname || '/');
     setIsCartOpen(false);
-    setCurrentPage('checkout');
-    window.scrollTo(0, 0);
+    navigateTo('checkout');
   };
 
   const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0) + (selectedFrete?.value ?? (Number.parseFloat(String((selectedFrete as any)?.custom_price ?? (selectedFrete as any)?.price ?? '0')) || 0));
@@ -3855,7 +3944,7 @@ function MainApp() {
           <Navbar 
             cartCount={cartCount} 
             onCartClick={() => setIsCartOpen(true)} 
-            onNavigate={setCurrentPage} 
+            onNavigate={navigateTo} 
             themePreference={themePreference}
             resolvedTheme={resolvedTheme}
             onThemeChange={setThemePreference}
@@ -3866,7 +3955,7 @@ function MainApp() {
         <AnimatePresence mode="wait">
           {currentPage === 'home' && (
             <motion.div key="home" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <HomePage onNavigate={setCurrentPage} onAddToCart={addToCart} products={products} posts={posts} onProductClick={handleProductClick} onPostClick={handlePostClick} />
+              <HomePage onNavigate={navigateTo} onAddToCart={addToCart} products={products} posts={posts} onProductClick={handleProductClick} onPostClick={handlePostClick} />
             </motion.div>
           )}
           {currentPage === 'store' && (
@@ -3884,8 +3973,8 @@ function MainApp() {
                     key={product.id}
                     product={product} 
                     onAddToCart={addToCart} 
-                    onBack={() => setCurrentPage('store')} 
-                    onNavigate={setCurrentPage}
+                    onBack={() => navigateTo('store')} 
+                    onNavigate={navigateTo}
                     onShowToast={showToast}
                   />
                 );
@@ -3906,7 +3995,7 @@ function MainApp() {
                   <BlogPostDetailsPage 
                     key={post.id}
                     post={post} 
-                    onBack={() => setCurrentPage('blog')} 
+                    onBack={() => navigateTo('blog')} 
                   />
                 );
               })()}
@@ -3926,7 +4015,7 @@ function MainApp() {
                   <X size={64} className="text-red-500 mb-4" />
                   <h2 className="text-2xl font-black mb-2">Acesso Negado</h2>
                   <p className="text-gray-500 mb-6">Você não tem permissão para acessar esta página.</p>
-                  <button onClick={() => setCurrentPage('home')} className="btn-primary px-8 py-3">Voltar para Home</button>
+                  <button onClick={() => navigateTo('home')} className="btn-primary px-8 py-3">Voltar para Home</button>
                 </div>
               )}
             </motion.div>
@@ -3944,7 +4033,10 @@ function MainApp() {
                 formData={checkoutForm}
                 onFieldChange={(field, value) => setCheckoutForm(prev => ({ ...prev, [field]: value }))}
                 onBack={() => {
-                  setCurrentPage(lastPageBeforeCheckout);
+                  if (window.location.pathname !== lastPageBeforeCheckout) {
+                    window.history.pushState({}, '', lastPageBeforeCheckout);
+                  }
+                  syncStateWithPath(lastPageBeforeCheckout);
                   setIsCartOpen(true);
                 }}
                 onSubmit={handleCheckout}
@@ -3957,7 +4049,7 @@ function MainApp() {
           )}
           {currentPage === 'checkout-success' && (
             <motion.div key="checkout-success" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <CheckoutSuccessPage onContinue={() => setCurrentPage('home')} />
+              <CheckoutSuccessPage onContinue={() => navigateTo('home')} />
             </motion.div>
           )}
         </AnimatePresence>
@@ -3997,7 +4089,7 @@ function MainApp() {
                   <div className="h-full flex flex-col items-center justify-center text-center space-y-4">
                     <ShoppingBag size={64} className="text-gray-200" />
                     <p className="text-gray-500 font-medium">Seu carrinho está vazio.</p>
-                    <button onClick={() => { setIsCartOpen(false); setCurrentPage('store'); }} className="btn-primary">
+                    <button onClick={() => { setIsCartOpen(false); navigateTo('store'); }} className="btn-primary">
                       Começar a Comprar
                     </button>
                   </div>
