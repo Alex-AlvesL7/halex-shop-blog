@@ -51,6 +51,11 @@ export interface SalesQuizResult {
   trainingTips: string[];
   whyItMatches: string[];
   leadHook: string;
+  mealPlan: string[];
+  workoutPlan: string[];
+  weeklyRoutine: string[];
+  monthlyPlanOffer: string;
+  monthlyPlanPitch: string;
   primaryProductId: string;
   secondaryProductId?: string;
   cta: string;
@@ -129,10 +134,29 @@ const buildFallbackRecommendation = (profile: SalesQuizProfile, products: Produc
       'Mantenha hidratação constante e reduza bebidas muito calóricas na rotina.',
       'Organize horários de refeição para evitar picos de fome e perda de controle.'
     ],
+    mealPlan: [
+      'Café da manhã: proteína + fruta + fonte leve de carboidrato para começar o dia com saciedade.',
+      'Almoço: prato com proteína magra, legumes/verduras e porção controlada de carboidrato.',
+      'Lanche: iogurte, fruta ou ovo para evitar fome exagerada até a próxima refeição.',
+      'Jantar: refeição mais leve, rica em proteína e vegetais, evitando exageros noturnos.'
+    ],
     trainingTips: [
       'Faça caminhadas ou cardio leve 3 a 5 vezes por semana para aumentar gasto calórico.',
       'Inclua treino de força para preservar massa magra e melhorar resultado visual.',
       'Busque regularidade: treinos simples e frequentes convertem mais do que excesso eventual.'
+    ],
+    workoutPlan: [
+      'Treino de força 3x por semana com foco em exercícios básicos para corpo inteiro.',
+      'Cardio leve ou moderado 3x por semana entre 20 e 35 minutos.',
+      'Alongamento e mobilidade 5 a 10 minutos após treinar para melhorar recuperação.'
+    ],
+    weeklyRoutine: [
+      'Segunda: treino de força + hidratação reforçada.',
+      'Terça: cardio leve + alimentação controlada.',
+      'Quarta: treino de força + foco em proteína nas refeições.',
+      'Quinta: caminhada ou cardio moderado + sono regulado.',
+      'Sexta: treino de força + revisão da rotina alimentar.',
+      'Fim de semana: manter consistência sem exageros e preparar a semana seguinte.'
     ],
     whyItMatches: [
       `O ${primary?.name || 'produto recomendado'} combina com o objetivo de ${profile.goal}.`,
@@ -140,6 +164,8 @@ const buildFallbackRecommendation = (profile: SalesQuizProfile, products: Produc
       'Foi priorizado um produto principal sem empilhar dois emagrecedores de função parecida.'
     ],
     leadHook: 'Se seguir esse plano por 30 dias com constância, você já consegue perceber mudança de ritmo e disciplina.',
+    monthlyPlanOffer: 'Se quiser acelerar resultado e ter mais aderência, o próximo passo é entrar no acompanhamento mensal com ajustes semanais.',
+    monthlyPlanPitch: 'No acompanhamento mensal, a cliente recebe orientação contínua, ajustes de alimentação, direcionamento de treino e suporte mais próximo para manter constância.',
     primaryProductId: primary?.id || products[0]?.id || '',
     secondaryProductId: secondary?.id,
     cta: secondary?.name
@@ -178,6 +204,10 @@ Retorne uma recomendação comercial em português, objetiva e persuasiva. Regra
 - não invente produtos fora do catálogo
 - explique por que o produto combina com o perfil
 - dê dicas simples e seguras de rotina/alimentação/treino
+- entregue um mini plano alimentar com 4 linhas em mealPlan
+- entregue um mini plano de treino em workoutPlan
+- entregue uma rotina semanal simples em weeklyRoutine
+- entregue uma oferta comercial de acompanhamento mensal em monthlyPlanOffer e monthlyPlanPitch
 - CTA deve incentivar compra do produto principal e do complementar, se existir
 `,
       config: {
@@ -188,13 +218,18 @@ Retorne uma recomendação comercial em português, objetiva e persuasiva. Regra
             summary: { type: Type.STRING },
             dietTips: { type: Type.ARRAY, items: { type: Type.STRING } },
             trainingTips: { type: Type.ARRAY, items: { type: Type.STRING } },
+            mealPlan: { type: Type.ARRAY, items: { type: Type.STRING } },
+            workoutPlan: { type: Type.ARRAY, items: { type: Type.STRING } },
+            weeklyRoutine: { type: Type.ARRAY, items: { type: Type.STRING } },
             whyItMatches: { type: Type.ARRAY, items: { type: Type.STRING } },
             leadHook: { type: Type.STRING },
+            monthlyPlanOffer: { type: Type.STRING },
+            monthlyPlanPitch: { type: Type.STRING },
             primaryProductId: { type: Type.STRING },
             secondaryProductId: { type: Type.STRING },
             cta: { type: Type.STRING },
           },
-          required: ["summary", "dietTips", "trainingTips", "whyItMatches", "leadHook", "primaryProductId", "cta"]
+          required: ["summary", "dietTips", "trainingTips", "mealPlan", "workoutPlan", "weeklyRoutine", "whyItMatches", "leadHook", "monthlyPlanOffer", "monthlyPlanPitch", "primaryProductId", "cta"]
         }
       }
     });
@@ -213,6 +248,12 @@ Retorne uma recomendação comercial em português, objetiva e persuasiva. Regra
     if (!shouldKeepSecondary(primary, secondary)) {
       delete parsed.secondaryProductId;
     }
+
+    parsed.mealPlan = Array.isArray(parsed.mealPlan) ? parsed.mealPlan : buildFallbackRecommendation(profile, products).mealPlan;
+    parsed.workoutPlan = Array.isArray(parsed.workoutPlan) ? parsed.workoutPlan : buildFallbackRecommendation(profile, products).workoutPlan;
+    parsed.weeklyRoutine = Array.isArray(parsed.weeklyRoutine) ? parsed.weeklyRoutine : buildFallbackRecommendation(profile, products).weeklyRoutine;
+    parsed.monthlyPlanOffer = parsed.monthlyPlanOffer || buildFallbackRecommendation(profile, products).monthlyPlanOffer;
+    parsed.monthlyPlanPitch = parsed.monthlyPlanPitch || buildFallbackRecommendation(profile, products).monthlyPlanPitch;
 
     return parsed as SalesQuizResult;
   } catch (error) {

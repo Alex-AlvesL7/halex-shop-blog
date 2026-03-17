@@ -736,6 +736,11 @@ const TipsPage = ({
             secondary_product_id: recommendation.secondaryProductId || null,
             summary: recommendation.summary,
             cta: recommendation.cta,
+            meal_plan: recommendation.mealPlan,
+            workout_plan: recommendation.workoutPlan,
+            weekly_routine: recommendation.weeklyRoutine,
+            monthly_plan_offer: recommendation.monthlyPlanOffer,
+            monthly_plan_pitch: recommendation.monthlyPlanPitch,
           }
         })
       });
@@ -747,7 +752,7 @@ const TipsPage = ({
   };
 
   return (
-    <div className="pt-32 pb-24 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="pt-32 pb-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="text-center mb-16">
         <h1 className="text-5xl font-black mb-4 uppercase">Quiz AI de Recomendação</h1>
         <p className="text-gray-500 text-lg">Capte leads e recomende um produto da loja com base no perfil real do cliente.</p>
@@ -887,6 +892,41 @@ const TipsPage = ({
                 </ul>
               </div>
 
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+                  <h3 className="font-bold text-gray-400 uppercase text-xs tracking-widest mb-4">Cardápio base sugerido</h3>
+                  <ul className="space-y-3">
+                    {result.mealPlan.map((item: string, i: number) => (
+                      <li key={i} className="text-sm text-gray-700 flex gap-2">
+                        <span className="text-brand-orange font-bold">•</span> {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+                  <h3 className="font-bold text-gray-400 uppercase text-xs tracking-widest mb-4">Treino ideal para começar</h3>
+                  <ul className="space-y-3">
+                    {result.workoutPlan.map((item: string, i: number) => (
+                      <li key={i} className="text-sm text-gray-700 flex gap-2">
+                        <span className="text-brand-orange font-bold">•</span> {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+                <h3 className="font-bold text-gray-400 uppercase text-xs tracking-widest mb-4">Rotina semanal sugerida</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {result.weeklyRoutine.map((item: string, i: number) => (
+                    <div key={i} className="rounded-2xl bg-gray-50 border border-gray-100 px-4 py-3 text-sm text-gray-700 leading-relaxed">
+                      {item}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm space-y-4">
                 <h3 className="font-bold text-gray-400 uppercase text-xs tracking-widest">Por que essa recomendação faz sentido</h3>
                 <ul className="space-y-3">
@@ -949,6 +989,23 @@ const TipsPage = ({
                     Quero começar agora
                   </button>
                 )}
+              </div>
+
+              <div className="bg-brand-black p-6 rounded-3xl text-white border border-white/5">
+                <p className="text-[10px] uppercase tracking-widest text-brand-orange font-bold mb-3">Oferta premium</p>
+                <h3 className="text-2xl font-black mb-3">Plano mensal de acompanhamento</h3>
+                <p className="text-sm text-gray-300 leading-relaxed mb-3">{result.monthlyPlanOffer}</p>
+                <p className="text-sm text-gray-400 leading-relaxed mb-5">{result.monthlyPlanPitch}</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
+                  {['Ajustes semanais', 'Direcionamento alimentar', 'Suporte e rotina de treino'].map((item) => (
+                    <div key={item} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-gray-200">
+                      {item}
+                    </div>
+                  ))}
+                </div>
+                <a href={getMonthlyPlanWhatsAppLink(form.phone, result)} target="_blank" rel="noreferrer" className="btn-primary w-full py-4 text-base text-center inline-flex items-center justify-center">
+                  Quero saber do plano mensal
+                </a>
               </div>
             </motion.div>
           ) : (
@@ -1145,6 +1202,14 @@ const getLeadWhatsAppLink = (phone?: string, lead?: any) => {
   const normalized = digits.startsWith('55') ? digits : `55${digits}`;
   const productName = lead?.recommendedProduct?.name || lead?.recommendedProductName || 'a recomendação ideal';
   const message = encodeURIComponent(`Olá, ${lead?.name || 'tudo bem'}! Aqui é da L7 Fitness. Vi seu quiz de ${lead?.goal || 'objetivo fitness'} e separei ${productName} para o seu perfil. Se quiser, posso te explicar como usar e montar um plano inicial.`);
+  return `https://wa.me/${normalized}?text=${message}`;
+};
+
+const getMonthlyPlanWhatsAppLink = (phone?: string, result?: any) => {
+  const digits = String(phone || '').replace(/\D/g, '');
+  const normalized = digits ? (digits.startsWith('55') ? digits : `55${digits}`) : '5551999999999';
+  const productName = result?.primaryProduct?.name || 'o produto recomendado';
+  const message = encodeURIComponent(`Olá! Quero saber mais sobre o plano mensal de acompanhamento da L7 Fitness. Vi minha recomendação com ${productName} e quero entender como funciona o suporte com alimentação, treino e ajustes semanais.`);
   return `https://wa.me/${normalized}?text=${message}`;
 };
 
@@ -2430,6 +2495,9 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                             <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-3">Abordagem comercial</p>
                             <p className="text-sm text-gray-600 leading-relaxed mb-3">{lead.metadata?.summary || 'Lead capturado pelo quiz com recomendação personalizada.'}</p>
                             <p className="text-xs text-gray-500 leading-relaxed">CTA sugerido: {lead.metadata?.cta || 'Entrar em contato para explicar uso e fechar pedido.'}</p>
+                            {lead.metadata?.monthly_plan_offer && (
+                              <p className="text-xs text-brand-orange leading-relaxed mt-3 font-medium">Plano mensal: {lead.metadata.monthly_plan_offer}</p>
+                            )}
                           </div>
                         </div>
 
