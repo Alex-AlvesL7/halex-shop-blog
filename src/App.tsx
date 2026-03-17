@@ -1710,6 +1710,7 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
   const [leadStatusFilter, setLeadStatusFilter] = useState<'all' | 'no-purchase' | 'paid' | 'pending'>('all');
   const [leadCrmDrafts, setLeadCrmDrafts] = useState<Record<string, LeadCrmDraft>>({});
   const [savingLeadId, setSavingLeadId] = useState<string | null>(null);
+  const [productActionFeedback, setProductActionFeedback] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/affiliates').then(res => res.json()).then(setAffiliates);
@@ -2168,6 +2169,32 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
     }
   };
 
+  const showProductFeedback = (message: string) => {
+    setProductActionFeedback(message);
+    window.setTimeout(() => {
+      setProductActionFeedback((current) => current === message ? null : current);
+    }, 2500);
+  };
+
+  const getPublicProductUrl = (productId?: string | null) => `${window.location.origin}/produto/${encodeURIComponent(String(productId || ''))}`;
+  const getProductOgUrl = (productId?: string | null) => `${window.location.origin}/og/product/${encodeURIComponent(String(productId || ''))}.png`;
+
+  const handleCopyProductLink = async (productId?: string | null) => {
+    const url = getPublicProductUrl(productId);
+
+    try {
+      await navigator.clipboard.writeText(url);
+      showProductFeedback('Link da oferta copiado.');
+    } catch (error) {
+      console.error('Falha ao copiar link da oferta:', error);
+      window.prompt('Copie o link da oferta:', url);
+    }
+  };
+
+  const handleOpenOgPreview = (productId?: string | null) => {
+    window.open(getProductOgUrl(productId), '_blank', 'noopener,noreferrer');
+  };
+
   return (
     <div className="pt-32 pb-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-12">
@@ -2176,6 +2203,11 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
             Painel ADM <LayoutDashboard className="text-brand-orange" size={40} />
           </h1>
           <p className="text-gray-500">Gerencie seus produtos, conteúdo do blog e pedidos.</p>
+          {activeTab === 'products' && productActionFeedback && (
+            <div className="mt-4 inline-flex items-center px-4 py-2 rounded-full bg-emerald-50 text-emerald-700 text-xs font-black uppercase tracking-widest border border-emerald-100">
+              {productActionFeedback}
+            </div>
+          )}
         </div>
         {activeTab !== 'orders' && activeTab !== 'affiliates' && activeTab !== 'leads' && (
           <button 
@@ -2683,7 +2715,7 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
               </div>
             ) : activeTab === 'products' ? (
               products.map(p => (
-                <div key={p.id} className="bg-white p-5 rounded-3xl border border-gray-100 grid grid-cols-1 xl:grid-cols-[minmax(0,1.4fr)_360px] gap-5 group hover:shadow-md transition-all">
+                <div key={p.id} className="bg-white p-5 rounded-3xl border border-gray-100 grid grid-cols-1 xl:grid-cols-[minmax(0,1.4fr)_420px] gap-5 group hover:shadow-md transition-all">
                   <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-5">
                     <div className="flex items-start gap-4 min-w-0">
                       <img src={p.image} className="w-16 h-16 rounded-2xl object-cover bg-gray-50" referrerPolicy="no-referrer" />
@@ -2723,6 +2755,27 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                         )}
 
                         <p className="text-sm text-gray-500 leading-relaxed max-w-2xl">{p.description}</p>
+
+                        <div className="flex flex-wrap gap-2 mt-4">
+                          <button
+                            onClick={() => handleCopyProductLink(p.id)}
+                            className="px-3 py-2 rounded-xl bg-gray-100 text-gray-700 text-[10px] font-black uppercase tracking-widest hover:bg-gray-200 transition-colors"
+                          >
+                            Copiar link da oferta
+                          </button>
+                          <button
+                            onClick={() => window.open(getPublicProductUrl(p.id), '_blank', 'noopener,noreferrer')}
+                            className="px-3 py-2 rounded-xl bg-white text-gray-700 border border-gray-200 text-[10px] font-black uppercase tracking-widest hover:bg-gray-50 transition-colors"
+                          >
+                            Abrir oferta
+                          </button>
+                          <button
+                            onClick={() => handleOpenOgPreview(p.id)}
+                            className="px-3 py-2 rounded-xl bg-brand-black text-white text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-opacity"
+                          >
+                            Abrir preview OG
+                          </button>
+                        </div>
                       </div>
                     </div>
 
@@ -2746,13 +2799,17 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                     <div className="p-4 border-b border-white/10 flex items-center justify-between">
                       <div>
                         <p className="text-[10px] uppercase tracking-[0.22em] text-brand-orange font-black">Preview da oferta</p>
-                        <p className="text-xs text-gray-400 mt-1">Como a campanha está sendo exibida</p>
+                        <p className="text-xs text-gray-400 mt-1">Loja vs. compartilhamento</p>
                       </div>
                       {p.promotionLabel && <span className="px-3 py-1 rounded-full bg-brand-orange text-white text-[10px] font-black uppercase tracking-widest">{p.promotionLabel}</span>}
                     </div>
 
-                    <div className="p-4">
+                    <div className="p-4 grid grid-cols-1 gap-4">
                       <div className="rounded-[24px] bg-[#111318] border border-white/10 overflow-hidden">
+                        <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
+                          <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black">Card da loja</p>
+                          <span className="text-[10px] uppercase tracking-widest text-brand-orange font-black">Site</span>
+                        </div>
                         <div className="aspect-[16/10] bg-white/5 relative">
                           <img src={p.image} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                           {hasProductPromotion(p) && (
@@ -2778,6 +2835,26 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                           <button className="w-full py-3 rounded-2xl bg-brand-orange text-white text-xs font-black uppercase tracking-widest">
                             {p.promotionCta || 'Comprar agora'}
                           </button>
+                        </div>
+                      </div>
+
+                      <div className="rounded-[24px] bg-[#103a2e] border border-emerald-900/40 overflow-hidden">
+                        <div className="px-4 py-3 border-b border-emerald-900/40 flex items-center justify-between">
+                          <p className="text-[10px] uppercase tracking-widest text-emerald-100/80 font-black">Preview WhatsApp</p>
+                          <span className="text-[10px] uppercase tracking-widest text-emerald-300 font-black">Compartilhamento</span>
+                        </div>
+                        <div className="p-4">
+                          <p className="text-sm font-black text-white mb-1">www.l7fitness.com.br</p>
+                          <p className="text-xs text-emerald-100/90 mb-2 break-all">{getPublicProductUrl(p.id)}</p>
+                          <p className="text-sm text-emerald-100 font-bold leading-snug mb-2">{p.name}</p>
+                          <p className="text-xs text-emerald-100/80 leading-relaxed mb-3 line-clamp-3">
+                            {p.promotionCta || p.description || 'Oferta ativa com frete rápido e atendimento direto no WhatsApp.'}
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {p.promotionLabel && <span className="px-2 py-1 rounded-full bg-white/10 text-[10px] font-black uppercase tracking-widest text-white">{p.promotionLabel}</span>}
+                            {hasProductPromotion(p) && <span className="px-2 py-1 rounded-full bg-brand-orange text-[10px] font-black uppercase tracking-widest text-white">{p.discountPercentage}% OFF</span>}
+                            <span className="px-2 py-1 rounded-full bg-white/10 text-[10px] font-black uppercase tracking-widest text-emerald-200">OG PNG</span>
+                          </div>
                         </div>
                       </div>
                     </div>
