@@ -100,6 +100,23 @@ try {
       commission_rate REAL DEFAULT 10,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS quiz_leads (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      email TEXT NOT NULL,
+      phone TEXT,
+      goal TEXT,
+      weight REAL,
+      height REAL,
+      age INTEGER,
+      gender TEXT,
+      activity_level TEXT,
+      restrictions TEXT,
+      recommended_product_id TEXT,
+      metadata TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 
   // Migration: Add missing columns if they don't exist
@@ -126,6 +143,14 @@ try {
   } catch (e) {}
   try {
     db.exec("ALTER TABLE orders ADD COLUMN affiliate_id TEXT");
+  } catch (e) {}
+
+  try {
+    db.exec("ALTER TABLE quiz_leads ADD COLUMN recommended_product_id TEXT");
+  } catch (e) {}
+
+  try {
+    db.exec("ALTER TABLE quiz_leads ADD COLUMN metadata TEXT");
   } catch (e) {}
 
   // Seed initial data if empty
@@ -909,6 +934,81 @@ app.get("/api/health", async (req, res) => {
         error: "Erro interno ao processar contato",
         details: error.message || String(error)
       });
+    }
+  });
+
+  app.post("/api/quiz-leads", async (req, res) => {
+    const {
+      name,
+      email,
+      phone,
+      goal,
+      weight,
+      height,
+      age,
+      gender,
+      activity_level,
+      restrictions,
+      recommended_product_id,
+      metadata,
+    } = req.body || {};
+
+    if (!name || !email || !goal) {
+      return res.status(400).json({ success: false, error: 'Nome, e-mail e objetivo são obrigatórios.' });
+    }
+
+    const leadId = `lead_${Date.now()}`;
+    const leadData = {
+      id: leadId,
+      name: String(name).trim(),
+      email: String(email).trim(),
+      phone: String(phone || '').trim(),
+      goal: String(goal || '').trim(),
+      weight: Number(weight) || null,
+      height: Number(height) || null,
+      age: Number(age) || null,
+      gender: String(gender || '').trim(),
+      activity_level: String(activity_level || '').trim(),
+      restrictions: String(restrictions || '').trim(),
+      recommended_product_id: String(recommended_product_id || '').trim() || null,
+      metadata: JSON.stringify(metadata || {}),
+    };
+
+    try {
+      if (db) {
+        db.prepare(`
+          INSERT INTO quiz_leads (
+            id, name, email, phone, goal, weight, height, age, gender, activity_level, restrictions, recommended_product_id, metadata
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          leadData.id,
+          leadData.name,
+          leadData.email,
+          leadData.phone,
+          leadData.goal,
+          leadData.weight,
+          leadData.height,
+          leadData.age,
+          leadData.gender,
+          leadData.activity_level,
+          leadData.restrictions,
+          leadData.recommended_product_id,
+          leadData.metadata,
+        );
+      }
+
+      if (supabase) {
+        try {
+          await supabase.from('quiz_leads').insert([leadData]);
+        } catch (error) {
+          console.warn('Supabase quiz_leads insert failed:', error);
+        }
+      }
+
+      res.json({ success: true, id: leadId });
+    } catch (error) {
+      console.error('Error in POST /api/quiz-leads:', error);
+      res.status(500).json({ success: false, error: 'Falha ao salvar lead do quiz.' });
     }
   });
 

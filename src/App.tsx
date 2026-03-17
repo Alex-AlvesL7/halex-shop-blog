@@ -16,7 +16,7 @@ import { AffiliateDashboard } from './components/AffiliateDashboard';
 import { FreteCalculator } from './components/FreteCalculator';
 import { FreteOption } from './services/melhorEnvioService';
 
-import { generateHealthTips, generateSalesInsight } from './services/geminiService';
+import { generateSalesInsight, generateSalesQuizRecommendation, SalesQuizProfile } from './services/geminiService';
 
 // --- Contexts ---
 const AuthContext = createContext<{ user: any, favorites: any[], toggleFavorite: (id: string, type: 'product' | 'post') => void, isFavorite: (id: string) => boolean, logout: () => void }>({ user: null, favorites: [], toggleFavorite: () => {}, isFavorite: () => false, logout: () => {} });
@@ -574,34 +574,126 @@ const BlogPostDetailsPage: React.FC<{ post: BlogPost, onBack: () => void }> = ({
   );
 };
 
-const TipsPage = () => {
-  const [goal, setGoal] = useState('emagrecimento');
-  const [weight, setWeight] = useState(70);
-  const [height, setHeight] = useState(170);
+const TipsPage = ({
+  products,
+  onProductClick,
+  onAddToCart,
+}: {
+  products: Product[];
+  onProductClick: (product: Product) => void;
+  onAddToCart: (product: Product) => void;
+}) => {
+  const [form, setForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    goal: 'emagrecimento',
+    weight: 70,
+    height: 170,
+    age: 30,
+    gender: 'feminino',
+    activityLevel: 'moderado',
+    restrictions: '',
+  });
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
+  const [leadSaved, setLeadSaved] = useState(false);
+
+  const handleChange = (field: string, value: string | number) => {
+    setForm(prev => ({ ...prev, [field]: value }));
+  };
 
   const handleGenerate = async () => {
+    if (!form.name.trim() || !form.email.trim() || !form.phone.trim()) {
+      alert('Preencha nome, e-mail e WhatsApp para receber sua recomendação personalizada.');
+      return;
+    }
+
     setLoading(true);
-    const data = await generateHealthTips(goal, weight, height);
-    setResult(data);
-    setLoading(false);
+    try {
+      const profile: SalesQuizProfile = {
+        name: form.name.trim(),
+        goal: form.goal,
+        weight: Number(form.weight),
+        height: Number(form.height),
+        age: Number(form.age),
+        gender: form.gender,
+        activityLevel: form.activityLevel,
+        restrictions: form.restrictions.trim(),
+      };
+
+      const recommendation = await generateSalesQuizRecommendation(profile, products);
+      const primaryProduct = products.find(product => product.id === recommendation.primaryProductId) || null;
+      const secondaryProduct = recommendation.secondaryProductId
+        ? products.find(product => product.id === recommendation.secondaryProductId) || null
+        : null;
+
+      setResult({
+        ...recommendation,
+        primaryProduct,
+        secondaryProduct,
+      });
+
+      const leadResponse = await fetch('/api/quiz-leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: form.name,
+          email: form.email,
+          phone: form.phone,
+          goal: form.goal,
+          weight: form.weight,
+          height: form.height,
+          age: form.age,
+          gender: form.gender,
+          activity_level: form.activityLevel,
+          restrictions: form.restrictions,
+          recommended_product_id: recommendation.primaryProductId,
+          metadata: {
+            secondary_product_id: recommendation.secondaryProductId || null,
+            summary: recommendation.summary,
+            cta: recommendation.cta,
+          }
+        })
+      });
+
+      setLeadSaved(leadResponse.ok);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="pt-32 pb-24 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="text-center mb-16">
-        <h1 className="text-5xl font-black mb-4 uppercase">Consultoria AI Halex</h1>
-        <p className="text-gray-500 text-lg">Receba recomendações personalizadas baseadas no seu perfil.</p>
+        <h1 className="text-5xl font-black mb-4 uppercase">Quiz AI de Recomendação</h1>
+        <p className="text-gray-500 text-lg">Capte leads e recomende um produto da loja com base no perfil real do cliente.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
         <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm space-y-6">
+          <div className="grid grid-cols-1 gap-4">
+            <div>
+              <label className="block text-sm font-bold uppercase tracking-wider text-gray-400 mb-2">Nome</label>
+              <input value={form.name} onChange={(e) => handleChange('name', e.target.value)} className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-brand-orange outline-none font-medium" placeholder="Seu nome completo" />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-bold uppercase tracking-wider text-gray-400 mb-2">E-mail</label>
+                <input value={form.email} onChange={(e) => handleChange('email', e.target.value)} className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-brand-orange outline-none font-medium" placeholder="voce@email.com" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold uppercase tracking-wider text-gray-400 mb-2">WhatsApp</label>
+                <input value={form.phone} onChange={(e) => handleChange('phone', e.target.value)} className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-brand-orange outline-none font-medium" placeholder="(00) 00000-0000" />
+              </div>
+            </div>
+          </div>
+
           <div>
             <label className="block text-sm font-bold uppercase tracking-wider text-gray-400 mb-2">Seu Objetivo</label>
             <select 
-              value={goal} 
-              onChange={(e) => setGoal(e.target.value)}
+              value={form.goal} 
+              onChange={(e) => handleChange('goal', e.target.value)}
               className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-brand-orange outline-none font-medium"
             >
               <option value="emagrecimento">Emagrecimento</option>
@@ -616,8 +708,8 @@ const TipsPage = () => {
               <label className="block text-sm font-bold uppercase tracking-wider text-gray-400 mb-2">Peso (kg)</label>
               <input 
                 type="number" 
-                value={weight} 
-                onChange={(e) => setWeight(Number(e.target.value))}
+                value={form.weight} 
+                onChange={(e) => handleChange('weight', Number(e.target.value))}
                 className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-brand-orange outline-none font-medium"
               />
             </div>
@@ -625,11 +717,40 @@ const TipsPage = () => {
               <label className="block text-sm font-bold uppercase tracking-wider text-gray-400 mb-2">Altura (cm)</label>
               <input 
                 type="number" 
-                value={height} 
-                onChange={(e) => setHeight(Number(e.target.value))}
+                value={form.height} 
+                onChange={(e) => handleChange('height', Number(e.target.value))}
                 className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-brand-orange outline-none font-medium"
               />
             </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-bold uppercase tracking-wider text-gray-400 mb-2">Idade</label>
+              <input type="number" value={form.age} onChange={(e) => handleChange('age', Number(e.target.value))} className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-brand-orange outline-none font-medium" />
+            </div>
+            <div>
+              <label className="block text-sm font-bold uppercase tracking-wider text-gray-400 mb-2">Sexo</label>
+              <select value={form.gender} onChange={(e) => handleChange('gender', e.target.value)} className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-brand-orange outline-none font-medium">
+                <option value="feminino">Feminino</option>
+                <option value="masculino">Masculino</option>
+                <option value="outro">Outro</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold uppercase tracking-wider text-gray-400 mb-2">Nível de atividade</label>
+            <select value={form.activityLevel} onChange={(e) => handleChange('activityLevel', e.target.value)} className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-brand-orange outline-none font-medium">
+              <option value="baixo">Baixo</option>
+              <option value="moderado">Moderado</option>
+              <option value="alto">Alto</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold uppercase tracking-wider text-gray-400 mb-2">Restrições / Observações</label>
+            <textarea value={form.restrictions} onChange={(e) => handleChange('restrictions', e.target.value)} className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-brand-orange outline-none font-medium min-h-[96px] resize-y" placeholder="Ex: sensível à cafeína, rotina corrida, treina à noite..." />
           </div>
 
           <button 
@@ -637,8 +758,14 @@ const TipsPage = () => {
             disabled={loading}
             className="w-full btn-primary py-4 text-lg disabled:opacity-50"
           >
-            {loading ? 'Analisando...' : 'Gerar Meu Plano'}
+            {loading ? 'Analisando...' : 'Gerar Minha Recomendação'}
           </button>
+
+          {leadSaved && (
+            <div className="text-xs text-green-600 font-bold bg-green-50 border border-green-100 rounded-2xl px-4 py-3">
+              Lead salvo com sucesso para acompanhamento comercial.
+            </div>
+          )}
         </div>
 
         <div className="space-y-6">
@@ -648,6 +775,13 @@ const TipsPage = () => {
               animate={{ opacity: 1, y: 0 }}
               className="space-y-6"
             >
+              <div className="bg-brand-black p-6 rounded-3xl text-white">
+                <p className="text-[10px] uppercase tracking-widest text-brand-orange font-bold mb-3">Diagnóstico comercial</p>
+                <h3 className="text-2xl font-black mb-3">{result.primaryProduct?.name || 'Produto recomendado'}</h3>
+                <p className="text-gray-300 text-sm leading-relaxed">{result.summary}</p>
+                <p className="text-brand-orange text-sm font-bold mt-4">{result.leadHook}</p>
+              </div>
+
               <div className="bg-orange-50 p-6 rounded-3xl border border-orange-100">
                 <h3 className="font-bold text-brand-orange uppercase text-xs tracking-widest mb-4">Dicas de Alimentação</h3>
                 <ul className="space-y-3">
@@ -670,15 +804,64 @@ const TipsPage = () => {
                 </ul>
               </div>
 
-              <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
-                <h3 className="font-bold text-gray-400 uppercase text-xs tracking-widest mb-4">Suplementos Recomendados</h3>
-                <div className="flex flex-wrap gap-2">
-                  {result.recommendedSupplements.map((supp: string, i: number) => (
-                    <span key={i} className="px-3 py-1 bg-gray-100 rounded-full text-xs font-bold text-gray-700">
-                      {supp}
-                    </span>
+              <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm space-y-4">
+                <h3 className="font-bold text-gray-400 uppercase text-xs tracking-widest">Por que essa recomendação faz sentido</h3>
+                <ul className="space-y-3">
+                  {result.whyItMatches.map((item: string, i: number) => (
+                    <li key={i} className="text-sm text-gray-700 flex gap-2">
+                      <span className="text-brand-orange font-bold">•</span> {item}
+                    </li>
                   ))}
+                </ul>
+              </div>
+
+              {result.primaryProduct && (
+                <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+                  <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-3">Produto principal recomendado</p>
+                  <div className="flex gap-4 items-start">
+                    <img src={result.primaryProduct.image} alt={result.primaryProduct.name} className="w-24 h-24 rounded-2xl object-cover bg-gray-50" referrerPolicy="no-referrer" />
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-black text-lg mb-1">{result.primaryProduct.name}</h3>
+                      <p className="text-sm text-gray-500 mb-3">{result.primaryProduct.description}</p>
+                      <p className="text-2xl font-black text-brand-orange mb-4">R$ {result.primaryProduct.price.toFixed(2)}</p>
+                      <div className="flex flex-wrap gap-3">
+                        <button onClick={() => onProductClick(result.primaryProduct)} className="btn-secondary text-sm">
+                          Ver produto
+                        </button>
+                        <button onClick={() => onAddToCart(result.primaryProduct)} className="btn-primary text-sm">
+                          Adicionar ao carrinho
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
+              )}
+
+              {result.secondaryProduct && (
+                <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+                  <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-3">Produto complementar</p>
+                  <div className="flex gap-4 items-start">
+                    <img src={result.secondaryProduct.image} alt={result.secondaryProduct.name} className="w-20 h-20 rounded-2xl object-cover bg-gray-50" referrerPolicy="no-referrer" />
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-black text-base mb-1">{result.secondaryProduct.name}</h3>
+                      <p className="text-sm text-gray-500 mb-2">{result.secondaryProduct.description}</p>
+                      <p className="text-lg font-black text-brand-orange mb-3">R$ {result.secondaryProduct.price.toFixed(2)}</p>
+                      <button onClick={() => onAddToCart(result.secondaryProduct)} className="btn-primary text-sm">
+                        Adicionar complementar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="bg-orange-50 p-6 rounded-3xl border border-orange-100">
+                <h3 className="font-bold text-brand-orange uppercase text-xs tracking-widest mb-4">Fechamento comercial</h3>
+                <p className="text-sm text-gray-700 leading-relaxed mb-4">{result.cta}</p>
+                {result.primaryProduct && (
+                  <button onClick={() => onAddToCart(result.primaryProduct)} className="btn-primary w-full py-4 text-base">
+                    Quero começar agora
+                  </button>
+                )}
               </div>
             </motion.div>
           ) : (
@@ -686,7 +869,8 @@ const TipsPage = () => {
               <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
                 <Search className="text-gray-300" />
               </div>
-              <p className="text-gray-400 text-sm">Preencha os dados ao lado para receber sua consultoria personalizada via Inteligência Artificial.</p>
+              <p className="text-gray-400 text-sm mb-2">Preencha seus dados para receber uma recomendação de produto da loja com apoio da IA.</p>
+              <p className="text-xs text-gray-300">Esse fluxo também já captura o lead para acompanhamento comercial.</p>
             </div>
           )}
         </div>
@@ -2753,7 +2937,7 @@ function MainApp() {
           )}
           {currentPage === 'tips' && (
             <motion.div key="tips" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <TipsPage />
+              <TipsPage products={products} onProductClick={handleProductClick} onAddToCart={addToCart} />
             </motion.div>
           )}
           {currentPage === 'admin' && (
