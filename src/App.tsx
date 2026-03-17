@@ -1213,6 +1213,15 @@ const getMonthlyPlanWhatsAppLink = (phone?: string, result?: any) => {
   return `https://wa.me/${normalized}?text=${message}`;
 };
 
+const getLeadMonthlyPlanWhatsAppLink = (phone?: string, lead?: any) => {
+  const digits = String(phone || '').replace(/\D/g, '');
+  if (!digits) return '';
+  const normalized = digits.startsWith('55') ? digits : `55${digits}`;
+  const productName = lead?.recommendedProduct?.name || lead?.recommendedProductName || 'o produto recomendado';
+  const message = encodeURIComponent(`Olá, ${lead?.name || 'tudo bem'}! Além da recomendação com ${productName}, temos um plano mensal de acompanhamento com ajustes semanais de alimentação, treino e suporte próximo. Se quiser, te explico como funciona e os valores.`);
+  return `https://wa.me/${normalized}?text=${message}`;
+};
+
 const formatLeadDate = (value?: string | null) => {
   if (!value) return '—';
   const date = new Date(value);
@@ -1553,7 +1562,7 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
   const [leadsLoading, setLeadsLoading] = useState(false);
   const [leadsSearch, setLeadsSearch] = useState('');
   const [leadStatusFilter, setLeadStatusFilter] = useState<'all' | 'no-purchase' | 'paid' | 'pending'>('all');
-  const [leadCrmDrafts, setLeadCrmDrafts] = useState<Record<string, { status: string; internalNote: string; lastContactAt: string; nextFollowUpAt: string }>>({});
+  const [leadCrmDrafts, setLeadCrmDrafts] = useState<Record<string, { status: string; internalNote: string; lastContactAt: string; nextFollowUpAt: string; monthlyPlanInterest: string; planOfferedAt: string }>>({});
   const [savingLeadId, setSavingLeadId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -1740,6 +1749,8 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
           internalNote: prev[lead.id]?.internalNote || lead.crm?.internalNote || '',
           lastContactAt: prev[lead.id]?.lastContactAt || lead.crm?.lastContactAt || '',
           nextFollowUpAt: prev[lead.id]?.nextFollowUpAt || (lead.crm?.nextFollowUpAt ? String(lead.crm.nextFollowUpAt).slice(0, 10) : ''),
+          monthlyPlanInterest: prev[lead.id]?.monthlyPlanInterest || lead.crm?.monthlyPlanInterest || 'unknown',
+          planOfferedAt: prev[lead.id]?.planOfferedAt || lead.crm?.planOfferedAt || '',
         };
       });
       return next;
@@ -1766,7 +1777,7 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
     ].filter(Boolean).join(' ').toLowerCase().includes(query));
   }, [leadsWithStatus, leadsSearch, leadStatusFilter]);
 
-  const updateLeadDraft = (leadId: string, patch: Partial<{ status: string; internalNote: string; lastContactAt: string; nextFollowUpAt: string }>) => {
+  const updateLeadDraft = (leadId: string, patch: Partial<{ status: string; internalNote: string; lastContactAt: string; nextFollowUpAt: string; monthlyPlanInterest: string; planOfferedAt: string }>) => {
     setLeadCrmDrafts(prev => ({
       ...prev,
       [leadId]: {
@@ -1774,13 +1785,15 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
         internalNote: prev[leadId]?.internalNote || '',
         lastContactAt: prev[leadId]?.lastContactAt || '',
         nextFollowUpAt: prev[leadId]?.nextFollowUpAt || '',
+        monthlyPlanInterest: prev[leadId]?.monthlyPlanInterest || 'unknown',
+        planOfferedAt: prev[leadId]?.planOfferedAt || '',
         ...patch,
       }
     }));
   };
 
-  const handleSaveLeadCrm = async (leadId: string, override?: Partial<{ status: string; internalNote: string; lastContactAt: string; nextFollowUpAt: string }>) => {
-    const base = leadCrmDrafts[leadId] || { status: 'new', internalNote: '', lastContactAt: '', nextFollowUpAt: '' };
+  const handleSaveLeadCrm = async (leadId: string, override?: Partial<{ status: string; internalNote: string; lastContactAt: string; nextFollowUpAt: string; monthlyPlanInterest: string; planOfferedAt: string }>) => {
+    const base = leadCrmDrafts[leadId] || { status: 'new', internalNote: '', lastContactAt: '', nextFollowUpAt: '', monthlyPlanInterest: 'unknown', planOfferedAt: '' };
     const draft = { ...base, ...(override || {}) };
 
     if (override) {
@@ -1797,6 +1810,8 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
           internalNote: draft.internalNote,
           lastContactAt: draft.lastContactAt || null,
           nextFollowUpAt: draft.nextFollowUpAt || null,
+          monthlyPlanInterest: draft.monthlyPlanInterest,
+          planOfferedAt: draft.planOfferedAt || null,
         })
       });
 
@@ -2446,7 +2461,7 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                 ) : (
                   filteredLeads.map((lead: any) => {
                     const whatsappLink = getLeadWhatsAppLink(lead.phone, lead);
-                    const crmDraft = leadCrmDrafts[lead.id] || { status: lead.crm?.status || 'new', internalNote: lead.crm?.internalNote || '', lastContactAt: lead.crm?.lastContactAt || '', nextFollowUpAt: lead.crm?.nextFollowUpAt ? String(lead.crm.nextFollowUpAt).slice(0, 10) : '' };
+                    const crmDraft = leadCrmDrafts[lead.id] || { status: lead.crm?.status || 'new', internalNote: lead.crm?.internalNote || '', lastContactAt: lead.crm?.lastContactAt || '', nextFollowUpAt: lead.crm?.nextFollowUpAt ? String(lead.crm.nextFollowUpAt).slice(0, 10) : '', monthlyPlanInterest: lead.crm?.monthlyPlanInterest || 'unknown', planOfferedAt: lead.crm?.planOfferedAt || '' };
                     const statusClasses = lead.purchaseStatus === 'paid'
                       ? 'bg-emerald-100 text-emerald-600'
                       : lead.purchaseStatus === 'pending'
@@ -2457,6 +2472,7 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                       : lead.purchaseStatus === 'pending'
                         ? 'Checkout iniciado'
                         : 'Sem compra';
+                    const monthlyPlanLink = getLeadMonthlyPlanWhatsAppLink(lead.phone, lead);
 
                     return (
                       <div key={lead.id} className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-all">
@@ -2498,6 +2514,7 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                             {lead.metadata?.monthly_plan_offer && (
                               <p className="text-xs text-brand-orange leading-relaxed mt-3 font-medium">Plano mensal: {lead.metadata.monthly_plan_offer}</p>
                             )}
+                            <p className="text-xs text-gray-400 mt-3">Oferta enviada: {formatLeadDate(crmDraft.planOfferedAt || lead.crm?.planOfferedAt)}</p>
                           </div>
                         </div>
 
@@ -2526,6 +2543,27 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                             <div className="text-sm text-gray-500 space-y-1">
                               <p><span className="font-bold text-gray-700">Último contato:</span> {formatLeadDate(crmDraft.lastContactAt || lead.crm?.lastContactAt)}</p>
                               <p><span className="font-bold text-gray-700">Próximo follow-up:</span> {crmDraft.nextFollowUpAt ? new Date(`${crmDraft.nextFollowUpAt}T12:00:00`).toLocaleDateString('pt-BR') : '—'}</p>
+                              <p><span className="font-bold text-gray-700">Plano mensal:</span> {crmDraft.monthlyPlanInterest === 'interested' ? 'Interessado' : crmDraft.monthlyPlanInterest === 'not_interested' ? 'Sem interesse' : crmDraft.monthlyPlanInterest === 'closed' ? 'Fechado' : 'Não mapeado'}</p>
+                            </div>
+                          </div>
+
+                          <div className="mb-4">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2 block">Interesse no plano mensal</span>
+                            <div className="flex flex-wrap gap-2">
+                              {[
+                                ['unknown', 'Não mapeado'],
+                                ['interested', 'Interessado'],
+                                ['not_interested', 'Sem interesse'],
+                                ['closed', 'Fechado'],
+                              ].map(([value, label]) => (
+                                <button
+                                  key={value}
+                                  onClick={() => updateLeadDraft(lead.id, { monthlyPlanInterest: value })}
+                                  className={`px-3 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${crmDraft.monthlyPlanInterest === value ? 'bg-brand-orange text-white' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-100'}`}
+                                >
+                                  {label}
+                                </button>
+                              ))}
                             </div>
                           </div>
 
@@ -2578,6 +2616,22 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                             <a href={whatsappLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-green-600 text-white text-xs font-bold uppercase tracking-widest hover:bg-green-700 transition-colors">
                               <Phone size={14} /> WhatsApp
                             </a>
+                          )}
+                          {monthlyPlanLink && (
+                            <button
+                              onClick={() => {
+                                window.open(monthlyPlanLink, '_blank', 'noopener,noreferrer');
+                                handleSaveLeadCrm(lead.id, {
+                                  planOfferedAt: new Date().toISOString(),
+                                  monthlyPlanInterest: crmDraft.monthlyPlanInterest === 'unknown' ? 'interested' : crmDraft.monthlyPlanInterest,
+                                  lastContactAt: new Date().toISOString(),
+                                  status: crmDraft.status === 'new' ? 'contacted' : crmDraft.status,
+                                });
+                              }}
+                              className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-purple-600 text-white text-xs font-bold uppercase tracking-widest hover:bg-purple-700 transition-colors"
+                            >
+                              <Phone size={14} /> Ofertar plano mensal
+                            </button>
                           )}
                           {lead.recommendedProduct && (
                             <button onClick={() => handleEditProduct(lead.recommendedProduct)} className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-100 text-gray-700 text-xs font-bold uppercase tracking-widest hover:bg-gray-200 transition-colors">

@@ -302,6 +302,8 @@ const normalizeQuizLeadRecord = (lead: any) => {
     internalNote: parsedMetadata?.crm?.internalNote || '',
     lastContactAt: parsedMetadata?.crm?.lastContactAt || null,
     nextFollowUpAt: parsedMetadata?.crm?.nextFollowUpAt || null,
+    monthlyPlanInterest: parsedMetadata?.crm?.monthlyPlanInterest || 'unknown',
+    planOfferedAt: parsedMetadata?.crm?.planOfferedAt || null,
   };
 
   return {
@@ -1012,6 +1014,8 @@ app.get("/api/health", async (req, res) => {
         internalNote: metadata?.crm?.internalNote || '',
         lastContactAt: metadata?.crm?.lastContactAt || null,
         nextFollowUpAt: metadata?.crm?.nextFollowUpAt || null,
+        monthlyPlanInterest: metadata?.crm?.monthlyPlanInterest || 'unknown',
+        planOfferedAt: metadata?.crm?.planOfferedAt || null,
       }
     };
 
@@ -1113,12 +1117,15 @@ app.get("/api/health", async (req, res) => {
 
   app.put("/api/quiz-leads/:id/crm", async (req, res) => {
     const { id } = req.params;
-    const { crmStatus, internalNote, lastContactAt, nextFollowUpAt } = req.body || {};
+    const { crmStatus, internalNote, lastContactAt, nextFollowUpAt, monthlyPlanInterest, planOfferedAt } = req.body || {};
     const allowedStatuses = ['new', 'contacted', 'interested', 'won', 'lost'];
+    const allowedMonthlyPlanInterest = ['unknown', 'interested', 'not_interested', 'closed'];
     const normalizedStatus = allowedStatuses.includes(String(crmStatus)) ? String(crmStatus) : 'new';
     const normalizedNote = String(internalNote || '').trim();
     const normalizedLastContactAt = String(lastContactAt || '').trim() || null;
     const normalizedNextFollowUpAt = String(nextFollowUpAt || '').trim() || null;
+    const normalizedMonthlyPlanInterest = allowedMonthlyPlanInterest.includes(String(monthlyPlanInterest)) ? String(monthlyPlanInterest) : 'unknown';
+    const normalizedPlanOfferedAt = String(planOfferedAt || '').trim() || null;
 
     try {
       const existingLead = await getRawQuizLeadById(id);
@@ -1143,6 +1150,8 @@ app.get("/api/health", async (req, res) => {
           internalNote: normalizedNote,
           lastContactAt: normalizedLastContactAt,
           nextFollowUpAt: normalizedNextFollowUpAt,
+          monthlyPlanInterest: normalizedMonthlyPlanInterest,
+          planOfferedAt: normalizedPlanOfferedAt,
         }
       };
 
