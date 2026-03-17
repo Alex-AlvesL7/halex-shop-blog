@@ -1465,11 +1465,9 @@ const TipsPage = ({
 const ProductDetailsPage: React.FC<{ product: Product, onAddToCart: (p: Product) => void, onBack: () => void, onNavigate: (page: string, options?: any) => void, onShowToast: (msg: string) => void }> = ({ product, onAddToCart, onBack, onNavigate, onShowToast }) => {
   const [activeImage, setActiveImage] = useState(product.image);
   const compositionPanels = useMemo(() => getProductCompositionPanels(product), [product]);
-  const [activeCompositionId, setActiveCompositionId] = useState(compositionPanels[0]?.id || product.id);
   const allImages = [product.image, ...(product.images || [])];
   const marketing = useMemo(() => getProductMarketingSummary(product), [product]);
   const detailContent = useMemo(() => getProductDetailContent(product), [product]);
-  const activeComposition = compositionPanels.find((panel) => panel.id === activeCompositionId) || compositionPanels[0];
   const mobileHighlights = useMemo(() => {
     const candidates = [
       detailContent.purpose,
@@ -1515,10 +1513,6 @@ const ProductDetailsPage: React.FC<{ product: Product, onAddToCart: (p: Product)
   useEffect(() => {
     setActiveImage(product.image);
   }, [product.id, product.image]);
-
-  useEffect(() => {
-    setActiveCompositionId(compositionPanels[0]?.id || product.id);
-  }, [compositionPanels, product.id]);
 
   return (
     <div className="pt-32 pb-40 md:pb-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1597,7 +1591,7 @@ const ProductDetailsPage: React.FC<{ product: Product, onAddToCart: (p: Product)
             <p className="text-gray-600 text-lg leading-relaxed line-clamp-5 md:line-clamp-none">
               {marketing.summary || "Este produto premium da Halex Shop foi desenvolvido com os mais altos padrões de qualidade para garantir que você alcance seus objetivos físicos com eficiência e segurança."}
             </p>
-            <div className="md:hidden space-y-2">
+            <div className="space-y-2">
               {mobileHighlights.map((item, idx) => (
                 <div key={`${product.id}-mobile-h-${idx}`} className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm text-gray-600 leading-relaxed">
                   {item}
@@ -1605,77 +1599,7 @@ const ProductDetailsPage: React.FC<{ product: Product, onAddToCart: (p: Product)
               ))}
             </div>
 
-            <div className="hidden md:grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="bg-gray-50 border border-gray-100 rounded-[28px] p-5 shadow-[0_18px_50px_rgba(15,23,42,0.05)]">
-                <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-2">Para que serve</p>
-                <p className="text-sm text-gray-600 leading-relaxed">{detailContent.purpose}</p>
-              </div>
-              <div className="relative overflow-hidden rounded-[28px] border border-orange-100 bg-white p-5 shadow-[0_20px_60px_rgba(249,115,22,0.12)]">
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(251,146,60,0.18),_transparent_40%)] pointer-events-none" />
-                <div className="relative">
-                  <div className="flex items-center justify-between gap-3 mb-4">
-                    <div>
-                      <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-2">O que vem</p>
-                      <p className="text-xs text-gray-500">{detailContent.kitContents}</p>
-                    </div>
-                    {compositionPanels.length > 1 && (
-                      <span className="px-3 py-1 rounded-full bg-orange-50 text-brand-orange text-[10px] font-black uppercase tracking-widest border border-orange-100">
-                        Janela interativa
-                      </span>
-                    )}
-                  </div>
-
-                  {compositionPanels.length > 1 && (
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      {compositionPanels.map((panel) => (
-                        <button
-                          key={panel.id}
-                          type="button"
-                          onClick={() => setActiveCompositionId(panel.id)}
-                          className={`px-4 py-2 rounded-full border text-xs font-black uppercase tracking-widest transition-all ${activeComposition?.id === panel.id ? 'bg-brand-black text-white border-brand-black shadow-lg shadow-black/10' : 'bg-white text-gray-500 border-gray-200 hover:border-brand-orange hover:text-brand-orange'}`}
-                        >
-                          {panel.title}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  {activeComposition && (
-                    <motion.div
-                      key={activeComposition.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className={`rounded-[24px] border border-white/70 bg-gradient-to-br ${activeComposition.surfaceAccent} p-4 shadow-[0_16px_40px_rgba(15,23,42,0.08)]`}
-                    >
-                      <div className="flex items-start gap-4 mb-4">
-                        <div className={`w-14 h-14 rounded-[20px] bg-gradient-to-br ${activeComposition.iconAccent} shadow-[0_12px_30px_rgba(249,115,22,0.28)] flex items-center justify-center text-white`}>
-                          <activeComposition.icon size={26} />
-                        </div>
-                        <div>
-                          <span className="inline-flex px-3 py-1 rounded-full bg-white/80 text-[10px] text-gray-500 font-black uppercase tracking-widest border border-white mb-2">
-                            {activeComposition.label}
-                          </span>
-                          <h3 className="text-lg font-black text-brand-black uppercase leading-tight">{activeComposition.title}</h3>
-                        </div>
-                      </div>
-
-                      <div className="space-y-3">
-                        <div className="rounded-2xl bg-white/80 border border-white p-4">
-                          <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-2">Função no kit</p>
-                          <p className="text-sm text-gray-600 leading-relaxed">{activeComposition.purpose}</p>
-                        </div>
-                        <div className="rounded-2xl bg-white/80 border border-white p-4">
-                          <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-2">Composição destacada</p>
-                          <p className="text-sm text-gray-600 leading-relaxed">{activeComposition.composition}</p>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="md:hidden space-y-3">
+            <div className="space-y-3">
               {[
                 ['Para que serve', detailContent.purpose],
                 ['O que vem no kit', detailContent.kitContents],
