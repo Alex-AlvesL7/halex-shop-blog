@@ -856,6 +856,41 @@ const getWhatsAppLink = (phone?: string, orderNsu?: string) => {
   return `https://wa.me/${normalized}?text=${message}`;
 };
 
+const getTrackingWhatsAppLink = (
+  phone?: string,
+  order?: any,
+  draft?: { status: string; trackingCode: string; trackingUrl: string; internalNote: string }
+) => {
+  const digits = String(phone || '').replace(/\D/g, '');
+  if (!digits || !order) return '';
+
+  const normalized = digits.startsWith('55') ? digits : `55${digits}`;
+  const trackingLink = getTrackingLink(draft?.trackingCode, draft?.trackingUrl);
+  const customerName = order.customer?.name || 'cliente';
+  const statusLabel = fulfillmentLabels[draft?.status || order.fulfillment?.status || 'aguardando-envio'] || 'Aguardando envio';
+  const lines = [
+    `Olá, ${customerName}!`,
+    `Aqui é da L7 Fitness. Atualizamos o seu pedido ${order.order_nsu}.`,
+    `Status do pedido: ${statusLabel}.`,
+  ];
+
+  if (draft?.trackingCode) {
+    lines.push(`Código de rastreio: ${draft.trackingCode}`);
+  }
+
+  if (trackingLink) {
+    lines.push(`Acompanhe sua entrega aqui: ${trackingLink}`);
+  }
+
+  if (draft?.internalNote?.trim()) {
+    lines.push(`Observação: ${draft.internalNote.trim()}`);
+  }
+
+  lines.push('Se precisar, estou à disposição.');
+
+  return `https://wa.me/${normalized}?text=${encodeURIComponent(lines.join('\n'))}`;
+};
+
 const fulfillmentLabels: Record<string, string> = {
   'aguardando-envio': 'Aguardando envio',
   'separando': 'Separando',
@@ -1904,6 +1939,7 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                           internalNote: order.internalNote || '',
                         };
                         const trackingLink = getTrackingLink(draft.trackingCode, draft.trackingUrl);
+                        const trackingWhatsAppLink = getTrackingWhatsAppLink(order.customer?.phone, order, draft);
 
                         return (
                           <>
@@ -2034,9 +2070,21 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                           <p className="text-xs text-gray-400 mt-2">Observação salva: {order.internalNote}</p>
                         )}
                         {trackingLink && (
-                          <div className="mt-3">
+                          <div className="mt-3 flex flex-wrap gap-3 items-center">
                             <a href={trackingLink} target="_blank" rel="noreferrer" className="text-sm font-bold text-brand-orange hover:underline">
                               Abrir rastreio
+                            </a>
+                            {trackingWhatsAppLink && (
+                              <a href={trackingWhatsAppLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-green-600 text-white text-xs font-bold uppercase tracking-widest hover:bg-green-700 transition-colors">
+                                <Phone size={14} /> Enviar rastreio no WhatsApp
+                              </a>
+                            )}
+                          </div>
+                        )}
+                        {!trackingLink && trackingWhatsAppLink && (
+                          <div className="mt-3">
+                            <a href={trackingWhatsAppLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-green-600 text-white text-xs font-bold uppercase tracking-widest hover:bg-green-700 transition-colors">
+                              <Phone size={14} /> Enviar atualização no WhatsApp
                             </a>
                           </div>
                         )}
