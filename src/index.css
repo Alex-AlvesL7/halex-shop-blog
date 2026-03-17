@@ -64,6 +64,34 @@
   @apply font-bold text-brand-orange;
 }
 
+.product-details-markdown {
+  @apply text-[15px] leading-8 text-gray-700;
+}
+
+.product-details-markdown p {
+  @apply mb-4;
+}
+
+.product-details-markdown ul,
+.product-details-markdown ol {
+  @apply ml-5 mb-4;
+}
+
+.product-details-markdown li {
+  @apply mb-2;
+}
+
+.product-details-markdown strong {
+  @apply font-bold text-gray-900;
+}
+
+.product-details-markdown h1,
+.product-details-markdown h2,
+.product-details-markdown h3,
+.product-details-markdown h4 {
+  @apply mt-5 mb-2 text-base font-black text-gray-900;
+}
+
 .theme-dark {
   color-scheme: dark;
 }

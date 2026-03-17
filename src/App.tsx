@@ -93,6 +93,13 @@ const normalizeProductText = (value: string) => String(value || '')
   .replace(/[\u0300-\u036f]/g, '')
   .toLowerCase();
 
+const normalizeMarkdownContent = (value: string) => String(value || '')
+  .replace(/\r/g, '')
+  .replace(/\\n/g, '\n')
+  .replace(/\\t/g, '  ')
+  .replace(/\n{3,}/g, '\n\n')
+  .trim();
+
 type ProductSalesCopy = {
   summary: string;
   purpose: string;
@@ -1772,14 +1779,19 @@ const ProductInfoPage: React.FC<{ product: Product, onAddToCart: (p: Product) =>
             ['Quantidade / cápsulas', detailContent.capsules],
             ['Como usar', detailContent.usage],
             ['Informações completas', detailContent.details],
-          ].filter(([, value]) => String(value || '').trim()).map(([title, value]) => (
-            <div key={title} className="bg-white rounded-[32px] border border-gray-100 shadow-sm p-6">
-              <p className="text-[10px] uppercase tracking-[0.22em] text-brand-orange font-black mb-3">{title}</p>
-              <div className="markdown-body text-sm text-gray-600 leading-7">
-                <ReactMarkdown>{String(value || '')}</ReactMarkdown>
+          ].filter(([, value]) => String(value || '').trim()).map(([title, value]) => {
+            const isFullDetails = title === 'Informações completas';
+            const normalizedContent = normalizeMarkdownContent(String(value || ''));
+
+            return (
+              <div key={title} className="bg-white rounded-[32px] border border-gray-100 shadow-sm p-6">
+                <p className="text-[10px] uppercase tracking-[0.22em] text-brand-orange font-black mb-3">{title}</p>
+                <div className={`markdown-body ${isFullDetails ? 'product-details-markdown' : 'text-sm text-gray-600 leading-7'}`}>
+                  <ReactMarkdown>{normalizedContent}</ReactMarkdown>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
