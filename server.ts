@@ -341,6 +341,43 @@ const getProductSocialDescription = (product: any) => {
   return `${benefit} Compre hoje com frete rápido, parcelamento em até 12x e atendimento no WhatsApp.${urgency}`;
 };
 
+const getProductCampaignLabel = (product: any) => {
+  const reviews = Number(product?.reviews) || 0;
+  const rating = Number(product?.rating) || 0;
+  const stock = Number(product?.stock) || 0;
+  const name = String(product?.name || '').toLowerCase();
+
+  if (stock > 0 && stock <= 20) return 'ESTOQUE LIMITADO';
+  if (reviews >= 150) return 'MAIS VENDIDO';
+  if (name.includes('kit') || name.includes('combo') || name.includes('full')) return 'PROMOÇÃO RELÂMPAGO';
+  if (rating >= 4.9) return 'ESCOLHA PREMIUM';
+  return 'OFERTA ESPECIAL';
+};
+
+const getProductCtaLabel = (product: any) => {
+  const campaign = getProductCampaignLabel(product);
+
+  if (campaign === 'ESTOQUE LIMITADO') return 'GARANTIR AGORA';
+  if (campaign === 'PROMOÇÃO RELÂMPAGO') return 'APROVEITAR OFERTA';
+  if (campaign === 'MAIS VENDIDO') return 'COMPRAR O QUERIDINHO';
+  return 'COMPRAR AGORA';
+};
+
+const getProductBadgeList = (product: any) => {
+  const badges = [
+    getProductOfferLine(product),
+    'Frete rápido',
+    'Até 12x',
+  ].filter(Boolean);
+
+  const campaign = getProductCampaignLabel(product);
+  if (campaign && !badges.includes(campaign)) {
+    badges.unshift(campaign);
+  }
+
+  return badges.slice(0, 3);
+};
+
 const buildMetaBlock = (meta: {
   title: string;
   description: string;
@@ -465,6 +502,7 @@ const renderOgSvg = ({
   imageUrl,
   priceLabel,
   badges = [],
+  highlightLabel,
 }: {
   eyebrow: string;
   title: string;
@@ -474,6 +512,7 @@ const renderOgSvg = ({
   imageUrl?: string;
   priceLabel?: string;
   badges?: string[];
+  highlightLabel?: string;
 }) => {
   const words = String(title || '').trim().split(/\s+/).filter(Boolean);
   const lines: string[] = [];
@@ -508,6 +547,7 @@ const renderOgSvg = ({
   <rect x="710" y="128" width="410" height="374" rx="34" fill="#0F1118" stroke="rgba(255,255,255,0.10)"/>
   <rect x="732" y="150" width="366" height="330" rx="26" fill="#FFFFFF"/>
   <image href="${escapeXml(imageUrl)}" x="732" y="150" width="366" height="330" preserveAspectRatio="xMidYMid meet"/>
+  ${highlightLabel ? `<rect x="828" y="166" width="254" height="44" rx="22" fill="#FF6321"/><text x="955" y="194" text-anchor="middle" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="900">${escapeXml(truncateText(highlightLabel, 24))}</text>` : ''}
   <rect x="742" y="400" width="150" height="52" rx="18" fill="#111318" opacity="0.92"/>
   <text x="817" y="433" text-anchor="middle" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="900">L7 FITNESS</text>
   `
@@ -2329,18 +2369,20 @@ app.post("/api/checkout", async (req, res) => {
     const benefit = getProductBenefitLine(product);
     const offerLine = getProductOfferLine(product);
     const imageUrl = String(product?.image || product?.images?.[0] || '').trim() || undefined;
+    const campaignLabel = getProductCampaignLabel(product);
 
     res.setHeader('Content-Type', 'image/svg+xml');
     res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=86400');
     res.send(renderOgSvg({
-      eyebrow: 'OFERTA L7',
+      eyebrow: campaignLabel === 'MAIS VENDIDO' ? 'TOP VENDAS' : campaignLabel === 'ESTOQUE LIMITADO' ? 'ÚLTIMAS UNIDADES' : 'OFERTA L7',
       title: product?.name || 'Suplemento L7 Fitness',
       subtitle: benefit,
-      cta: 'COMPRAR AGORA',
+      cta: getProductCtaLabel(product),
       footer: `L7 Fitness • ${offerLine}`,
       imageUrl,
       priceLabel: product ? formatBRL(Number(product.price) || 0) : undefined,
-      badges: [offerLine, 'Frete rápido', 'Até 12x'],
+      badges: getProductBadgeList(product),
+      highlightLabel: campaignLabel,
     }));
   });
 
