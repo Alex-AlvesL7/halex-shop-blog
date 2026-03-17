@@ -266,6 +266,19 @@ const PORT = 3000;
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ limit: '100mb', extended: true }));
 
+app.use((err: any, req: any, res: any, next: any) => {
+  if (err?.type === 'entity.parse.failed' || (err instanceof SyntaxError && err?.status === 400 && 'body' in err)) {
+    console.error('JSON parse error:', err);
+    return res.status(400).json({
+      error: 'JSON inválido no envio.',
+      message: 'Bad Unicode escape in JSON. Revise caracteres copiados na descrição, especialmente barras invertidas (\\).',
+      details: err.message || 'Falha ao interpretar o corpo da requisição.',
+    });
+  }
+
+  next(err);
+});
+
 const escapeHtml = (value: any) => String(value ?? '')
   .replace(/&/g, '&amp;')
   .replace(/</g, '&lt;')
@@ -284,6 +297,24 @@ const escapeXml = (value: any) => String(value ?? '')
   .replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;')
   .replace(/'/g, '&apos;');
+
+const serializeProductImages = (images: any) => {
+  if (Array.isArray(images)) return JSON.stringify(images.filter(Boolean));
+
+  if (typeof images === 'string') {
+    const raw = images.trim();
+    if (!raw) return JSON.stringify([]);
+
+    try {
+      const parsed = JSON.parse(raw);
+      return JSON.stringify(Array.isArray(parsed) ? parsed.filter(Boolean) : []);
+    } catch {
+      return JSON.stringify(raw.split(/\r?\n/).map((item) => item.trim()).filter(Boolean));
+    }
+  }
+
+  return JSON.stringify([]);
+};
 
 const normalizeProductRecord = (product: any) => {
   let images: string[] = [];
@@ -1205,27 +1236,44 @@ app.get("/api/health", async (req, res) => {
       description, 
       category: mainCategory,
       image, 
-      images: JSON.stringify(images || []), 
+      images: serializeProductImages(images), 
       stock: stock || 0, 
       rating: rating || 5, 
       reviews: reviews || 0 
     };
+
+    let savedSomewhere = false;
+    const saveErrors: string[] = [];
     
     if (db) {
       try {
-        db.prepare("INSERT INTO products (id, name, price, compare_at_price, promotion_label, promotion_cta, promotion_badge, description, category, image, images, stock, rating, reviews) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+        const result = db.prepare("INSERT INTO products (id, name, price, compare_at_price, promotion_label, promotion_cta, promotion_badge, description, category, image, images, stock, rating, reviews) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
           .run(productId, name, price, productData.compare_at_price, productData.promotion_label, productData.promotion_cta, productData.promotion_badge, description, productData.category, productData.image, productData.images, productData.stock, productData.rating, productData.reviews);
+        savedSomewhere = savedSomewhere || result.changes > 0;
       } catch (e) {
         console.error("SQLite product insert error:", e);
+        saveErrors.push(e instanceof Error ? e.message : 'Falha ao salvar produto no SQLite.');
       }
     }
     
     if (supabase) {
       const { error } = await supabase.from('products').upsert([productData]);
-      if (error) console.error("Supabase product upsert error:", error);
+      if (error) {
+        console.error("Supabase product upsert error:", error);
+        saveErrors.push(error.message || 'Falha ao salvar produto no Supabase.');
+      } else {
+        savedSomewhere = true;
+      }
+    }
+
+    if (!savedSomewhere) {
+      return res.status(500).json({
+        error: 'Falha ao salvar produto.',
+        details: saveErrors.join(' | ') || 'Nenhum banco confirmou a gravação do produto.',
+      });
     }
     
-    res.json({ success: true, id: productId });
+    res.json({ success: true, id: productId, product: normalizeProductRecord(productData) });
   });
 
   app.delete("/api/products/:id", async (req, res) => {
@@ -1309,6 +1357,7 @@ app.get("/api/health", async (req, res) => {
     const mainCategory = category || (categories && categories.length > 0 ? categories[0] : null);
 
     const productData = { 
+      id: req.params.id,
       name, 
       price, 
       compare_at_price: compareAtPrice || null,
@@ -1318,27 +1367,44 @@ app.get("/api/health", async (req, res) => {
       description, 
       category: mainCategory,
       image, 
-      images: typeof images === 'string' ? images : JSON.stringify(images || []), 
+      images: serializeProductImages(images), 
       stock: stock || 0, 
       rating: rating || 5, 
       reviews: reviews || 0 
     };
+
+    let updatedSomewhere = false;
+    const updateErrors: string[] = [];
     
     if (db) {
       try {
-        db.prepare("UPDATE products SET name = ?, price = ?, compare_at_price = ?, promotion_label = ?, promotion_cta = ?, promotion_badge = ?, description = ?, category = ?, image = ?, images = ?, stock = ?, rating = ?, reviews = ? WHERE id = ?")
+        const result = db.prepare("UPDATE products SET name = ?, price = ?, compare_at_price = ?, promotion_label = ?, promotion_cta = ?, promotion_badge = ?, description = ?, category = ?, image = ?, images = ?, stock = ?, rating = ?, reviews = ? WHERE id = ?")
           .run(productData.name, productData.price, productData.compare_at_price, productData.promotion_label, productData.promotion_cta, productData.promotion_badge, productData.description, productData.category, productData.image, productData.images, productData.stock, productData.rating, productData.reviews, req.params.id);
+        updatedSomewhere = updatedSomewhere || result.changes > 0;
       } catch (e) {
         console.error("SQLite product update error:", e);
+        updateErrors.push(e instanceof Error ? e.message : 'Falha ao atualizar produto no SQLite.');
       }
     }
     
     if (supabase) {
       const { error } = await supabase.from('products').update(productData).eq('id', req.params.id);
-      if (error) console.error("Supabase product update error:", error);
+      if (error) {
+        console.error("Supabase product update error:", error);
+        updateErrors.push(error.message || 'Falha ao atualizar produto no Supabase.');
+      } else {
+        updatedSomewhere = true;
+      }
+    }
+
+    if (!updatedSomewhere) {
+      return res.status(500).json({
+        error: 'Falha ao atualizar produto.',
+        details: updateErrors.join(' | ') || 'Nenhum banco confirmou a atualização do produto.',
+      });
     }
     
-    res.json({ success: true });
+    res.json({ success: true, product: normalizeProductRecord(productData) });
   });
 
   // Admin API - Posts
@@ -1482,19 +1548,16 @@ app.get("/api/health", async (req, res) => {
     try {
       let supabaseSaved = false;
       let sqliteSaved = false;
+      let supabaseErrorMessage: string | null = null;
 
       if (supabase) {
         const { error } = await supabase.from('quiz_leads').insert([leadData]);
         if (error) {
           console.error('Supabase quiz_leads insert failed:', error);
-          return res.status(500).json({
-            success: false,
-            error: 'Falha ao salvar lead no Supabase.',
-            details: error.message || String(error),
-          });
+          supabaseErrorMessage = error.message || String(error);
+        } else {
+          supabaseSaved = true;
         }
-
-        supabaseSaved = true;
       }
 
       if (db) {
@@ -1520,8 +1583,12 @@ app.get("/api/health", async (req, res) => {
         sqliteSaved = true;
       }
 
-      if (!supabase && !sqliteSaved) {
-        return res.status(500).json({ success: false, error: 'Nenhum banco configurado para salvar lead do quiz.' });
+      if (!supabaseSaved && !sqliteSaved) {
+        return res.status(500).json({
+          success: false,
+          error: supabaseErrorMessage ? 'Falha ao salvar lead do quiz.' : 'Nenhum banco configurado para salvar lead do quiz.',
+          details: supabaseErrorMessage || 'Nenhum banco confirmou a gravação do lead.',
+        });
       }
 
       res.json({ success: true, id: leadId, saved: { supabase: supabaseSaved, sqlite: sqliteSaved } });
@@ -1533,6 +1600,8 @@ app.get("/api/health", async (req, res) => {
 
   app.get("/api/quiz-leads", async (req, res) => {
     try {
+      let supabaseErrorMessage: string | null = null;
+
       if (supabase) {
         const { data, error } = await supabase
           .from('quiz_leads')
@@ -1541,18 +1610,27 @@ app.get("/api/health", async (req, res) => {
 
         if (error) {
           console.error('Supabase quiz_leads fetch failed:', error);
-          return res.status(500).json({ success: false, error: 'Falha ao carregar leads no Supabase.' });
+          supabaseErrorMessage = error.message || String(error);
+        } else {
+          return res.json({ success: true, leads: (data || []).map(normalizeQuizLeadRecord), source: 'supabase' });
         }
-
-        return res.json({ success: true, leads: (data || []).map(normalizeQuizLeadRecord), source: 'supabase' });
       }
 
       if (db) {
         const leads = db.prepare("SELECT * FROM quiz_leads ORDER BY created_at DESC").all();
-        return res.json({ success: true, leads: leads.map(normalizeQuizLeadRecord), source: 'sqlite' });
+        return res.json({
+          success: true,
+          leads: leads.map(normalizeQuizLeadRecord),
+          source: 'sqlite',
+          fallbackReason: supabaseErrorMessage || undefined,
+        });
       }
 
-      return res.status(500).json({ success: false, error: 'Nenhum banco configurado para listar leads.' });
+      return res.status(500).json({
+        success: false,
+        error: supabaseErrorMessage ? 'Falha ao carregar leads do quiz.' : 'Nenhum banco configurado para listar leads.',
+        details: supabaseErrorMessage || undefined,
+      });
     } catch (error) {
       console.error('Error in GET /api/quiz-leads:', error);
       return res.status(500).json({ success: false, error: 'Falha ao carregar leads do quiz.' });
@@ -1609,6 +1687,7 @@ app.get("/api/health", async (req, res) => {
       };
 
       const serializedMetadata = JSON.stringify(nextMetadata);
+      let supabaseErrorMessage: string | null = null;
 
       if (supabase) {
         const { error } = await supabase
@@ -1618,12 +1697,18 @@ app.get("/api/health", async (req, res) => {
 
         if (error) {
           console.error('Supabase quiz_leads CRM update failed:', error);
-          return res.status(500).json({ success: false, error: 'Falha ao atualizar CRM no Supabase.' });
+          supabaseErrorMessage = error.message || String(error);
         }
       }
 
+      let sqliteUpdated = false;
       if (db) {
-        db.prepare("UPDATE quiz_leads SET metadata = ? WHERE id = ?").run(serializedMetadata, id);
+        const result = db.prepare("UPDATE quiz_leads SET metadata = ? WHERE id = ?").run(serializedMetadata, id);
+        sqliteUpdated = result.changes > 0;
+      }
+
+      if (supabaseErrorMessage && !sqliteUpdated) {
+        return res.status(500).json({ success: false, error: 'Falha ao atualizar CRM do lead.', details: supabaseErrorMessage });
       }
 
       return res.json({

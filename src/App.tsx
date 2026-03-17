@@ -104,6 +104,17 @@ type ProductDescriptionSections = {
   composition: string;
 };
 
+type ProductAdminContent = {
+  summary: string;
+  purpose: string;
+  kitContents: string;
+  composition: string;
+  capsules: string;
+  usage: string;
+  details: string;
+  hasStructuredContent: boolean;
+};
+
 type ProductCompositionPanel = {
   id: string;
   label: string;
@@ -158,6 +169,69 @@ const PRODUCT_COPY: Record<string, ProductSalesCopy> = {
   },
 };
 
+const EMPTY_PRODUCT_ADMIN_CONTENT: ProductAdminContent = {
+  summary: '',
+  purpose: '',
+  kitContents: '',
+  composition: '',
+  capsules: '',
+  usage: '',
+  details: '',
+  hasStructuredContent: false,
+};
+
+const parseStructuredProductContent = (description?: string | null): ProductAdminContent => {
+  const raw = String(description || '').replace(/\r/g, '').trim();
+
+  if (!raw) return { ...EMPTY_PRODUCT_ADMIN_CONTENT };
+
+  const markerPattern = /\[\[(summary|purpose|kitContents|composition|capsules|usage|details)\]\]\s*([\s\S]*?)(?=\n\[\[|$)/gi;
+  const markerMatches = [...raw.matchAll(markerPattern)];
+
+  if (markerMatches.length > 0) {
+    const structured = markerMatches.reduce((acc, match) => {
+      const key = String(match[1] || '').trim() as keyof ProductAdminContent;
+      const value = String(match[2] || '').trim();
+
+      if (key in acc) {
+        (acc as any)[key] = value;
+      }
+
+      return acc;
+    }, { ...EMPTY_PRODUCT_ADMIN_CONTENT, hasStructuredContent: true });
+
+    return structured;
+  }
+
+  const basic = extractProductDescriptionSections(raw);
+
+  return {
+    ...EMPTY_PRODUCT_ADMIN_CONTENT,
+    summary: basic.summary,
+    purpose: basic.purpose,
+    composition: basic.composition,
+    details: raw,
+  };
+};
+
+const buildStructuredProductContent = (content: ProductAdminContent) => {
+  const sections: Array<[Exclude<keyof ProductAdminContent, 'hasStructuredContent'>, string]> = [
+    ['summary', content.summary],
+    ['purpose', content.purpose],
+    ['kitContents', content.kitContents],
+    ['composition', content.composition],
+    ['capsules', content.capsules],
+    ['usage', content.usage],
+    ['details', content.details],
+  ];
+
+  return sections
+    .map(([key, value]) => [key, String(value || '').trim()] as const)
+    .filter(([, value]) => value)
+    .map(([key, value]) => `[[${key}]]\n${value}`)
+    .join('\n\n');
+};
+
 const extractProductDescriptionSections = (description?: string | null): ProductDescriptionSections => {
   const raw = String(description || '').trim();
 
@@ -205,6 +279,22 @@ const getProductMarketingSummary = (product?: Product | null): ProductSalesCopy 
     };
   }
 
+  const structuredContent = parseStructuredProductContent(product.description);
+
+  if (structuredContent.hasStructuredContent) {
+    const fallbackSource = normalizeProductText(`${product.name} ${product.description} ${product.category || ''}`);
+    const hasDetox = fallbackSource.includes('detox');
+    const hasCollagen = fallbackSource.includes('colageno');
+
+    return {
+      summary: structuredContent.summary || 'Produto premium da L7 Fitness com foco em resultado e rotina consistente.',
+      purpose: structuredContent.purpose || `Indicado para ${product.category || 'rotina fitness'}${hasDetox ? ' com apoio detox' : ''}${hasCollagen ? ' e suporte complementar para pele e articulações' : ''}.`,
+      composition: structuredContent.kitContents || structuredContent.composition || `Composição principal: ${product.name.replace(/^1\s*/i, '')}.`,
+    };
+  }
+
+  if (PRODUCT_COPY[product.id]) return PRODUCT_COPY[product.id];
+
   const descriptionSections = extractProductDescriptionSections(product.description);
 
   if (descriptionSections.summary) {
@@ -219,8 +309,6 @@ const getProductMarketingSummary = (product?: Product | null): ProductSalesCopy 
     };
   }
 
-  if (PRODUCT_COPY[product.id]) return PRODUCT_COPY[product.id];
-
   const firstSentence = String(product.description || '').split(/[.!?]/).find(Boolean)?.trim() || 'Produto indicado para uma rotina mais consistente e objetiva';
   const source = normalizeProductText(`${product.name} ${product.description} ${product.category || ''}`);
   const hasDetox = source.includes('detox');
@@ -230,6 +318,23 @@ const getProductMarketingSummary = (product?: Product | null): ProductSalesCopy 
     summary: `${firstSentence}.`,
     purpose: `Indicado para ${product.category || 'rotina fitness'}${hasDetox ? ' com apoio detox' : ''}${hasCollagen ? ' e suporte complementar para pele e articulações' : ''}.`,
     composition: `Composição principal: ${product.name.replace(/^1\s*/i, '')}.`,
+  };
+};
+
+const getProductDetailContent = (product?: Product | null) => {
+  const marketing = getProductMarketingSummary(product);
+  const structured = parseStructuredProductContent(product?.description);
+  const source = normalizeProductText(`${product?.name || ''} ${product?.description || ''}`);
+  const isKit = source.includes('kit') || source.includes('combo') || source.includes('full') || source.includes('detox') || source.includes('colageno');
+
+  return {
+    summary: structured.summary || marketing.summary,
+    purpose: structured.purpose || marketing.purpose,
+    kitContents: structured.kitContents || marketing.composition || (isKit ? 'Veja os itens incluídos neste kit.' : `O que vem: ${String(product?.name || '').replace(/^1\s*/i, '')}.`),
+    composition: structured.composition || marketing.composition,
+    capsules: structured.capsules || 'Confira a embalagem para a quantidade por cápsula, porção e volume total do frasco.',
+    usage: structured.usage || 'Use conforme a orientação do rótulo e com acompanhamento profissional quando necessário.',
+    details: structured.details || structured.summary || marketing.summary,
   };
 };
 
@@ -1290,12 +1395,13 @@ const TipsPage = ({
   );
 };
 
-const ProductDetailsPage: React.FC<{ product: Product, onAddToCart: (p: Product) => void, onBack: () => void, onNavigate: (page: string) => void, onShowToast: (msg: string) => void }> = ({ product, onAddToCart, onBack, onNavigate, onShowToast }) => {
+const ProductDetailsPage: React.FC<{ product: Product, onAddToCart: (p: Product) => void, onBack: () => void, onNavigate: (page: string, options?: any) => void, onShowToast: (msg: string) => void }> = ({ product, onAddToCart, onBack, onNavigate, onShowToast }) => {
   const [activeImage, setActiveImage] = useState(product.image);
   const compositionPanels = useMemo(() => getProductCompositionPanels(product), [product]);
   const [activeCompositionId, setActiveCompositionId] = useState(compositionPanels[0]?.id || product.id);
   const allImages = [product.image, ...(product.images || [])];
   const marketing = useMemo(() => getProductMarketingSummary(product), [product]);
+  const detailContent = useMemo(() => getProductDetailContent(product), [product]);
   const activeComposition = compositionPanels.find((panel) => panel.id === activeCompositionId) || compositionPanels[0];
   const productBenefits = useMemo(() => {
     const source = normalizeProductText(`${product.name} ${product.description}`);
@@ -1415,15 +1521,15 @@ const ProductDetailsPage: React.FC<{ product: Product, onAddToCart: (p: Product)
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="bg-gray-50 border border-gray-100 rounded-[28px] p-5 shadow-[0_18px_50px_rgba(15,23,42,0.05)]">
                 <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-2">Para que serve</p>
-                <p className="text-sm text-gray-600 leading-relaxed">{marketing.purpose}</p>
+                <p className="text-sm text-gray-600 leading-relaxed">{detailContent.purpose}</p>
               </div>
               <div className="relative overflow-hidden rounded-[28px] border border-orange-100 bg-white p-5 shadow-[0_20px_60px_rgba(249,115,22,0.12)]">
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(251,146,60,0.18),_transparent_40%)] pointer-events-none" />
                 <div className="relative">
                   <div className="flex items-center justify-between gap-3 mb-4">
                     <div>
-                      <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-2">Composição</p>
-                      <p className="text-xs text-gray-500">Veja cada item do kit sem sair da página.</p>
+                      <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-2">O que vem</p>
+                      <p className="text-xs text-gray-500">{detailContent.kitContents}</p>
                     </div>
                     {compositionPanels.length > 1 && (
                       <span className="px-3 py-1 rounded-full bg-orange-50 text-brand-orange text-[10px] font-black uppercase tracking-widest border border-orange-100">
@@ -1527,6 +1633,13 @@ const ProductDetailsPage: React.FC<{ product: Product, onAddToCart: (p: Product)
             </button>
           </div>
 
+          <button
+            onClick={() => onNavigate('product-info', { productId: product.id })}
+            className="mt-4 inline-flex items-center gap-2 text-sm font-black uppercase tracking-widest text-brand-orange hover:text-brand-orange/80 transition-colors"
+          >
+            Ver composição completa e mais informações <ChevronRight size={16} />
+          </button>
+
           <div className="mt-12 pt-12 border-t border-gray-100 grid grid-cols-1 sm:grid-cols-3 gap-4">
             {productBenefits.map((benefit) => {
               const BenefitIcon = benefit.icon;
@@ -1551,6 +1664,69 @@ const ProductDetailsPage: React.FC<{ product: Product, onAddToCart: (p: Product)
             })}
           </div>
         </motion.div>
+      </div>
+    </div>
+  );
+};
+
+const ProductInfoPage: React.FC<{ product: Product, onAddToCart: (p: Product) => void, onBack: () => void, onNavigate: (page: string, options?: any) => void, onShowToast: (msg: string) => void }> = ({ product, onAddToCart, onBack, onNavigate, onShowToast }) => {
+  const detailContent = useMemo(() => getProductDetailContent(product), [product]);
+  const marketing = useMemo(() => getProductMarketingSummary(product), [product]);
+
+  return (
+    <div className="pt-32 pb-24 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <button
+        onClick={onBack}
+        className="flex items-center gap-2 text-gray-500 hover:text-brand-orange transition-colors mb-8 font-bold uppercase text-xs tracking-widest"
+      >
+        <ChevronRight className="rotate-180" size={16} /> Voltar para o produto
+      </button>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[420px_minmax(0,1fr)] gap-8 items-start">
+        <div className="bg-white rounded-[32px] border border-gray-100 shadow-sm p-5 lg:sticky lg:top-28">
+          <div className="aspect-square rounded-[24px] overflow-hidden bg-gray-50 border border-gray-100 mb-5">
+            <img src={product.image} alt={product.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+          </div>
+          <span className="inline-flex px-3 py-1 rounded-full bg-orange-50 text-brand-orange text-[10px] font-black uppercase tracking-widest border border-orange-100 mb-3">
+            Informações completas
+          </span>
+          <h1 className="text-3xl font-black uppercase leading-tight mb-3">{product.name}</h1>
+          <p className="text-gray-600 leading-relaxed mb-4">{detailContent.summary || marketing.summary}</p>
+          <div className="flex items-end gap-3 mb-5">
+            <span className="text-3xl font-black text-brand-orange">{formatPriceBRL(product.price)}</span>
+            {hasProductPromotion(product) && <span className="text-sm text-gray-400 line-through font-bold">{formatPriceBRL(product.compareAtPrice)}</span>}
+          </div>
+          <div className="space-y-3">
+            <button
+              onClick={() => { onAddToCart(product); onShowToast('Adicionado ao carrinho!'); }}
+              className="w-full bg-brand-orange text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-brand-orange/90 transition-colors"
+            >
+              Adicionar ao carrinho
+            </button>
+            <button
+              onClick={() => onNavigate('product-details', { productId: product.id })}
+              className="w-full bg-brand-black text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-black/90 transition-colors"
+            >
+              Voltar para página de compra
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-5">
+          {[
+            ['Para que serve', detailContent.purpose],
+            ['O que vem no kit', detailContent.kitContents],
+            ['Composição detalhada', detailContent.composition],
+            ['Quantidade / cápsulas', detailContent.capsules],
+            ['Como usar', detailContent.usage],
+            ['Informações completas', detailContent.details],
+          ].filter(([, value]) => String(value || '').trim()).map(([title, value]) => (
+            <div key={title} className="bg-white rounded-[32px] border border-gray-100 shadow-sm p-6">
+              <p className="text-[10px] uppercase tracking-[0.22em] text-brand-orange font-black mb-3">{title}</p>
+              <div className="text-sm text-gray-600 leading-7 whitespace-pre-line">{value}</div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -2200,6 +2376,7 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
   const [leadStatusFilter, setLeadStatusFilter] = useState<'all' | 'no-purchase' | 'paid' | 'pending'>('all');
   const [leadCrmDrafts, setLeadCrmDrafts] = useState<Record<string, LeadCrmDraft>>({});
   const [savingLeadId, setSavingLeadId] = useState<string | null>(null);
+  const [savingProduct, setSavingProduct] = useState(false);
   const [productActionFeedback, setProductActionFeedback] = useState<string | null>(null);
 
   useEffect(() => {
@@ -2522,22 +2699,32 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
 
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingId) {
-      await fetch(`/api/products/${editingId}`, {
-        method: 'PUT',
+    setSavingProduct(true);
+    try {
+      const response = await fetch(editingId ? `/api/products/${editingId}` : '/api/products', {
+        method: editingId ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newProduct)
+        body: JSON.stringify(editingId ? newProduct : { ...newProduct, id: Date.now().toString() })
       });
-    } else {
-      const product = { ...newProduct, id: Date.now().toString() };
-      await fetch('/api/products', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(product)
-      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Falha ao salvar produto.');
+      }
+
+      const savedProduct = data.product || { ...newProduct, id: data.id || editingId || Date.now().toString() };
+      setNewProduct(savedProduct);
+      setEditingId(savedProduct.id || editingId || null);
+      setShowForm(true);
+      await onRefresh();
+      showProductFeedback(editingId ? 'Produto atualizado com sucesso.' : 'Produto criado com sucesso.');
+    } catch (error) {
+      console.error('Erro ao salvar produto:', error);
+      alert(error instanceof Error ? error.message : 'Falha ao salvar produto.');
+    } finally {
+      setSavingProduct(false);
     }
-    resetForm();
-    await onRefresh();
   };
 
   const handleAddPost = async (e: React.FormEvent) => {
@@ -2577,6 +2764,21 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
     setNewProduct(product);
     setEditingId(product.id);
     setShowForm(true);
+  };
+
+  const productAdminContent = useMemo(() => parseStructuredProductContent(newProduct.description), [newProduct.description]);
+
+  const updateProductAdminContent = (patch: Partial<ProductAdminContent>) => {
+    const nextContent = {
+      ...parseStructuredProductContent(newProduct.description),
+      ...patch,
+      hasStructuredContent: true,
+    };
+
+    setNewProduct({
+      ...newProduct,
+      description: buildStructuredProductContent(nextContent),
+    });
   };
 
   const handleEditPost = (post: BlogPost) => {
@@ -2688,6 +2890,23 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
   };
 
   const productDraftPreview = useMemo(() => getProductMarketingSummary({
+    id: newProduct.id || editingId || 'preview-product',
+    name: newProduct.name || 'Produto em edição',
+    price: Number(newProduct.price) || 0,
+    compareAtPrice: Number(newProduct.compareAtPrice) || 0,
+    promotionLabel: newProduct.promotionLabel || '',
+    promotionCta: newProduct.promotionCta || '',
+    promotionBadge: newProduct.promotionBadge || '',
+    description: newProduct.description || '',
+    category: newProduct.category || 'suplementos',
+    image: newProduct.image || 'https://picsum.photos/seed/new/600/600',
+    images: newProduct.images || [],
+    stock: Number(newProduct.stock) || 0,
+    rating: Number(newProduct.rating) || 5,
+    reviews: Number(newProduct.reviews) || 0,
+  }), [editingId, newProduct]);
+
+  const productDraftDetails = useMemo(() => getProductDetailContent({
     id: newProduct.id || editingId || 'preview-product',
     name: newProduct.name || 'Produto em edição',
     price: Number(newProduct.price) || 0,
@@ -2939,23 +3158,88 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                       </div>
                     </div>
 
-                    <div>
-                      <div className="flex items-center justify-between gap-3 mb-2">
-                        <label className="block text-[11px] font-black uppercase tracking-widest text-gray-400">Descrição que vai para a loja</label>
-                        <span className="text-[11px] font-bold text-brand-orange uppercase tracking-widest">O texto salvo aparece na página do produto</span>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <label className="block text-[11px] font-black uppercase tracking-widest text-gray-400">Conteúdo controlado no painel</label>
+                        <span className="text-[11px] font-bold text-brand-orange uppercase tracking-widest">Tudo abaixo reflete na loja</span>
                       </div>
-                      <textarea 
-                        placeholder="Descrição" 
-                        className="w-full p-4 bg-gray-50 rounded-xl border-none outline-none h-72 resize-y"
-                        value={newProduct.description}
-                        onChange={e => setNewProduct({...newProduct, description: e.target.value})}
-                      />
-                      <p className="text-xs text-gray-500 mt-2 leading-relaxed">
-                        Dica: se quiser controlar melhor a página do produto, você pode escrever linhas começando com “Para que serve:” e “Composição:”.
-                      </p>
+
+                      <div>
+                        <label className="block text-[11px] font-black uppercase tracking-widest text-gray-400 mb-2">Resumo da página do produto</label>
+                        <textarea
+                          placeholder="Texto curto que aparece para vender rápido na página principal"
+                          className="w-full p-4 bg-gray-50 rounded-xl border-none outline-none h-24 resize-y"
+                          value={productAdminContent.summary}
+                          onChange={e => updateProductAdminContent({ summary: e.target.value })}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[11px] font-black uppercase tracking-widest text-gray-400 mb-2">Para que serve</label>
+                          <textarea
+                            placeholder="Função principal do produto"
+                            className="w-full p-4 bg-gray-50 rounded-xl border-none outline-none h-28 resize-y"
+                            value={productAdminContent.purpose}
+                            onChange={e => updateProductAdminContent({ purpose: e.target.value })}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-black uppercase tracking-widest text-gray-400 mb-2">O que vem no kit</label>
+                          <textarea
+                            placeholder="Itens que vêm no kit ou na compra"
+                            className="w-full p-4 bg-gray-50 rounded-xl border-none outline-none h-28 resize-y"
+                            value={productAdminContent.kitContents}
+                            onChange={e => updateProductAdminContent({ kitContents: e.target.value })}
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-black uppercase tracking-widest text-gray-400 mb-2">Composição detalhada</label>
+                        <textarea
+                          placeholder="Ingredientes, ativos e blend do produto"
+                          className="w-full p-4 bg-gray-50 rounded-xl border-none outline-none h-28 resize-y"
+                          value={productAdminContent.composition}
+                          onChange={e => updateProductAdminContent({ composition: e.target.value })}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[11px] font-black uppercase tracking-widest text-gray-400 mb-2">Quantidade por cápsulas / frasco</label>
+                          <textarea
+                            placeholder="Ex.: 60 cápsulas, 500mg por cápsula"
+                            className="w-full p-4 bg-gray-50 rounded-xl border-none outline-none h-28 resize-y"
+                            value={productAdminContent.capsules}
+                            onChange={e => updateProductAdminContent({ capsules: e.target.value })}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-black uppercase tracking-widest text-gray-400 mb-2">Como usar</label>
+                          <textarea
+                            placeholder="Modo de uso e rotina recomendada"
+                            className="w-full p-4 bg-gray-50 rounded-xl border-none outline-none h-28 resize-y"
+                            value={productAdminContent.usage}
+                            onChange={e => updateProductAdminContent({ usage: e.target.value })}
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-black uppercase tracking-widest text-gray-400 mb-2">Página completa “mais informações”</label>
+                        <textarea
+                          placeholder="Conteúdo completo para a página separada com informações detalhadas do produto"
+                          className="w-full p-4 bg-gray-50 rounded-xl border-none outline-none h-52 resize-y"
+                          value={productAdminContent.details}
+                          onChange={e => updateProductAdminContent({ details: e.target.value })}
+                        />
+                      </div>
                     </div>
 
-                    <button type="submit" className="w-full btn-primary py-4">Salvar</button>
+                    <button type="submit" disabled={savingProduct} className="w-full btn-primary py-4 disabled:opacity-60">
+                      {savingProduct ? 'Salvando produto...' : 'Salvar alterações'}
+                    </button>
                   </div>
 
                   <div className="xl:sticky xl:top-28 h-fit space-y-4">
@@ -2980,8 +3264,12 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                           <p className="text-sm text-gray-600 leading-relaxed">{productDraftPreview.purpose}</p>
                         </div>
                         <div className="rounded-2xl bg-white border border-gray-100 p-4">
-                          <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-2">Composição</p>
-                          <p className="text-sm text-gray-600 leading-relaxed">{productDraftPreview.composition}</p>
+                          <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-2">O que vem no kit</p>
+                          <p className="text-sm text-gray-600 leading-relaxed">{productDraftDetails.kitContents}</p>
+                        </div>
+                        <div className="rounded-2xl bg-white border border-gray-100 p-4">
+                          <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-2">Página completa</p>
+                          <p className="text-sm text-gray-600 leading-relaxed line-clamp-6">{productDraftDetails.details || 'As informações completas aparecerão aqui.'}</p>
                         </div>
                       </div>
                     </div>
@@ -3157,9 +3445,9 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
 
                 {/* Charts Grid */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  <div className="bg-white p-8 rounded-[40px] border border-gray-100 shadow-sm">
+                  <div className="bg-white p-8 rounded-[40px] border border-gray-100 shadow-sm min-w-0">
                     <h3 className="text-xl font-black mb-8 uppercase">Vendas nos Últimos 7 Dias</h3>
-                    <div className="h-[300px] w-full">
+                    <div className="h-[300px] w-full min-w-0">
                       {metrics.salesChartData.length > 0 ? (
                         <ResponsiveContainer width="100%" height="100%" key={`sales-${metrics.salesChartData.length}`}>
                           <LineChart data={metrics.salesChartData}>
@@ -3179,9 +3467,9 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                     </div>
                   </div>
 
-                  <div className="bg-white p-8 rounded-[40px] border border-gray-100 shadow-sm">
+                  <div className="bg-white p-8 rounded-[40px] border border-gray-100 shadow-sm min-w-0">
                     <h3 className="text-xl font-black mb-8 uppercase">Vendas por Categoria</h3>
-                    <div className="h-[300px] w-full">
+                    <div className="h-[300px] w-full min-w-0">
                       {metrics.categoryChartData.length > 0 ? (
                         <ResponsiveContainer width="100%" height="100%" key={`cat-${metrics.categoryChartData.length}`}>
                           <PieChart>
@@ -3337,7 +3625,7 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                           </div>
                         )}
 
-                        <p className="text-sm text-gray-500 leading-relaxed max-w-2xl">{p.description}</p>
+                        <p className="text-sm text-gray-500 leading-relaxed max-w-2xl">{getProductMarketingSummary(p).summary}</p>
 
                         <div className="flex flex-wrap gap-2 mt-4">
                           <button
@@ -3437,7 +3725,7 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                           <p className="text-xs text-emerald-100/90 mb-2 break-all">{getCampaignOfferUrl(p.id)}</p>
                           <p className="text-sm text-emerald-100 font-bold leading-snug mb-2">{p.name}</p>
                           <p className="text-xs text-emerald-100/80 leading-relaxed mb-3 line-clamp-3">
-                            {p.promotionCta || p.description || 'Oferta ativa com frete rápido e atendimento direto no WhatsApp.'}
+                            {p.promotionCta || getProductMarketingSummary(p).summary || 'Oferta ativa com frete rápido e atendimento direto no WhatsApp.'}
                           </p>
                           <div className="flex flex-wrap gap-2">
                             {p.promotionLabel && <span className="px-2 py-1 rounded-full bg-white/10 text-[10px] font-black uppercase tracking-widest text-white">{p.promotionLabel}</span>}
@@ -4452,6 +4740,7 @@ function MainApp() {
     if (page === 'tips') return '/dicas-ai';
     if (page === 'blog') return '/blog';
     if (page === 'blog-details' && options?.postId) return `/blog/${encodeURIComponent(options.postId)}`;
+    if (page === 'product-info' && options?.productId) return `/produto/${encodeURIComponent(options.productId)}/informacoes`;
     if (page === 'product-details' && options?.productId) return `/produto/${encodeURIComponent(options.productId)}`;
     if (page === 'campaign-offer' && options?.productId) return `/oferta/${encodeURIComponent(options.productId)}`;
     if (page === 'admin') return '/admin';
@@ -4462,6 +4751,16 @@ function MainApp() {
   };
 
   const syncStateWithPath = (pathname: string) => {
+    const productInfoMatch = pathname.match(/^\/produto\/([^/]+)\/informacoes$/);
+
+    if (productInfoMatch) {
+      const productId = decodeURIComponent(productInfoMatch[1] || '');
+      setSelectedProductId(productId || null);
+      setSelectedPostId(null);
+      setCurrentPage('product-info');
+      return;
+    }
+
     if (pathname.startsWith('/afiliado/')) {
       const refCode = decodeURIComponent(pathname.split('/')[2] || '');
       setSelectedAffiliateRef(refCode || null);
@@ -4821,6 +5120,24 @@ function MainApp() {
                     product={product} 
                     onAddToCart={addToCart} 
                     onBack={() => navigateTo('store')} 
+                    onNavigate={navigateTo}
+                    onShowToast={showToast}
+                  />
+                );
+              })()}
+            </motion.div>
+          )}
+          {currentPage === 'product-info' && selectedProductId && (
+            <motion.div key="product-info" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              {(() => {
+                const product = products.find(p => p.id === selectedProductId);
+                if (!product) return null;
+                return (
+                  <ProductInfoPage
+                    key={`info-${product.id}`}
+                    product={product}
+                    onAddToCart={addToCart}
+                    onBack={() => navigateTo('product-details', { productId: product.id })}
                     onNavigate={navigateTo}
                     onShowToast={showToast}
                   />
