@@ -8,6 +8,7 @@ import { createClient } from "@supabase/supabase-js";
 import { enviarEmail } from "./mailer.js";
 import { PRODUCTS, POSTS } from "./src/data.js";
 import { applyPromotionToProduct } from "./src/promotionRules.js";
+import sharp from "sharp";
 import crypto from "crypto";
 import dotenv from "dotenv";
 
@@ -39,6 +40,10 @@ try {
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       price REAL NOT NULL,
+      compare_at_price REAL,
+      promotion_label TEXT,
+      promotion_cta TEXT,
+      promotion_badge TEXT,
       description TEXT,
       category TEXT,
       image TEXT,
@@ -143,6 +148,18 @@ try {
   } catch (e) {}
   try {
     db.exec("ALTER TABLE products ADD COLUMN reviews INTEGER");
+  } catch (e) {}
+  try {
+    db.exec("ALTER TABLE products ADD COLUMN compare_at_price REAL");
+  } catch (e) {}
+  try {
+    db.exec("ALTER TABLE products ADD COLUMN promotion_label TEXT");
+  } catch (e) {}
+  try {
+    db.exec("ALTER TABLE products ADD COLUMN promotion_cta TEXT");
+  } catch (e) {}
+  try {
+    db.exec("ALTER TABLE products ADD COLUMN promotion_badge TEXT");
   } catch (e) {}
   try {
     db.exec("ALTER TABLE orders ADD COLUMN affiliate_id TEXT");
@@ -268,17 +285,38 @@ const escapeXml = (value: any) => String(value ?? '')
   .replace(/"/g, '&quot;')
   .replace(/'/g, '&apos;');
 
+const normalizeProductRecord = (product: any) => {
+  let images: string[] = [];
+  try {
+    images = typeof product?.images === 'string'
+      ? JSON.parse(product.images || '[]')
+      : (Array.isArray(product?.images) ? product.images : []);
+  } catch (error) {
+    images = [];
+  }
+
+  return applyPromotionToProduct({
+    ...product,
+    images,
+    compareAtPrice: Number(product?.compare_at_price ?? product?.compareAtPrice) || undefined,
+    promotionLabel: String(product?.promotion_label ?? product?.promotionLabel ?? '').trim() || undefined,
+    promotionCta: String(product?.promotion_cta ?? product?.promotionCta ?? '').trim() || undefined,
+    promotionBadge: String(product?.promotion_badge ?? product?.promotionBadge ?? '').trim() || undefined,
+    categories: product?.category ? [product.category] : (Array.isArray(product?.categories) ? product.categories : []),
+  });
+};
+
 const getProductsCatalog = () => {
   if (db) {
     try {
       const products = db.prepare('SELECT * FROM products').all();
-      if (Array.isArray(products) && products.length > 0) return products.map((product: any) => applyPromotionToProduct(product));
+      if (Array.isArray(products) && products.length > 0) return products.map((product: any) => normalizeProductRecord(product));
     } catch (error) {
       console.warn('Falha ao carregar catálogo de produtos para SEO:', error);
     }
   }
 
-  return PRODUCTS.map((product) => applyPromotionToProduct(product));
+  return PRODUCTS.map((product) => normalizeProductRecord(product));
 };
 
 const getPostsCatalog = () => {
@@ -406,6 +444,7 @@ const buildMetaBlock = (meta: {
   canonicalUrl: string;
   imageUrl: string;
   imageAlt: string;
+  imageType?: string;
   type?: string;
 }) => `
     <title>${escapeHtml(meta.title)}</title>
@@ -423,7 +462,7 @@ const buildMetaBlock = (meta: {
     <meta property="og:url" content="${escapeHtml(meta.canonicalUrl)}" />
     <meta property="og:image" content="${escapeHtml(meta.imageUrl)}" />
     <meta property="og:image:secure_url" content="${escapeHtml(meta.imageUrl)}" />
-    <meta property="og:image:type" content="image/svg+xml" />
+    <meta property="og:image:type" content="${escapeHtml(meta.imageType || 'image/png')}" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="${escapeHtml(meta.imageAlt)}" />
@@ -444,8 +483,9 @@ const getRouteMeta = (pathname: string, appUrl: string) => {
     title: 'L7 Fitness | Garanta seu suplemento com frete rápido',
     description: 'Garanta hoje seus suplementos L7 Fitness com frete rápido, parcelamento em até 12x e atendimento direto no WhatsApp. Estoque limitado.',
     canonicalUrl: `${appUrl}${normalizedPath === '/' ? '/' : normalizedPath}`,
-    imageUrl: `${appUrl}/og/default.svg`,
+    imageUrl: `${appUrl}/og/default.png`,
     imageAlt: 'Arte promocional da L7 Fitness com CTA de compra',
+    imageType: 'image/png',
     type: 'website',
   };
 
@@ -457,8 +497,9 @@ const getRouteMeta = (pathname: string, appUrl: string) => {
         title: `${product.name} | Compre agora na L7 Fitness`,
         description: getProductSocialDescription(product),
         canonicalUrl: `${appUrl}/produto/${encodeURIComponent(productId)}`,
-        imageUrl: `${appUrl}/og/product/${encodeURIComponent(productId)}.svg`,
+        imageUrl: `${appUrl}/og/product/${encodeURIComponent(productId)}.png`,
         imageAlt: `${product.name} com CTA de compra da L7 Fitness`,
+        imageType: 'image/png',
         type: 'product',
       };
     }
@@ -472,8 +513,9 @@ const getRouteMeta = (pathname: string, appUrl: string) => {
         title: `${post.title} | Blog L7 Fitness`,
         description: `${String(post.excerpt || post.content || '').trim()} Leia agora no blog da L7 Fitness e descubra a melhor estratégia para acelerar seus resultados.`,
         canonicalUrl: `${appUrl}/blog/${encodeURIComponent(postId)}`,
-        imageUrl: `${appUrl}/og/blog/${encodeURIComponent(postId)}.svg`,
+        imageUrl: `${appUrl}/og/blog/${encodeURIComponent(postId)}.png`,
         imageAlt: `${post.title} no blog da L7 Fitness`,
+        imageType: 'image/png',
         type: 'article',
       };
     }
@@ -485,8 +527,9 @@ const getRouteMeta = (pathname: string, appUrl: string) => {
       title: 'Loja L7 Fitness | Ofertas fortes e frete rápido',
       description: 'Veja os suplementos e kits da L7 Fitness com ofertas fortes, frete rápido e parcelamento em até 12x.',
       canonicalUrl: `${appUrl}/loja`,
-      imageUrl: `${appUrl}/og/store.svg`,
+      imageUrl: `${appUrl}/og/store.png`,
       imageAlt: 'Loja L7 Fitness com ofertas e frete rápido',
+      imageType: 'image/png',
     };
   }
 
@@ -496,8 +539,9 @@ const getRouteMeta = (pathname: string, appUrl: string) => {
       title: 'Quiz AI L7 Fitness | Descubra sua melhor recomendação',
       description: 'Faça o quiz da L7 Fitness e receba uma recomendação personalizada com produto, alimentação, treino e oferta especial.',
       canonicalUrl: `${appUrl}/dicas-ai`,
-      imageUrl: `${appUrl}/og/quiz.svg`,
+      imageUrl: `${appUrl}/og/quiz.png`,
       imageAlt: 'Quiz AI da L7 Fitness com recomendação personalizada',
+      imageType: 'image/png',
     };
   }
 
@@ -507,8 +551,9 @@ const getRouteMeta = (pathname: string, appUrl: string) => {
       title: 'Blog L7 Fitness | Dicas de treino, dieta e resultados',
       description: 'Leia dicas práticas de emagrecimento, treino e alimentação no blog da L7 Fitness e acelere seus resultados.',
       canonicalUrl: `${appUrl}/blog`,
-      imageUrl: `${appUrl}/og/blog.svg`,
+      imageUrl: `${appUrl}/og/blog.png`,
       imageAlt: 'Blog L7 Fitness com dicas de treino e alimentação',
+      imageType: 'image/png',
     };
   }
 
@@ -619,6 +664,11 @@ const renderOgSvg = ({
   ${imagePanelSvg}
   ${priceSvg}
 </svg>`;
+};
+
+const renderOgPngBuffer = async (options: Parameters<typeof renderOgSvg>[0]) => {
+  const svg = renderOgSvg(options);
+  return sharp(Buffer.from(svg)).png().toBuffer();
 };
 
 const normalizeOrderRecord = (order: any) => {
@@ -1029,20 +1079,7 @@ app.get("/api/health", async (req, res) => {
           
           if (error) throw error;
 
-          products = (data || []).map(p => {
-            let images = [];
-            try {
-              images = typeof p.images === 'string' ? JSON.parse(p.images) : (p.images || []);
-            } catch (e) {
-              console.warn(`Failed to parse images for product ${p.id}:`, e);
-            }
-            return applyPromotionToProduct({
-              ...p,
-              images,
-              // Map single category to categories array for frontend compatibility
-              categories: p.category ? [p.category] : []
-            });
-          });
+          products = (data || []).map((p) => normalizeProductRecord(p));
           usedSupabase = true;
         } catch (supaError: any) {
           console.error("Supabase products fetch failed, falling back to SQLite:", supaError.message || supaError);
@@ -1053,19 +1090,7 @@ app.get("/api/health", async (req, res) => {
         try {
           const dbProducts = db.prepare("SELECT * FROM products").all() as any[];
           
-          products = dbProducts.map(p => {
-            let images = [];
-            try {
-              images = p.images ? JSON.parse(p.images) : [];
-            } catch (e) {
-              console.warn(`Failed to parse images for product ${p.id} from SQLite:`, e);
-            }
-            return applyPromotionToProduct({
-              ...p,
-              images,
-              categories: p.category ? [p.category] : []
-            });
-          });
+          products = dbProducts.map((p) => normalizeProductRecord(p));
         } catch (sqliteError) {
           console.error("SQLite products fetch failed:", sqliteError);
         }
@@ -1146,7 +1171,7 @@ app.get("/api/health", async (req, res) => {
 
   // Admin API - Products
   app.post("/api/products", async (req, res) => {
-    const { id, name, price, description, category, categories, image, images, stock, rating, reviews } = req.body;
+    const { id, name, price, compareAtPrice, promotionLabel, promotionCta, promotionBadge, description, category, categories, image, images, stock, rating, reviews } = req.body;
     const productId = id || crypto.randomUUID();
     // Use the first category from the array if 'category' is not directly provided
     const mainCategory = category || (categories && categories.length > 0 ? categories[0] : null);
@@ -1155,6 +1180,10 @@ app.get("/api/health", async (req, res) => {
       id: productId, 
       name, 
       price, 
+      compare_at_price: compareAtPrice || null,
+      promotion_label: String(promotionLabel || '').trim() || null,
+      promotion_cta: String(promotionCta || '').trim() || null,
+      promotion_badge: String(promotionBadge || '').trim() || null,
       description, 
       category: mainCategory,
       image, 
@@ -1166,8 +1195,8 @@ app.get("/api/health", async (req, res) => {
     
     if (db) {
       try {
-        db.prepare("INSERT INTO products (id, name, price, description, category, image, images, stock, rating, reviews) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-          .run(productId, name, price, description, productData.category, productData.image, productData.images, productData.stock, productData.rating, productData.reviews);
+        db.prepare("INSERT INTO products (id, name, price, compare_at_price, promotion_label, promotion_cta, promotion_badge, description, category, image, images, stock, rating, reviews) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+          .run(productId, name, price, productData.compare_at_price, productData.promotion_label, productData.promotion_cta, productData.promotion_badge, description, productData.category, productData.image, productData.images, productData.stock, productData.rating, productData.reviews);
       } catch (e) {
         console.error("SQLite product insert error:", e);
       }
@@ -1258,12 +1287,16 @@ app.get("/api/health", async (req, res) => {
   });
 
   app.put("/api/products/:id", async (req, res) => {
-    const { name, price, description, category, categories, image, images, stock, rating, reviews } = req.body;
+    const { name, price, compareAtPrice, promotionLabel, promotionCta, promotionBadge, description, category, categories, image, images, stock, rating, reviews } = req.body;
     const mainCategory = category || (categories && categories.length > 0 ? categories[0] : null);
 
     const productData = { 
       name, 
       price, 
+      compare_at_price: compareAtPrice || null,
+      promotion_label: String(promotionLabel || '').trim() || null,
+      promotion_cta: String(promotionCta || '').trim() || null,
+      promotion_badge: String(promotionBadge || '').trim() || null,
       description, 
       category: mainCategory,
       image, 
@@ -1275,8 +1308,8 @@ app.get("/api/health", async (req, res) => {
     
     if (db) {
       try {
-        db.prepare("UPDATE products SET name = ?, price = ?, description = ?, category = ?, image = ?, images = ?, stock = ?, rating = ?, reviews = ? WHERE id = ?")
-          .run(productData.name, productData.price, productData.description, productData.category, productData.image, productData.images, productData.stock, productData.rating, productData.reviews, req.params.id);
+        db.prepare("UPDATE products SET name = ?, price = ?, compare_at_price = ?, promotion_label = ?, promotion_cta = ?, promotion_badge = ?, description = ?, category = ?, image = ?, images = ?, stock = ?, rating = ?, reviews = ? WHERE id = ?")
+          .run(productData.name, productData.price, productData.compare_at_price, productData.promotion_label, productData.promotion_cta, productData.promotion_badge, productData.description, productData.category, productData.image, productData.images, productData.stock, productData.rating, productData.reviews, req.params.id);
       } catch (e) {
         console.error("SQLite product update error:", e);
       }
@@ -2389,6 +2422,51 @@ app.post("/api/checkout", async (req, res) => {
     res.send(renderOgSvg(presets[variant] || presets.default));
   });
 
+  app.get('/og/:variant(default|store|quiz|blog).png', async (req, res) => {
+    const variant = req.params.variant;
+
+    const presets: Record<string, { eyebrow: string; title: string; subtitle: string; cta: string; footer: string }> = {
+      default: {
+        eyebrow: 'L7 FITNESS',
+        title: 'Garanta seus suplementos com frete rápido',
+        subtitle: 'Ofertas fortes, parcelamento em até 12x e atendimento direto no WhatsApp.',
+        cta: 'COMPRE AGORA',
+        footer: 'www.l7fitness.com.br',
+      },
+      store: {
+        eyebrow: 'LOJA OFICIAL',
+        title: 'Ofertas fortes para acelerar seus resultados',
+        subtitle: 'Kits e suplementos L7 Fitness com frete rápido para todo o Brasil.',
+        cta: 'VER OFERTAS',
+        footer: 'Loja L7 Fitness',
+      },
+      quiz: {
+        eyebrow: 'QUIZ AI',
+        title: 'Descubra sua melhor recomendação personalizada',
+        subtitle: 'Receba produto, alimentação e treino ideais para o seu perfil.',
+        cta: 'FAZER QUIZ',
+        footer: 'Diagnóstico comercial inteligente',
+      },
+      blog: {
+        eyebrow: 'BLOG L7',
+        title: 'Dicas práticas de treino dieta e emagrecimento',
+        subtitle: 'Conteúdo rápido para transformar constância em resultado.',
+        cta: 'LER AGORA',
+        footer: 'Blog oficial L7 Fitness',
+      },
+    };
+
+    try {
+      const buffer = await renderOgPngBuffer(presets[variant] || presets.default);
+      res.setHeader('Content-Type', 'image/png');
+      res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=86400');
+      res.send(buffer);
+    } catch (error) {
+      console.error('Falha ao gerar OG PNG padrão:', error);
+      res.status(500).send('Falha ao gerar imagem OG.');
+    }
+  });
+
   app.get('/og/product/:id.svg', (req, res) => {
     const product = getProductByIdForMeta(decodeURIComponent(req.params.id || ''));
     const benefit = getProductBenefitLine(product);
@@ -2412,6 +2490,35 @@ app.post("/api/checkout", async (req, res) => {
     }));
   });
 
+  app.get('/og/product/:id.png', async (req, res) => {
+    const product = getProductByIdForMeta(decodeURIComponent(req.params.id || ''));
+    const benefit = getProductBenefitLine(product);
+    const offerLine = getProductOfferLine(product);
+    const imageUrl = String(product?.image || product?.images?.[0] || '').trim() || undefined;
+    const campaignLabel = getProductCampaignLabel(product);
+
+    try {
+      const buffer = await renderOgPngBuffer({
+        eyebrow: campaignLabel === 'MAIS VENDIDO' ? 'TOP VENDAS' : campaignLabel === 'ESTOQUE LIMITADO' ? 'ÚLTIMAS UNIDADES' : 'OFERTA L7',
+        title: product?.name || 'Suplemento L7 Fitness',
+        subtitle: benefit,
+        cta: getProductCtaLabel(product),
+        footer: `L7 Fitness • ${offerLine}`,
+        imageUrl,
+        priceLabel: product ? formatBRL(Number(product.price) || 0) : undefined,
+        comparePriceLabel: getProductComparePriceLabel(product),
+        badges: getProductBadgeList(product),
+        highlightLabel: campaignLabel,
+      });
+      res.setHeader('Content-Type', 'image/png');
+      res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=86400');
+      res.send(buffer);
+    } catch (error) {
+      console.error('Falha ao gerar OG PNG de produto:', error);
+      res.status(500).send('Falha ao gerar imagem OG do produto.');
+    }
+  });
+
   app.get('/og/blog/:id.svg', (req, res) => {
     const post = getPostByIdForMeta(decodeURIComponent(req.params.id || ''));
 
@@ -2426,6 +2533,28 @@ app.post("/api/checkout", async (req, res) => {
       imageUrl: String(post?.image || '').trim() || undefined,
       badges: [post?.category || 'Conteúdo', post?.readTime || 'Leitura rápida'],
     }));
+  });
+
+  app.get('/og/blog/:id.png', async (req, res) => {
+    const post = getPostByIdForMeta(decodeURIComponent(req.params.id || ''));
+
+    try {
+      const buffer = await renderOgPngBuffer({
+        eyebrow: 'BLOG L7',
+        title: post?.title || 'Conteúdo L7 Fitness',
+        subtitle: post?.excerpt || 'Leia uma dica prática para acelerar seus resultados com mais estratégia.',
+        cta: 'LER AGORA',
+        footer: `Blog L7 Fitness • ${post?.readTime || 'Leitura rápida'}`,
+        imageUrl: String(post?.image || '').trim() || undefined,
+        badges: [post?.category || 'Conteúdo', post?.readTime || 'Leitura rápida'],
+      });
+      res.setHeader('Content-Type', 'image/png');
+      res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=86400');
+      res.send(buffer);
+    } catch (error) {
+      console.error('Falha ao gerar OG PNG do blog:', error);
+      res.status(500).send('Falha ao gerar imagem OG do blog.');
+    }
   });
 
   const renderAppWithMeta = (req: any, res: any, next?: any) => {

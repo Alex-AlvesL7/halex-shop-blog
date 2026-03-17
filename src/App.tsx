@@ -2021,7 +2021,7 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
 
   // Product Form State
   const [newProduct, setNewProduct] = useState<Partial<Product>>({
-    name: '', price: 0, description: '', category: 'suplementos', image: 'https://picsum.photos/seed/new/600/600', images: [], stock: 0, rating: 5, reviews: 0
+    name: '', price: 0, compareAtPrice: 0, promotionLabel: '', promotionCta: '', promotionBadge: '', description: '', category: 'suplementos', image: 'https://picsum.photos/seed/new/600/600', images: [], stock: 0, rating: 5, reviews: 0
   });
 
   // Post Form State
@@ -2078,7 +2078,7 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
   const resetForm = () => {
     setShowForm(false);
     setEditingId(null);
-    setNewProduct({ name: '', price: 0, description: '', category: 'suplementos', image: 'https://picsum.photos/seed/new/600/600', images: [], stock: 0, rating: 5, reviews: 0 });
+    setNewProduct({ name: '', price: 0, compareAtPrice: 0, promotionLabel: '', promotionCta: '', promotionBadge: '', description: '', category: 'suplementos', image: 'https://picsum.photos/seed/new/600/600', images: [], stock: 0, rating: 5, reviews: 0 });
     setNewPost({ title: '', excerpt: '', content: '', category: 'alimentacao', author: 'Equipe Halex', date: new Date().toISOString().split('T')[0], image: 'https://picsum.photos/seed/post/800/400', readTime: '5 min' });
   };
 
@@ -2287,6 +2287,15 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                       onChange={e => setNewProduct({...newProduct, price: Number(e.target.value)})}
                       required
                     />
+                    <input 
+                      placeholder="Preço de antes (opcional)" 
+                      type="number" step="0.01"
+                      className="w-full p-4 bg-gray-50 rounded-xl border-none outline-none"
+                      value={newProduct.compareAtPrice ?? 0}
+                      onChange={e => setNewProduct({...newProduct, compareAtPrice: Number(e.target.value)})}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
                     <select 
                       className="w-full p-4 bg-gray-50 rounded-xl border-none outline-none"
                       value={newProduct.category}
@@ -2296,7 +2305,32 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                       <option value="acessorios">Acessórios</option>
                       <option value="vestuario">Vestuário</option>
                     </select>
+                    <input 
+                      placeholder="Selo da campanha" 
+                      className="w-full p-4 bg-gray-50 rounded-xl border-none outline-none"
+                      value={newProduct.promotionLabel || ''}
+                      onChange={e => setNewProduct({...newProduct, promotionLabel: e.target.value})}
+                    />
                   </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input 
+                      placeholder="CTA promocional" 
+                      className="w-full p-4 bg-gray-50 rounded-xl border-none outline-none"
+                      value={newProduct.promotionCta || ''}
+                      onChange={e => setNewProduct({...newProduct, promotionCta: e.target.value})}
+                    />
+                    <input 
+                      placeholder="Badge curto da oferta" 
+                      className="w-full p-4 bg-gray-50 rounded-xl border-none outline-none"
+                      value={newProduct.promotionBadge || ''}
+                      onChange={e => setNewProduct({...newProduct, promotionBadge: e.target.value})}
+                    />
+                  </div>
+                  {hasProductPromotion(newProduct as Product) && (
+                    <div className="rounded-2xl border border-orange-100 bg-orange-50 px-4 py-3 text-sm text-brand-orange font-bold">
+                      Desconto real calculado: {newProduct.discountPercentage || Math.round((((Number(newProduct.compareAtPrice) || 0) - (Number(newProduct.price) || 0)) / (Number(newProduct.compareAtPrice) || 1)) * 100)}% OFF
+                    </div>
+                  )}
                   <div className="grid grid-cols-1 gap-4">
                     <div className="relative group">
                       <input 
@@ -2655,8 +2689,14 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                     <div>
                       <h4 className="font-bold">{p.name}</h4>
                       <p className="text-xs text-gray-400 uppercase tracking-widest">
-                        {p.category} • R$ {p.price.toFixed(2)} • Estoque: {p.stock}
+                        {p.category} • {formatPriceBRL(p.price)} • Estoque: {p.stock}
                       </p>
+                      {(p.promotionLabel || hasProductPromotion(p)) && (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {p.promotionLabel && <span className="px-2 py-1 rounded-full bg-orange-50 text-brand-orange text-[10px] font-black uppercase tracking-widest border border-orange-100">{p.promotionLabel}</span>}
+                          {hasProductPromotion(p) && <span className="px-2 py-1 rounded-full bg-brand-black text-white text-[10px] font-black uppercase tracking-widest">-{p.discountPercentage}% OFF</span>}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
