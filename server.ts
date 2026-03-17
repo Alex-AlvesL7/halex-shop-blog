@@ -267,12 +267,14 @@ app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ limit: '100mb', extended: true }));
 
 app.use((err: any, req: any, res: any, next: any) => {
-  if (err?.type === 'entity.parse.failed' || (err instanceof SyntaxError && err?.status === 400 && 'body' in err)) {
+  const parseError = err as { type?: string; status?: number; body?: unknown; message?: string };
+
+  if (parseError?.type === 'entity.parse.failed' || (err instanceof SyntaxError && parseError?.status === 400 && 'body' in parseError)) {
     console.error('JSON parse error:', err);
     return res.status(400).json({
       error: 'JSON inválido no envio.',
       message: 'Bad Unicode escape in JSON. Revise caracteres copiados na descrição, especialmente barras invertidas (\\).',
-      details: err.message || 'Falha ao interpretar o corpo da requisição.',
+      details: parseError.message || 'Falha ao interpretar o corpo da requisição.',
     });
   }
 
