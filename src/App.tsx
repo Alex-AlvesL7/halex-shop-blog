@@ -92,30 +92,76 @@ const normalizeProductText = (value: string) => String(value || '')
   .replace(/[\u0300-\u036f]/g, '')
   .toLowerCase();
 
-const getProductMarketingSummary = (product?: Product | null) => {
-  if (!product) return '';
+type ProductSalesCopy = {
+  summary: string;
+  purpose: string;
+  composition: string;
+};
 
-  const source = normalizeProductText(`${product.name} ${product.description} ${product.category || ''}`);
-  const benefits: string[] = [];
+const PRODUCT_COPY: Record<string, ProductSalesCopy> = {
+  'l7-ultra-450-kit': {
+    summary: 'Kit pensado para quem busca emagrecimento com mais equilíbrio, combinando controle do apetite com suporte detox na rotina.',
+    purpose: 'O L7 Ultra 450mg ajuda na saciedade e no controle da fome. O Detox entra como apoio para rotina digestiva, sensação de leveza e constância no processo.',
+    composition: 'Composição principal: L7 Ultra 450mg + Detox. Destaques citados no produto: Laranja Moro, L-Carnitina e Psyllium.',
+  },
+  'l7-turbo-500-kit': {
+    summary: 'Kit voltado para quem quer emagrecer com mais energia no dia a dia e um apoio detox complementar.',
+    purpose: 'O L7 Turbo 500mg é indicado para acelerar a rotina e melhorar disposição. O Detox complementa com suporte para retenção, leveza e aderência ao plano.',
+    composition: 'Composição principal: L7 Turbo 500mg + Detox.',
+  },
+  'l7-ultra-450': {
+    summary: 'Produto para quem quer um apoio mais equilibrado no controle do apetite e na constância da dieta.',
+    purpose: 'Ajuda a reduzir fome excessiva e melhorar saciedade, favorecendo adesão alimentar ao longo do dia.',
+    composition: 'Composição destacada: Laranja Moro, L-Carnitina e Psyllium.',
+  },
+  'l7-nitro-750-kit': {
+    summary: 'Kit mais forte para quem quer foco maior em saciedade, metabolismo e resultado mais agressivo no emagrecimento.',
+    purpose: 'O L7 Nitro 750mg atua como produto principal para controle do apetite e apoio à queima de gordura. O Detox complementa ajudando na rotina digestiva e na sensação de menos inchaço.',
+    composition: 'Composição principal: L7 Nitro 750mg + Detox Shake.',
+  },
+  'l7-nitro-750': {
+    summary: 'Versão individual para quem busca um termogênico com foco em saciedade alta e apoio na gordura abdominal.',
+    purpose: 'Indicado para controlar fome, manter foco no plano e intensificar o suporte ao emagrecimento.',
+    composition: 'Composição principal: L7 Nitro 750mg.',
+  },
+  'l7-turbo-500': {
+    summary: 'Produto individual para quem quer emagrecimento com mais energia e melhor rendimento na rotina.',
+    purpose: 'Ajuda a dar disposição para o dia a dia e apoia o gasto calórico com uso mais prático e direto.',
+    composition: 'Composição principal: L7 Turbo 500mg.',
+  },
+  'l7-nitro-750-full': {
+    summary: 'Combo mais completo para emagrecimento, unindo produto principal forte, detox e suporte extra para pele e articulações.',
+    purpose: 'O L7 Nitro 750mg foca em saciedade e queima de gordura. O Detox ajuda na rotina digestiva e sensação de leveza. O Colágeno entra como apoio para firmeza da pele e cuidado articular durante o processo.',
+    composition: 'Composição principal: L7 Nitro 750mg + Detox + Colágeno.',
+  },
+  'l7-turbo-500-full': {
+    summary: 'Kit completo para quem quer emagrecer com energia, suporte detox e cuidado complementar com pele e articulações.',
+    purpose: 'O L7 Turbo 500mg apoia disposição e rotina de queima calórica. O Detox ajuda na sensação de leveza. O Colágeno complementa com suporte para firmeza da pele e articulações.',
+    composition: 'Composição principal: L7 Turbo 500mg + Detox + Colágeno.',
+  },
+};
 
-  if (source.includes('nitro')) benefits.push('foco em saciedade alta e queima de gordura');
-  else if (source.includes('turbo')) benefits.push('apoio para energia e aceleração da rotina');
-  else if (source.includes('ultra')) benefits.push('controle do apetite com uso mais equilibrado no dia a dia');
-
-  if (source.includes('detox')) benefits.push('suporte detox para rotina mais leve');
-  if (source.includes('colageno')) benefits.push('cuidado extra com firmeza da pele e articulações');
-  if (source.includes('psyllium') || source.includes('laranja moro')) benefits.push('com apelo mais natural para constância');
-
-  const uniqueBenefits = [...new Set(benefits)].slice(0, 2);
-  if (uniqueBenefits.length > 0) {
-    const prefix = source.includes('kit') || source.includes('combo') || source.includes('full') ? 'Kit indicado para' : 'Produto indicado para';
-    return `${prefix} ${uniqueBenefits.join(' + ')}.`;
+const getProductMarketingSummary = (product?: Product | null): ProductSalesCopy => {
+  if (!product) {
+    return {
+      summary: '',
+      purpose: '',
+      composition: '',
+    };
   }
 
-  const firstSentence = String(product.description || '').split(/[.!?]/).find(Boolean)?.trim();
-  if (firstSentence) return `${firstSentence}.`;
+  if (PRODUCT_COPY[product.id]) return PRODUCT_COPY[product.id];
 
-  return 'Produto indicado para uma rotina mais consistente e objetiva.';
+  const firstSentence = String(product.description || '').split(/[.!?]/).find(Boolean)?.trim() || 'Produto indicado para uma rotina mais consistente e objetiva';
+  const source = normalizeProductText(`${product.name} ${product.description} ${product.category || ''}`);
+  const hasDetox = source.includes('detox');
+  const hasCollagen = source.includes('colageno');
+
+  return {
+    summary: `${firstSentence}.`,
+    purpose: `Indicado para ${product.category || 'rotina fitness'}${hasDetox ? ' com apoio detox' : ''}${hasCollagen ? ' e suporte complementar para pele e articulações' : ''}.`,
+    composition: `Composição principal: ${product.name.replace(/^1\s*/i, '')}.`,
+  };
 };
 
 // --- Components ---
@@ -859,7 +905,9 @@ const TipsPage = ({
                     <img src={result.primaryProduct.image} alt={result.primaryProduct.name} className="w-full sm:w-28 h-48 sm:h-28 rounded-2xl object-cover bg-gray-50" referrerPolicy="no-referrer" />
                     <div className="flex-1 min-w-0">
                       <h3 className="font-black text-lg mb-1 leading-tight">{result.primaryProduct.name}</h3>
-                      <p className="text-sm text-gray-500 mb-3 leading-relaxed">{truncateText(getProductMarketingSummary(result.primaryProduct), 150)}</p>
+                      <p className="text-sm text-gray-600 mb-2 leading-relaxed">{getProductMarketingSummary(result.primaryProduct).summary}</p>
+                      <p className="text-xs text-gray-500 mb-1 leading-relaxed"><span className="font-bold text-gray-700">Para que serve:</span> {truncateText(getProductMarketingSummary(result.primaryProduct).purpose, 180)}</p>
+                      <p className="text-xs text-gray-500 mb-3 leading-relaxed"><span className="font-bold text-gray-700">Composição:</span> {truncateText(getProductMarketingSummary(result.primaryProduct).composition, 180)}</p>
                       <p className="text-2xl font-black text-brand-orange mb-4">R$ {result.primaryProduct.price.toFixed(2)}</p>
                       <div className="flex flex-col sm:flex-row flex-wrap gap-3">
                         <button onClick={() => onProductClick(result.primaryProduct)} className="btn-secondary text-sm w-full sm:w-auto">
@@ -881,7 +929,9 @@ const TipsPage = ({
                     <img src={result.secondaryProduct.image} alt={result.secondaryProduct.name} className="w-full sm:w-24 h-44 sm:h-24 rounded-2xl object-cover bg-gray-50" referrerPolicy="no-referrer" />
                     <div className="flex-1 min-w-0">
                       <h3 className="font-black text-base mb-1 leading-tight">{result.secondaryProduct.name}</h3>
-                      <p className="text-sm text-gray-500 mb-2 leading-relaxed">{truncateText(getProductMarketingSummary(result.secondaryProduct), 135)}</p>
+                      <p className="text-sm text-gray-600 mb-2 leading-relaxed">{getProductMarketingSummary(result.secondaryProduct).summary}</p>
+                      <p className="text-xs text-gray-500 mb-1 leading-relaxed"><span className="font-bold text-gray-700">Para que serve:</span> {truncateText(getProductMarketingSummary(result.secondaryProduct).purpose, 160)}</p>
+                      <p className="text-xs text-gray-500 mb-2 leading-relaxed"><span className="font-bold text-gray-700">Composição:</span> {truncateText(getProductMarketingSummary(result.secondaryProduct).composition, 160)}</p>
                       <p className="text-lg font-black text-brand-orange mb-3">R$ {result.secondaryProduct.price.toFixed(2)}</p>
                       <button onClick={() => onAddToCart(result.secondaryProduct)} className="btn-primary text-sm w-full sm:w-auto">
                         Adicionar complementar
@@ -981,9 +1031,21 @@ const ProductDetailsPage: React.FC<{ product: Product, onAddToCart: (p: Product)
             <span className="text-gray-400 font-medium">({product.reviews} avaliações de clientes)</span>
           </div>
 
-          <p className="text-gray-600 text-lg mb-10 leading-relaxed">
-            {getProductMarketingSummary(product) || "Este produto premium da Halex Shop foi desenvolvido com os mais altos padrões de qualidade para garantir que você alcance seus objetivos físicos com eficiência e segurança."}
-          </p>
+          <div className="mb-10 space-y-4">
+            <p className="text-gray-600 text-lg leading-relaxed">
+              {getProductMarketingSummary(product).summary || "Este produto premium da Halex Shop foi desenvolvido com os mais altos padrões de qualidade para garantir que você alcance seus objetivos físicos com eficiência e segurança."}
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4">
+                <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-2">Para que serve</p>
+                <p className="text-sm text-gray-600 leading-relaxed">{getProductMarketingSummary(product).purpose}</p>
+              </div>
+              <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4">
+                <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-2">Composição</p>
+                <p className="text-sm text-gray-600 leading-relaxed">{getProductMarketingSummary(product).composition}</p>
+              </div>
+            </div>
+          </div>
 
           <div className="flex items-center gap-8 mb-10">
             <span className="text-4xl font-black text-brand-orange">
