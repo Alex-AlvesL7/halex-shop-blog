@@ -100,6 +100,14 @@ const normalizeMarkdownContent = (value: string) => String(value || '')
   .replace(/\n{3,}/g, '\n\n')
   .trim();
 
+const toPlainProductCopy = (value: string) => String(value || '')
+  .replace(/\*\*/g, '')
+  .replace(/`/g, '')
+  .replace(/\[(.*?)\]\((.*?)\)/g, '$1')
+  .replace(/[•\-]\s*/g, '')
+  .replace(/\s+/g, ' ')
+  .trim();
+
 type ProductSalesCopy = {
   summary: string;
   purpose: string;
@@ -1462,6 +1470,18 @@ const ProductDetailsPage: React.FC<{ product: Product, onAddToCart: (p: Product)
   const marketing = useMemo(() => getProductMarketingSummary(product), [product]);
   const detailContent = useMemo(() => getProductDetailContent(product), [product]);
   const activeComposition = compositionPanels.find((panel) => panel.id === activeCompositionId) || compositionPanels[0];
+  const mobileHighlights = useMemo(() => {
+    const candidates = [
+      detailContent.purpose,
+      detailContent.kitContents,
+      detailContent.composition,
+    ]
+      .map((text) => toPlainProductCopy(text))
+      .filter(Boolean)
+      .map((text) => (text.length > 140 ? `${text.slice(0, 140).trimEnd()}…` : text));
+
+    return candidates.slice(0, 3);
+  }, [detailContent]);
   const productBenefits = useMemo(() => {
     const source = normalizeProductText(`${product.name} ${product.description}`);
     const isKit = compositionPanels.length > 1;
@@ -1501,7 +1521,7 @@ const ProductDetailsPage: React.FC<{ product: Product, onAddToCart: (p: Product)
   }, [compositionPanels, product.id]);
 
   return (
-    <div className="pt-32 pb-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="pt-32 pb-40 md:pb-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <button 
         onClick={onBack}
         className="flex items-center gap-2 text-gray-500 hover:text-brand-orange transition-colors mb-8 font-bold uppercase text-xs tracking-widest"
@@ -1574,10 +1594,18 @@ const ProductDetailsPage: React.FC<{ product: Product, onAddToCart: (p: Product)
           </div>
 
           <div className="mb-10 space-y-4">
-            <p className="text-gray-600 text-lg leading-relaxed">
+            <p className="text-gray-600 text-lg leading-relaxed line-clamp-5 md:line-clamp-none">
               {marketing.summary || "Este produto premium da Halex Shop foi desenvolvido com os mais altos padrões de qualidade para garantir que você alcance seus objetivos físicos com eficiência e segurança."}
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="md:hidden space-y-2">
+              {mobileHighlights.map((item, idx) => (
+                <div key={`${product.id}-mobile-h-${idx}`} className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm text-gray-600 leading-relaxed">
+                  {item}
+                </div>
+              ))}
+            </div>
+
+            <div className="hidden md:grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="bg-gray-50 border border-gray-100 rounded-[28px] p-5 shadow-[0_18px_50px_rgba(15,23,42,0.05)]">
                 <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-2">Para que serve</p>
                 <p className="text-sm text-gray-600 leading-relaxed">{detailContent.purpose}</p>
@@ -1646,6 +1674,22 @@ const ProductDetailsPage: React.FC<{ product: Product, onAddToCart: (p: Product)
                 </div>
               </div>
             </div>
+
+            <div className="md:hidden space-y-3">
+              {[
+                ['Para que serve', detailContent.purpose],
+                ['O que vem no kit', detailContent.kitContents],
+                ['Composição', detailContent.composition],
+              ].filter(([, value]) => String(value || '').trim()).map(([title, value], index) => (
+                <details key={`${product.id}-compact-${title}`} className="rounded-2xl border border-gray-100 bg-white px-4 py-3" open={index === 0}>
+                  <summary className="cursor-pointer list-none flex items-center justify-between text-[11px] uppercase tracking-widest text-brand-orange font-black">
+                    {title}
+                    <span className="text-gray-400 text-xs">Ver</span>
+                  </summary>
+                  <p className="mt-3 text-sm text-gray-600 leading-relaxed">{value}</p>
+                </details>
+              ))}
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-6 mb-10">
@@ -1675,7 +1719,7 @@ const ProductDetailsPage: React.FC<{ product: Product, onAddToCart: (p: Product)
             )}
           </div>
 
-          <div className="flex gap-4">
+          <div className="flex flex-col sm:flex-row gap-4">
             <button 
               onClick={() => { onAddToCart(product); onShowToast('Adicionado ao carrinho!'); }}
               disabled={product.stock <= 0}
@@ -1723,6 +1767,22 @@ const ProductDetailsPage: React.FC<{ product: Product, onAddToCart: (p: Product)
             })}
           </div>
         </motion.div>
+      </div>
+
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white/95 backdrop-blur px-4 py-3">
+        <div className="max-w-7xl mx-auto flex items-center gap-3">
+          <div className="min-w-0">
+            <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black">Oferta de hoje</p>
+            <p className="text-2xl font-black text-brand-orange leading-none">{formatPriceBRL(product.price)}</p>
+          </div>
+          <button
+            onClick={() => { onAddToCart(product); onNavigate('cart'); }}
+            disabled={product.stock <= 0}
+            className="flex-1 bg-brand-orange text-white py-3 rounded-2xl font-black uppercase tracking-widest disabled:opacity-50"
+          >
+            Comprar agora
+          </button>
+        </div>
       </div>
     </div>
   );
