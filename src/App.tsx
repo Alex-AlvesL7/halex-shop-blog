@@ -1222,6 +1222,25 @@ const getLeadMonthlyPlanWhatsAppLink = (phone?: string, lead?: any) => {
   return `https://wa.me/${normalized}?text=${message}`;
 };
 
+const getLeadTemplateWhatsAppLink = (phone?: string, lead?: any, template?: 'first-contact' | 'checkout-recovery' | 'follow-up' | 'plan-follow-up') => {
+  const digits = String(phone || '').replace(/\D/g, '');
+  if (!digits) return '';
+
+  const normalized = digits.startsWith('55') ? digits : `55${digits}`;
+  const name = lead?.name || 'tudo bem';
+  const goal = lead?.goal || 'seu objetivo';
+  const productName = lead?.recommendedProduct?.name || lead?.recommendedProductName || 'o produto recomendado';
+
+  const templates: Record<string, string> = {
+    'first-contact': `Olá, ${name}! Aqui é da L7 Fitness. Vi seu resultado no quiz para ${goal} e separei ${productName} como melhor ponto de partida. Se quiser, posso te explicar como usar e te orientar no começo.`,
+    'checkout-recovery': `Olá, ${name}! Vi que você chegou perto de concluir sua compra na L7 Fitness. Se quiser, eu posso te ajudar a finalizar ${productName} e tirar qualquer dúvida antes de fechar.`,
+    'follow-up': `Olá, ${name}! Passando para acompanhar sua recomendação da L7 Fitness. Você ainda quer ajuda para escolher a melhor forma de começar com ${productName}?`,
+    'plan-follow-up': `Olá, ${name}! Além do ${productName}, queria te mostrar nosso acompanhamento mensal com alimentação, treino e ajustes semanais. Se fizer sentido para você, te explico como funciona.`
+  };
+
+  return `https://wa.me/${normalized}?text=${encodeURIComponent(templates[template || 'follow-up'])}`;
+};
+
 const formatLeadDate = (value?: string | null) => {
   if (!value) return '—';
   const date = new Date(value);
@@ -2592,6 +2611,10 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                         ? 'Checkout iniciado'
                         : 'Sem compra';
                     const monthlyPlanLink = getLeadMonthlyPlanWhatsAppLink(lead.phone, lead);
+                    const firstContactLink = getLeadTemplateWhatsAppLink(lead.phone, lead, 'first-contact');
+                    const checkoutRecoveryLink = getLeadTemplateWhatsAppLink(lead.phone, lead, 'checkout-recovery');
+                    const followUpLink = getLeadTemplateWhatsAppLink(lead.phone, lead, 'follow-up');
+                    const planFollowUpLink = getLeadTemplateWhatsAppLink(lead.phone, lead, 'plan-follow-up');
 
                     return (
                       <div key={lead.id} className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-all">
@@ -2683,6 +2706,70 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                                   {label}
                                 </button>
                               ))}
+                            </div>
+                          </div>
+
+                          <div className="mb-4">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2 block">Ações rápidas</span>
+                            <div className="flex flex-wrap gap-2">
+                              {firstContactLink && (
+                                <button
+                                  onClick={() => {
+                                    window.open(firstContactLink, '_blank', 'noopener,noreferrer');
+                                    handleSaveLeadCrm(lead.id, {
+                                      lastContactAt: new Date().toISOString(),
+                                      status: crmDraft.status === 'new' ? 'contacted' : crmDraft.status,
+                                    });
+                                  }}
+                                  className="px-3 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest bg-white text-gray-700 border border-gray-200 hover:bg-gray-100 transition-colors"
+                                >
+                                  1º contato
+                                </button>
+                              )}
+                              {lead.purchaseStatus === 'pending' && checkoutRecoveryLink && (
+                                <button
+                                  onClick={() => {
+                                    window.open(checkoutRecoveryLink, '_blank', 'noopener,noreferrer');
+                                    handleSaveLeadCrm(lead.id, {
+                                      lastContactAt: new Date().toISOString(),
+                                      status: crmDraft.status === 'new' ? 'contacted' : crmDraft.status,
+                                    });
+                                  }}
+                                  className="px-3 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest bg-orange-50 text-orange-600 border border-orange-100 hover:bg-orange-100 transition-colors"
+                                >
+                                  Recuperar checkout
+                                </button>
+                              )}
+                              {followUpLink && (
+                                <button
+                                  onClick={() => {
+                                    window.open(followUpLink, '_blank', 'noopener,noreferrer');
+                                    handleSaveLeadCrm(lead.id, {
+                                      lastContactAt: new Date().toISOString(),
+                                      status: crmDraft.status === 'new' ? 'contacted' : crmDraft.status,
+                                    });
+                                  }}
+                                  className="px-3 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-100 transition-colors"
+                                >
+                                  Follow-up
+                                </button>
+                              )}
+                              {planFollowUpLink && (
+                                <button
+                                  onClick={() => {
+                                    window.open(planFollowUpLink, '_blank', 'noopener,noreferrer');
+                                    handleSaveLeadCrm(lead.id, {
+                                      lastContactAt: new Date().toISOString(),
+                                      planOfferedAt: new Date().toISOString(),
+                                      monthlyPlanInterest: crmDraft.monthlyPlanInterest === 'unknown' ? 'interested' : crmDraft.monthlyPlanInterest,
+                                      status: crmDraft.status === 'new' ? 'contacted' : crmDraft.status,
+                                    });
+                                  }}
+                                  className="px-3 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest bg-purple-50 text-purple-600 border border-purple-100 hover:bg-purple-100 transition-colors"
+                                >
+                                  Follow-up plano
+                                </button>
+                              )}
                             </div>
                           </div>
 
