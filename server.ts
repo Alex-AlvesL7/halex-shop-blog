@@ -392,6 +392,22 @@ const getRawOrderById = async (id: string) => {
   return null;
 };
 
+const resolveAppUrl = (req: any) => {
+  const configuredUrl = String(process.env.APP_URL || '').trim();
+  if (configuredUrl) {
+    return configuredUrl.replace(/\/$/, '');
+  }
+
+  const forwardedProtoHeader = req.headers['x-forwarded-proto'];
+  const forwardedHostHeader = req.headers['x-forwarded-host'];
+  const forwardedProto = Array.isArray(forwardedProtoHeader) ? forwardedProtoHeader[0] : forwardedProtoHeader;
+  const forwardedHost = Array.isArray(forwardedHostHeader) ? forwardedHostHeader[0] : forwardedHostHeader;
+  const protocol = String(forwardedProto || req.protocol || 'https').split(',')[0].trim();
+  const host = String(forwardedHost || req.get('host') || 'localhost:3000').split(',')[0].trim();
+
+  return `${protocol}://${host}`.replace(/\/$/, '');
+};
+
 const getOrderByNsu = async (orderNsu: string) => {
   if (!orderNsu) return null;
 
@@ -1110,7 +1126,7 @@ app.post("/api/checkout", async (req, res) => {
     // For L7Fitness, we only need the handle (InfiniteTag)
     const rawHandle = process.env.INFINITEPAY_HANDLE || "l7fitness";
     const handle = rawHandle.replace('$', '').trim();
-    const appUrl = process.env.APP_URL || 'http://localhost:3000';
+    const appUrl = resolveAppUrl(req);
     const orderNsu = String("L7-" + Date.now());
     
     // Save order to DB (SQLite + Supabase)
