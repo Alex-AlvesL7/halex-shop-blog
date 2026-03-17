@@ -228,12 +228,14 @@ try {
 
 // Supabase Client
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || process.env.URL_Supabase;
-const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+const supabaseKey = supabaseServiceRoleKey || supabaseAnonKey;
 
 const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
 
 if (supabase) {
-  console.log("Supabase integrated successfully.");
+  console.log(`Supabase integrated successfully using ${supabaseServiceRoleKey ? 'service role' : 'anon key'}.`);
 } else {
   console.warn("Supabase credentials missing. Using local SQLite only.");
 }
@@ -975,6 +977,23 @@ app.get("/api/health", async (req, res) => {
     };
 
     try {
+      let supabaseSaved = false;
+      let sqliteSaved = false;
+
+      if (supabase) {
+        const { error } = await supabase.from('quiz_leads').insert([leadData]);
+        if (error) {
+          console.error('Supabase quiz_leads insert failed:', error);
+          return res.status(500).json({
+            success: false,
+            error: 'Falha ao salvar lead no Supabase.',
+            details: error.message || String(error),
+          });
+        }
+
+        supabaseSaved = true;
+      }
+
       if (db) {
         db.prepare(`
           INSERT INTO quiz_leads (
@@ -995,17 +1014,14 @@ app.get("/api/health", async (req, res) => {
           leadData.recommended_product_id,
           leadData.metadata,
         );
+        sqliteSaved = true;
       }
 
-      if (supabase) {
-        try {
-          await supabase.from('quiz_leads').insert([leadData]);
-        } catch (error) {
-          console.warn('Supabase quiz_leads insert failed:', error);
-        }
+      if (!supabase && !sqliteSaved) {
+        return res.status(500).json({ success: false, error: 'Nenhum banco configurado para salvar lead do quiz.' });
       }
 
-      res.json({ success: true, id: leadId });
+      res.json({ success: true, id: leadId, saved: { supabase: supabaseSaved, sqlite: sqliteSaved } });
     } catch (error) {
       console.error('Error in POST /api/quiz-leads:', error);
       res.status(500).json({ success: false, error: 'Falha ao salvar lead do quiz.' });
