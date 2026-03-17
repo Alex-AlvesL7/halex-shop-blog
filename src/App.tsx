@@ -554,7 +554,7 @@ const BlogPage = ({ posts, onPostClick }: { posts: BlogPost[], onPostClick: (p: 
 
 const BlogPostDetailsPage: React.FC<{ post: BlogPost, onBack: () => void }> = ({ post, onBack }) => {
   return (
-    <div className="pt-32 pb-24 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="pt-32 pb-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <button 
         onClick={onBack}
         className="flex items-center gap-2 text-gray-400 hover:text-brand-orange transition-colors mb-8 group"
@@ -707,8 +707,8 @@ const TipsPage = ({
         <p className="text-gray-500 text-lg">Capte leads e recomende um produto da loja com base no perfil real do cliente.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-        <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm space-y-6">
+      <div className="grid grid-cols-1 xl:grid-cols-[380px_minmax(0,1fr)] gap-8 xl:gap-12 items-start">
+        <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm space-y-6 xl:sticky xl:top-28">
           <div className="grid grid-cols-1 gap-4">
             <div>
               <label className="block text-sm font-bold uppercase tracking-wider text-gray-400 mb-2">Nome</label>
@@ -805,7 +805,7 @@ const TipsPage = ({
           )}
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-6 min-w-0">
           {result ? (
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
@@ -855,17 +855,17 @@ const TipsPage = ({
               {result.primaryProduct && (
                 <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
                   <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-3">Produto principal recomendado</p>
-                  <div className="flex gap-4 items-start">
-                    <img src={result.primaryProduct.image} alt={result.primaryProduct.name} className="w-24 h-24 rounded-2xl object-cover bg-gray-50" referrerPolicy="no-referrer" />
+                  <div className="flex flex-col sm:flex-row gap-4 items-start">
+                    <img src={result.primaryProduct.image} alt={result.primaryProduct.name} className="w-full sm:w-28 h-48 sm:h-28 rounded-2xl object-cover bg-gray-50" referrerPolicy="no-referrer" />
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-black text-lg mb-1">{result.primaryProduct.name}</h3>
-                      <p className="text-sm text-gray-500 mb-3">{truncateText(getProductMarketingSummary(result.primaryProduct), 95)}</p>
+                      <h3 className="font-black text-lg mb-1 leading-tight">{result.primaryProduct.name}</h3>
+                      <p className="text-sm text-gray-500 mb-3 leading-relaxed">{truncateText(getProductMarketingSummary(result.primaryProduct), 150)}</p>
                       <p className="text-2xl font-black text-brand-orange mb-4">R$ {result.primaryProduct.price.toFixed(2)}</p>
-                      <div className="flex flex-wrap gap-3">
-                        <button onClick={() => onProductClick(result.primaryProduct)} className="btn-secondary text-sm">
+                      <div className="flex flex-col sm:flex-row flex-wrap gap-3">
+                        <button onClick={() => onProductClick(result.primaryProduct)} className="btn-secondary text-sm w-full sm:w-auto">
                           Ver produto
                         </button>
-                        <button onClick={() => onAddToCart(result.primaryProduct)} className="btn-primary text-sm">
+                        <button onClick={() => onAddToCart(result.primaryProduct)} className="btn-primary text-sm w-full sm:w-auto">
                           Adicionar ao carrinho
                         </button>
                       </div>
@@ -877,13 +877,13 @@ const TipsPage = ({
               {result.secondaryProduct && (
                 <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
                   <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-3">Produto complementar</p>
-                  <div className="flex gap-4 items-start">
-                    <img src={result.secondaryProduct.image} alt={result.secondaryProduct.name} className="w-20 h-20 rounded-2xl object-cover bg-gray-50" referrerPolicy="no-referrer" />
+                  <div className="flex flex-col sm:flex-row gap-4 items-start">
+                    <img src={result.secondaryProduct.image} alt={result.secondaryProduct.name} className="w-full sm:w-24 h-44 sm:h-24 rounded-2xl object-cover bg-gray-50" referrerPolicy="no-referrer" />
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-black text-base mb-1">{result.secondaryProduct.name}</h3>
-                      <p className="text-sm text-gray-500 mb-2">{truncateText(getProductMarketingSummary(result.secondaryProduct), 90)}</p>
+                      <h3 className="font-black text-base mb-1 leading-tight">{result.secondaryProduct.name}</h3>
+                      <p className="text-sm text-gray-500 mb-2 leading-relaxed">{truncateText(getProductMarketingSummary(result.secondaryProduct), 135)}</p>
                       <p className="text-lg font-black text-brand-orange mb-3">R$ {result.secondaryProduct.price.toFixed(2)}</p>
-                      <button onClick={() => onAddToCart(result.secondaryProduct)} className="btn-primary text-sm">
+                      <button onClick={() => onAddToCart(result.secondaryProduct)} className="btn-primary text-sm w-full sm:w-auto">
                         Adicionar complementar
                       </button>
                     </div>
