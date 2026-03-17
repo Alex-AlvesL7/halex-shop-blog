@@ -252,6 +252,7 @@ const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL ||
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 const supabaseKey = supabaseServiceRoleKey || supabaseAnonKey;
+const isEphemeralSQLiteRuntime = Boolean(process.env.VERCEL);
 const geminiApiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
 const ai = geminiApiKey ? new GoogleGenAI({ apiKey: geminiApiKey }) : null;
 
@@ -1398,13 +1399,16 @@ Retorne APENAS JSON no schema pedido.`,
     };
 
     let savedSomewhere = false;
+    let sqliteSaved = false;
+    let supabaseSaved = false;
     const saveErrors: string[] = [];
     
     if (db) {
       try {
         const result = db.prepare("INSERT INTO products (id, name, price, compare_at_price, promotion_label, promotion_cta, promotion_badge, description, category, image, images, stock, rating, reviews) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
           .run(productId, name, price, productData.compare_at_price, productData.promotion_label, productData.promotion_cta, productData.promotion_badge, description, productData.category, productData.image, productData.images, productData.stock, productData.rating, productData.reviews);
-        savedSomewhere = savedSomewhere || result.changes > 0;
+        sqliteSaved = result.changes > 0;
+        savedSomewhere = savedSomewhere || sqliteSaved;
       } catch (e) {
         console.error("SQLite product insert error:", e);
         saveErrors.push(e instanceof Error ? e.message : 'Falha ao salvar produto no SQLite.');
@@ -1417,8 +1421,16 @@ Retorne APENAS JSON no schema pedido.`,
         console.error("Supabase product upsert error:", error);
         saveErrors.push(error.message || 'Falha ao salvar produto no Supabase.');
       } else {
+        supabaseSaved = true;
         savedSomewhere = true;
       }
+    }
+
+    if (!supabaseSaved && sqliteSaved && isEphemeralSQLiteRuntime) {
+      return res.status(500).json({
+        error: 'Produto salvo apenas em armazenamento temporário e não persistiu.',
+        details: 'Configure SUPABASE_SERVICE_ROLE_KEY no deploy para persistência real. Em ambiente Vercel o SQLite é temporário.',
+      });
     }
 
     if (!savedSomewhere) {
@@ -1432,15 +1444,30 @@ Retorne APENAS JSON no schema pedido.`,
   });
 
   app.delete("/api/products/:id", async (req, res) => {
+    let sqliteDeleted = false;
+    let supabaseDeleted = false;
+
     if (db) {
       try {
-        db.prepare("DELETE FROM products WHERE id = ?").run(req.params.id);
+        const sqliteResult = db.prepare("DELETE FROM products WHERE id = ?").run(req.params.id);
         db.prepare("DELETE FROM product_categories WHERE product_id = ?").run(req.params.id);
+        sqliteDeleted = sqliteResult.changes > 0;
       } catch (e) {}
     }
     
     if (supabase) {
-      await supabase.from('products').delete().eq('id', req.params.id);
+      const { error } = await supabase.from('products').delete().eq('id', req.params.id);
+      if (!error) {
+        supabaseDeleted = true;
+      }
+    }
+
+    if (!supabaseDeleted && sqliteDeleted && isEphemeralSQLiteRuntime) {
+      return res.status(500).json({
+        success: false,
+        error: 'Exclusão concluída apenas em armazenamento temporário.',
+        details: 'Configure SUPABASE_SERVICE_ROLE_KEY no deploy para persistência real. Em ambiente Vercel o SQLite é temporário.',
+      });
     }
     
     res.json({ success: true });
@@ -1529,13 +1556,16 @@ Retorne APENAS JSON no schema pedido.`,
     };
 
     let updatedSomewhere = false;
+    let sqliteUpdated = false;
+    let supabaseUpdated = false;
     const updateErrors: string[] = [];
     
     if (db) {
       try {
         const result = db.prepare("UPDATE products SET name = ?, price = ?, compare_at_price = ?, promotion_label = ?, promotion_cta = ?, promotion_badge = ?, description = ?, category = ?, image = ?, images = ?, stock = ?, rating = ?, reviews = ? WHERE id = ?")
           .run(productData.name, productData.price, productData.compare_at_price, productData.promotion_label, productData.promotion_cta, productData.promotion_badge, productData.description, productData.category, productData.image, productData.images, productData.stock, productData.rating, productData.reviews, req.params.id);
-        updatedSomewhere = updatedSomewhere || result.changes > 0;
+        sqliteUpdated = result.changes > 0;
+        updatedSomewhere = updatedSomewhere || sqliteUpdated;
       } catch (e) {
         console.error("SQLite product update error:", e);
         updateErrors.push(e instanceof Error ? e.message : 'Falha ao atualizar produto no SQLite.');
@@ -1548,8 +1578,16 @@ Retorne APENAS JSON no schema pedido.`,
         console.error("Supabase product update error:", error);
         updateErrors.push(error.message || 'Falha ao atualizar produto no Supabase.');
       } else {
+        supabaseUpdated = true;
         updatedSomewhere = true;
       }
+    }
+
+    if (!supabaseUpdated && sqliteUpdated && isEphemeralSQLiteRuntime) {
+      return res.status(500).json({
+        error: 'Produto atualizado apenas em armazenamento temporário e não persistiu.',
+        details: 'Configure SUPABASE_SERVICE_ROLE_KEY no deploy para persistência real. Em ambiente Vercel o SQLite é temporário.',
+      });
     }
 
     if (!updatedSomewhere) {
