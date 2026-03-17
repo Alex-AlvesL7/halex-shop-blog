@@ -370,6 +370,84 @@ const mergeAICopyWithCurrent = (current: any, generated: any) => {
   };
 };
 
+const buildSupabaseProductPayloadVariants = (payload: {
+  id: string;
+  name: any;
+  price: any;
+  compareAtPrice: any;
+  promotionLabel: any;
+  promotionCta: any;
+  promotionBadge: any;
+  description: any;
+  category: any;
+  image: any;
+  images: any;
+  stock: any;
+  rating: any;
+  reviews: any;
+}) => {
+  const core = {
+    name: payload.name,
+    price: payload.price,
+    description: payload.description,
+    category: payload.category,
+    image: payload.image,
+    images: payload.images,
+    stock: payload.stock,
+    rating: payload.rating,
+    reviews: payload.reviews,
+  };
+
+  return [
+    {
+      label: 'snake_case',
+      insert: {
+        id: payload.id,
+        ...core,
+        compare_at_price: payload.compareAtPrice,
+        promotion_label: payload.promotionLabel,
+        promotion_cta: payload.promotionCta,
+        promotion_badge: payload.promotionBadge,
+      },
+      update: {
+        ...core,
+        compare_at_price: payload.compareAtPrice,
+        promotion_label: payload.promotionLabel,
+        promotion_cta: payload.promotionCta,
+        promotion_badge: payload.promotionBadge,
+      },
+    },
+    {
+      label: 'camelCase',
+      insert: {
+        id: payload.id,
+        ...core,
+        compareAtPrice: payload.compareAtPrice,
+        promotionLabel: payload.promotionLabel,
+        promotionCta: payload.promotionCta,
+        promotionBadge: payload.promotionBadge,
+      },
+      update: {
+        ...core,
+        compareAtPrice: payload.compareAtPrice,
+        promotionLabel: payload.promotionLabel,
+        promotionCta: payload.promotionCta,
+        promotionBadge: payload.promotionBadge,
+      },
+    },
+    {
+      label: 'core_only',
+      insert: {
+        id: payload.id,
+        ...core,
+      },
+      update: {
+        ...core,
+      },
+    },
+  ];
+};
+
 const normalizeProductRecord = (product: any) => {
   let images: string[] = [];
   try {
@@ -1416,20 +1494,40 @@ Retorne APENAS JSON no schema pedido.`,
     }
     
     if (supabase) {
-      const { error } = await supabase.from('products').upsert([productData]);
-      if (error) {
-        console.error("Supabase product upsert error:", error);
-        saveErrors.push(error.message || 'Falha ao salvar produto no Supabase.');
-      } else {
-        supabaseSaved = true;
-        savedSomewhere = true;
+      const variants = buildSupabaseProductPayloadVariants({
+        id: productId,
+        name,
+        price,
+        compareAtPrice: productData.compare_at_price,
+        promotionLabel: productData.promotion_label,
+        promotionCta: productData.promotion_cta,
+        promotionBadge: productData.promotion_badge,
+        description,
+        category: productData.category,
+        image: productData.image,
+        images: productData.images,
+        stock: productData.stock,
+        rating: productData.rating,
+        reviews: productData.reviews,
+      });
+
+      for (const variant of variants) {
+        const { error } = await supabase.from('products').upsert([variant.insert]);
+        if (!error) {
+          supabaseSaved = true;
+          savedSomewhere = true;
+          break;
+        }
+
+        console.error(`Supabase product upsert error (${variant.label}):`, error);
+        saveErrors.push(`${variant.label}: ${error.message || 'Falha ao salvar produto no Supabase.'}`);
       }
     }
 
     if (!supabaseSaved && sqliteSaved && isEphemeralSQLiteRuntime) {
       return res.status(500).json({
         error: 'Produto salvo apenas em armazenamento temporário e não persistiu.',
-        details: 'Configure SUPABASE_SERVICE_ROLE_KEY no deploy para persistência real. Em ambiente Vercel o SQLite é temporário.',
+        details: `Configure SUPABASE_SERVICE_ROLE_KEY no deploy para persistência real. Em ambiente Vercel o SQLite é temporário. ${saveErrors.length ? `Detalhe Supabase: ${saveErrors.join(' | ')}` : ''}`,
       });
     }
 
@@ -1573,20 +1671,40 @@ Retorne APENAS JSON no schema pedido.`,
     }
     
     if (supabase) {
-      const { error } = await supabase.from('products').update(productData).eq('id', req.params.id);
-      if (error) {
-        console.error("Supabase product update error:", error);
-        updateErrors.push(error.message || 'Falha ao atualizar produto no Supabase.');
-      } else {
-        supabaseUpdated = true;
-        updatedSomewhere = true;
+      const variants = buildSupabaseProductPayloadVariants({
+        id: req.params.id,
+        name,
+        price,
+        compareAtPrice: productData.compare_at_price,
+        promotionLabel: productData.promotion_label,
+        promotionCta: productData.promotion_cta,
+        promotionBadge: productData.promotion_badge,
+        description,
+        category: productData.category,
+        image: productData.image,
+        images: productData.images,
+        stock: productData.stock,
+        rating: productData.rating,
+        reviews: productData.reviews,
+      });
+
+      for (const variant of variants) {
+        const { error } = await supabase.from('products').update(variant.update).eq('id', req.params.id);
+        if (!error) {
+          supabaseUpdated = true;
+          updatedSomewhere = true;
+          break;
+        }
+
+        console.error(`Supabase product update error (${variant.label}):`, error);
+        updateErrors.push(`${variant.label}: ${error.message || 'Falha ao atualizar produto no Supabase.'}`);
       }
     }
 
     if (!supabaseUpdated && sqliteUpdated && isEphemeralSQLiteRuntime) {
       return res.status(500).json({
         error: 'Produto atualizado apenas em armazenamento temporário e não persistiu.',
-        details: 'Configure SUPABASE_SERVICE_ROLE_KEY no deploy para persistência real. Em ambiente Vercel o SQLite é temporário.',
+        details: `Configure SUPABASE_SERVICE_ROLE_KEY no deploy para persistência real. Em ambiente Vercel o SQLite é temporário. ${updateErrors.length ? `Detalhe Supabase: ${updateErrors.join(' | ')}` : ''}`,
       });
     }
 
