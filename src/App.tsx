@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, createContext, useContext } from 'react';
-import { ShoppingBag, Menu, X, User, Search, ChevronRight, Instagram, Facebook, Youtube, Plus, Trash2, LayoutDashboard, Package, FileText, Edit, Upload, CheckCircle, TrendingUp, DollarSign, Users, BarChart3, Heart, LogOut, Tag, ArrowLeft, Mail, Phone, MapPin, CreditCard, Sun, Moon, Monitor } from 'lucide-react';
+import { ShoppingBag, Menu, X, User, Search, ChevronRight, Instagram, Facebook, Youtube, Plus, Trash2, LayoutDashboard, Package, FileText, Edit, Upload, CheckCircle, TrendingUp, DollarSign, Users, BarChart3, Heart, LogOut, Tag, ArrowLeft, Mail, Phone, MapPin, CreditCard, Sun, Moon, Monitor, Sparkles, ShieldCheck, Truck, Pill, Leaf, Droplets } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import { Auth } from '@supabase/auth-ui-react';
@@ -98,6 +98,23 @@ type ProductSalesCopy = {
   composition: string;
 };
 
+type ProductDescriptionSections = {
+  summary: string;
+  purpose: string;
+  composition: string;
+};
+
+type ProductCompositionPanel = {
+  id: string;
+  label: string;
+  title: string;
+  purpose: string;
+  composition: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  iconAccent: string;
+  surfaceAccent: string;
+};
+
 const PRODUCT_COPY: Record<string, ProductSalesCopy> = {
   'l7-ultra-450-kit': {
     summary: 'Kit pensado para quem busca emagrecimento com mais equilíbrio, combinando controle do apetite com suporte detox na rotina.',
@@ -141,12 +158,64 @@ const PRODUCT_COPY: Record<string, ProductSalesCopy> = {
   },
 };
 
+const extractProductDescriptionSections = (description?: string | null): ProductDescriptionSections => {
+  const raw = String(description || '').trim();
+
+  if (!raw) {
+    return {
+      summary: '',
+      purpose: '',
+      composition: '',
+    };
+  }
+
+  const normalized = raw.replace(/\r/g, '');
+  const lines = normalized
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const cleanLine = (value: string) => value
+    .replace(/^[•*\-#\d.\s]+/, '')
+    .replace(/^para que serve\s*:?\s*/i, '')
+    .replace(/^funcao\s*:?\s*/i, '')
+    .replace(/^fun[cç][aã]o\s*:?\s*/i, '')
+    .replace(/^composi[cç][aã]o\s*:?\s*/i, '')
+    .replace(/^ingredientes\s*:?\s*/i, '')
+    .trim();
+
+  const purposeLine = lines.find((line) => /^para que serve\s*:|^funcao\s*:|^fun[cç][aã]o\s*:/i.test(line));
+  const compositionLine = lines.find((line) => /^composi[cç][aã]o\s*:|^ingredientes\s*:/i.test(line));
+  const unlabeledLines = lines.filter((line) => !/^para que serve\s*:|^funcao\s*:|^fun[cç][aã]o\s*:|^composi[cç][aã]o\s*:|^ingredientes\s*:/i.test(line));
+  const summary = unlabeledLines.length > 0 ? unlabeledLines.join(' ') : cleanLine(lines[0] || '');
+
+  return {
+    summary,
+    purpose: purposeLine ? cleanLine(purposeLine) : '',
+    composition: compositionLine ? cleanLine(compositionLine) : '',
+  };
+};
+
 const getProductMarketingSummary = (product?: Product | null): ProductSalesCopy => {
   if (!product) {
     return {
       summary: '',
       purpose: '',
       composition: '',
+    };
+  }
+
+  const descriptionSections = extractProductDescriptionSections(product.description);
+
+  if (descriptionSections.summary) {
+    const fallbackSource = normalizeProductText(`${product.name} ${product.description} ${product.category || ''}`);
+    const hasDetox = fallbackSource.includes('detox');
+    const hasCollagen = fallbackSource.includes('colageno');
+
+    return {
+      summary: descriptionSections.summary,
+      purpose: descriptionSections.purpose || `Indicado para ${product.category || 'rotina fitness'}${hasDetox ? ' com apoio detox' : ''}${hasCollagen ? ' e suporte complementar para pele e articulações' : ''}.`,
+      composition: descriptionSections.composition || `Composição principal: ${product.name.replace(/^1\s*/i, '')}.`,
     };
   }
 
@@ -162,6 +231,163 @@ const getProductMarketingSummary = (product?: Product | null): ProductSalesCopy 
     purpose: `Indicado para ${product.category || 'rotina fitness'}${hasDetox ? ' com apoio detox' : ''}${hasCollagen ? ' e suporte complementar para pele e articulações' : ''}.`,
     composition: `Composição principal: ${product.name.replace(/^1\s*/i, '')}.`,
   };
+};
+
+const getProductCompositionPanels = (product?: Product | null): ProductCompositionPanel[] => {
+  if (!product) return [];
+
+  const summary = getProductMarketingSummary(product);
+
+  switch (product.id) {
+    case 'l7-ultra-450-kit':
+      return [
+        {
+          id: 'l7-ultra',
+          label: 'Principal',
+          title: 'L7 Ultra 450mg',
+          purpose: 'Ajuda na saciedade, no controle da fome e na constância da dieta ao longo do dia.',
+          composition: 'Destaques citados no produto: Laranja Moro, L-Carnitina e Psyllium.',
+          icon: Pill,
+          iconAccent: 'from-orange-500 via-amber-400 to-yellow-300',
+          surfaceAccent: 'from-orange-50 via-white to-amber-50',
+        },
+        {
+          id: 'detox',
+          label: 'Complemento',
+          title: 'Detox',
+          purpose: 'Complementa a rotina com apoio digestivo, sensação de leveza e menor percepção de inchaço.',
+          composition: 'Blend detox para reforçar leveza, regularidade e aderência ao processo de emagrecimento.',
+          icon: Leaf,
+          iconAccent: 'from-emerald-500 via-lime-400 to-green-300',
+          surfaceAccent: 'from-emerald-50 via-white to-lime-50',
+        },
+      ];
+    case 'l7-turbo-500-kit':
+      return [
+        {
+          id: 'l7-turbo',
+          label: 'Principal',
+          title: 'L7 Turbo 500mg',
+          purpose: 'Foi pensado para quem quer mais energia no dia a dia e apoio à rotina de queima calórica.',
+          composition: 'Fórmula principal 500mg com foco em disposição, rotina ativa e emagrecimento mais dinâmico.',
+          icon: Pill,
+          iconAccent: 'from-orange-500 via-rose-400 to-yellow-300',
+          surfaceAccent: 'from-orange-50 via-white to-rose-50',
+        },
+        {
+          id: 'detox',
+          label: 'Complemento',
+          title: 'Detox',
+          purpose: 'Ajuda na sensação de leveza, retenção e consistência durante o uso do kit.',
+          composition: 'Blend detox pensado para rotina digestiva mais confortável e percepção corporal mais leve.',
+          icon: Leaf,
+          iconAccent: 'from-emerald-500 via-lime-400 to-green-300',
+          surfaceAccent: 'from-emerald-50 via-white to-lime-50',
+        },
+      ];
+    case 'l7-nitro-750-kit':
+      return [
+        {
+          id: 'l7-nitro',
+          label: 'Principal',
+          title: 'L7 Nitro 750mg',
+          purpose: 'Entrega foco mais intenso em saciedade, metabolismo e apoio ao emagrecimento mais agressivo.',
+          composition: 'Fórmula concentrada 750mg com perfil voltado para controle do apetite e suporte termogênico.',
+          icon: Pill,
+          iconAccent: 'from-fuchsia-500 via-orange-400 to-amber-300',
+          surfaceAccent: 'from-fuchsia-50 via-white to-orange-50',
+        },
+        {
+          id: 'detox-shake',
+          label: 'Complemento',
+          title: 'Detox Shake',
+          purpose: 'Ajuda a complementar a rotina digestiva, melhorar a sensação de leveza e reduzir a percepção de inchaço.',
+          composition: 'Shake detox complementar para suporte diário, retenção e constância no processo.',
+          icon: Droplets,
+          iconAccent: 'from-cyan-500 via-sky-400 to-teal-300',
+          surfaceAccent: 'from-cyan-50 via-white to-teal-50',
+        },
+      ];
+    case 'l7-nitro-750-full':
+      return [
+        {
+          id: 'l7-nitro',
+          label: 'Principal',
+          title: 'L7 Nitro 750mg',
+          purpose: 'É o núcleo do kit para saciedade, rotina metabólica forte e apoio no emagrecimento.',
+          composition: 'Fórmula principal 750mg com atuação mais intensa no controle da fome e suporte à queima de gordura.',
+          icon: Pill,
+          iconAccent: 'from-fuchsia-500 via-orange-400 to-amber-300',
+          surfaceAccent: 'from-fuchsia-50 via-white to-orange-50',
+        },
+        {
+          id: 'detox',
+          label: 'Complemento',
+          title: 'Detox',
+          purpose: 'Complementa com leveza digestiva, apoio à retenção e sensação corporal mais confortável.',
+          composition: 'Blend detox para uso complementar durante o processo de emagrecimento.',
+          icon: Leaf,
+          iconAccent: 'from-emerald-500 via-lime-400 to-green-300',
+          surfaceAccent: 'from-emerald-50 via-white to-lime-50',
+        },
+        {
+          id: 'colageno',
+          label: 'Extra',
+          title: 'Colágeno',
+          purpose: 'Entra como suporte para firmeza da pele e cuidado articular enquanto o corpo muda.',
+          composition: 'Complemento com foco em pele, elasticidade e suporte para a rotina de cuidado integral.',
+          icon: Sparkles,
+          iconAccent: 'from-pink-500 via-rose-400 to-orange-300',
+          surfaceAccent: 'from-pink-50 via-white to-rose-50',
+        },
+      ];
+    case 'l7-turbo-500-full':
+      return [
+        {
+          id: 'l7-turbo',
+          label: 'Principal',
+          title: 'L7 Turbo 500mg',
+          purpose: 'Sustenta energia e ritmo no dia a dia para quem quer emagrecer sem perder disposição.',
+          composition: 'Fórmula principal 500mg com foco em energia, rendimento e rotina mais ativa.',
+          icon: Pill,
+          iconAccent: 'from-orange-500 via-rose-400 to-yellow-300',
+          surfaceAccent: 'from-orange-50 via-white to-rose-50',
+        },
+        {
+          id: 'detox',
+          label: 'Complemento',
+          title: 'Detox',
+          purpose: 'Ajuda no conforto digestivo, leveza e percepção de menos inchaço no decorrer do uso.',
+          composition: 'Blend detox complementar para uma jornada de emagrecimento mais confortável.',
+          icon: Leaf,
+          iconAccent: 'from-emerald-500 via-lime-400 to-green-300',
+          surfaceAccent: 'from-emerald-50 via-white to-lime-50',
+        },
+        {
+          id: 'colageno',
+          label: 'Extra',
+          title: 'Colágeno',
+          purpose: 'Oferece apoio adicional para pele e articulações, deixando o kit mais completo.',
+          composition: 'Complemento voltado para firmeza da pele, elasticidade e cuidado articular.',
+          icon: Sparkles,
+          iconAccent: 'from-pink-500 via-rose-400 to-orange-300',
+          surfaceAccent: 'from-pink-50 via-white to-rose-50',
+        },
+      ];
+    default:
+      return [
+        {
+          id: product.id,
+          label: 'Fórmula',
+          title: product.name.replace(/^1\s*/i, ''),
+          purpose: summary.purpose,
+          composition: summary.composition,
+          icon: Pill,
+          iconAccent: 'from-orange-500 via-amber-400 to-yellow-300',
+          surfaceAccent: 'from-orange-50 via-white to-amber-50',
+        },
+      ];
+  }
 };
 
 const formatPriceBRL = (value?: number | null) => `R$ ${Number(value || 0).toFixed(2)}`;
@@ -1066,7 +1292,48 @@ const TipsPage = ({
 
 const ProductDetailsPage: React.FC<{ product: Product, onAddToCart: (p: Product) => void, onBack: () => void, onNavigate: (page: string) => void, onShowToast: (msg: string) => void }> = ({ product, onAddToCart, onBack, onNavigate, onShowToast }) => {
   const [activeImage, setActiveImage] = useState(product.image);
+  const compositionPanels = useMemo(() => getProductCompositionPanels(product), [product]);
+  const [activeCompositionId, setActiveCompositionId] = useState(compositionPanels[0]?.id || product.id);
   const allImages = [product.image, ...(product.images || [])];
+  const marketing = useMemo(() => getProductMarketingSummary(product), [product]);
+  const activeComposition = compositionPanels.find((panel) => panel.id === activeCompositionId) || compositionPanels[0];
+  const productBenefits = useMemo(() => {
+    const source = normalizeProductText(`${product.name} ${product.description}`);
+    const isKit = compositionPanels.length > 1;
+    const hasCollagen = source.includes('colageno');
+
+    return [
+      {
+        title: isKit ? 'Kit Inteligente' : 'Fórmula Premium',
+        subtitle: isKit ? `${compositionPanels.length} ativos em uma única compra` : 'Seleção com foco em performance',
+        icon: Sparkles,
+        iconAccent: 'from-orange-500 via-amber-400 to-yellow-300',
+        surfaceAccent: 'from-orange-50 via-white to-yellow-50',
+      },
+      {
+        title: hasCollagen ? 'Cuidado Completo' : 'Qualidade Elite',
+        subtitle: hasCollagen ? 'Emagrecimento com suporte extra para pele' : 'Rotina pensada para resultado com constância',
+        icon: ShieldCheck,
+        iconAccent: hasCollagen ? 'from-pink-500 via-rose-400 to-orange-300' : 'from-emerald-500 via-green-400 to-lime-300',
+        surfaceAccent: hasCollagen ? 'from-pink-50 via-white to-rose-50' : 'from-emerald-50 via-white to-lime-50',
+      },
+      {
+        title: 'Entrega Ágil',
+        subtitle: 'Compra rápida para começar sua rotina sem demora',
+        icon: Truck,
+        iconAccent: 'from-sky-500 via-cyan-400 to-teal-300',
+        surfaceAccent: 'from-sky-50 via-white to-cyan-50',
+      },
+    ];
+  }, [compositionPanels, product.description, product.name]);
+
+  useEffect(() => {
+    setActiveImage(product.image);
+  }, [product.id, product.image]);
+
+  useEffect(() => {
+    setActiveCompositionId(compositionPanels[0]?.id || product.id);
+  }, [compositionPanels, product.id]);
 
   return (
     <div className="pt-32 pb-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1143,16 +1410,75 @@ const ProductDetailsPage: React.FC<{ product: Product, onAddToCart: (p: Product)
 
           <div className="mb-10 space-y-4">
             <p className="text-gray-600 text-lg leading-relaxed">
-              {getProductMarketingSummary(product).summary || "Este produto premium da Halex Shop foi desenvolvido com os mais altos padrões de qualidade para garantir que você alcance seus objetivos físicos com eficiência e segurança."}
+              {marketing.summary || "Este produto premium da Halex Shop foi desenvolvido com os mais altos padrões de qualidade para garantir que você alcance seus objetivos físicos com eficiência e segurança."}
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4">
+              <div className="bg-gray-50 border border-gray-100 rounded-[28px] p-5 shadow-[0_18px_50px_rgba(15,23,42,0.05)]">
                 <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-2">Para que serve</p>
-                <p className="text-sm text-gray-600 leading-relaxed">{getProductMarketingSummary(product).purpose}</p>
+                <p className="text-sm text-gray-600 leading-relaxed">{marketing.purpose}</p>
               </div>
-              <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4">
-                <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-2">Composição</p>
-                <p className="text-sm text-gray-600 leading-relaxed">{getProductMarketingSummary(product).composition}</p>
+              <div className="relative overflow-hidden rounded-[28px] border border-orange-100 bg-white p-5 shadow-[0_20px_60px_rgba(249,115,22,0.12)]">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(251,146,60,0.18),_transparent_40%)] pointer-events-none" />
+                <div className="relative">
+                  <div className="flex items-center justify-between gap-3 mb-4">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-2">Composição</p>
+                      <p className="text-xs text-gray-500">Veja cada item do kit sem sair da página.</p>
+                    </div>
+                    {compositionPanels.length > 1 && (
+                      <span className="px-3 py-1 rounded-full bg-orange-50 text-brand-orange text-[10px] font-black uppercase tracking-widest border border-orange-100">
+                        Janela interativa
+                      </span>
+                    )}
+                  </div>
+
+                  {compositionPanels.length > 1 && (
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {compositionPanels.map((panel) => (
+                        <button
+                          key={panel.id}
+                          type="button"
+                          onClick={() => setActiveCompositionId(panel.id)}
+                          className={`px-4 py-2 rounded-full border text-xs font-black uppercase tracking-widest transition-all ${activeComposition?.id === panel.id ? 'bg-brand-black text-white border-brand-black shadow-lg shadow-black/10' : 'bg-white text-gray-500 border-gray-200 hover:border-brand-orange hover:text-brand-orange'}`}
+                        >
+                          {panel.title}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {activeComposition && (
+                    <motion.div
+                      key={activeComposition.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className={`rounded-[24px] border border-white/70 bg-gradient-to-br ${activeComposition.surfaceAccent} p-4 shadow-[0_16px_40px_rgba(15,23,42,0.08)]`}
+                    >
+                      <div className="flex items-start gap-4 mb-4">
+                        <div className={`w-14 h-14 rounded-[20px] bg-gradient-to-br ${activeComposition.iconAccent} shadow-[0_12px_30px_rgba(249,115,22,0.28)] flex items-center justify-center text-white`}>
+                          <activeComposition.icon size={26} />
+                        </div>
+                        <div>
+                          <span className="inline-flex px-3 py-1 rounded-full bg-white/80 text-[10px] text-gray-500 font-black uppercase tracking-widest border border-white mb-2">
+                            {activeComposition.label}
+                          </span>
+                          <h3 className="text-lg font-black text-brand-black uppercase leading-tight">{activeComposition.title}</h3>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="rounded-2xl bg-white/80 border border-white p-4">
+                          <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-2">Função no kit</p>
+                          <p className="text-sm text-gray-600 leading-relaxed">{activeComposition.purpose}</p>
+                        </div>
+                        <div className="rounded-2xl bg-white/80 border border-white p-4">
+                          <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-2">Composição destacada</p>
+                          <p className="text-sm text-gray-600 leading-relaxed">{activeComposition.composition}</p>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -1201,19 +1527,28 @@ const ProductDetailsPage: React.FC<{ product: Product, onAddToCart: (p: Product)
             </button>
           </div>
 
-          <div className="mt-12 pt-12 border-t border-gray-100 grid grid-cols-3 gap-8">
-            <div className="text-center">
-              <div className="text-brand-orange font-black text-xl mb-1">100%</div>
-              <div className="text-gray-400 text-[10px] uppercase font-bold tracking-widest">Puro</div>
-            </div>
-            <div className="text-center">
-              <div className="text-brand-orange font-black text-xl mb-1">Elite</div>
-              <div className="text-gray-400 text-[10px] uppercase font-bold tracking-widest">Qualidade</div>
-            </div>
-            <div className="text-center">
-              <div className="text-brand-orange font-black text-xl mb-1">Fast</div>
-              <div className="text-gray-400 text-[10px] uppercase font-bold tracking-widest">Entrega</div>
-            </div>
+          <div className="mt-12 pt-12 border-t border-gray-100 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {productBenefits.map((benefit) => {
+              const BenefitIcon = benefit.icon;
+
+              return (
+                <div
+                  key={benefit.title}
+                  className={`relative overflow-hidden rounded-[28px] border border-white bg-gradient-to-br ${benefit.surfaceAccent} p-5 shadow-[0_18px_45px_rgba(15,23,42,0.08)]`}
+                >
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(255,255,255,0.9),_transparent_38%)] pointer-events-none" />
+                  <div className="relative flex items-center gap-4">
+                    <div className={`w-14 h-14 rounded-[20px] bg-gradient-to-br ${benefit.iconAccent} text-white flex items-center justify-center shadow-[0_16px_35px_rgba(249,115,22,0.26)]`}>
+                      <BenefitIcon size={26} />
+                    </div>
+                    <div>
+                      <div className="text-brand-black font-black text-sm uppercase tracking-wide">{benefit.title}</div>
+                      <div className="text-gray-500 text-xs leading-relaxed mt-1">{benefit.subtitle}</div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </motion.div>
       </div>
@@ -2334,6 +2669,7 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
   const getPublicProductUrl = (productId?: string | null) => `${window.location.origin}/produto/${encodeURIComponent(String(productId || ''))}`;
   const getCampaignOfferUrl = (productId?: string | null) => `${window.location.origin}/oferta/${encodeURIComponent(String(productId || ''))}`;
   const getProductOgUrl = (productId?: string | null) => `${window.location.origin}/og/product/${encodeURIComponent(String(productId || ''))}.png`;
+  const getProductOgPreviewUrl = (productId?: string | null) => `${window.location.origin}/og/product/${encodeURIComponent(String(productId || ''))}.svg`;
 
   const handleCopyProductLink = async (productId?: string | null, mode: 'product' | 'campaign' = 'campaign') => {
     const url = mode === 'campaign' ? getCampaignOfferUrl(productId) : getPublicProductUrl(productId);
@@ -2348,8 +2684,25 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
   };
 
   const handleOpenOgPreview = (productId?: string | null) => {
-    window.open(getProductOgUrl(productId), '_blank', 'noopener,noreferrer');
+    window.open(getProductOgPreviewUrl(productId), '_blank', 'noopener,noreferrer');
   };
+
+  const productDraftPreview = useMemo(() => getProductMarketingSummary({
+    id: newProduct.id || editingId || 'preview-product',
+    name: newProduct.name || 'Produto em edição',
+    price: Number(newProduct.price) || 0,
+    compareAtPrice: Number(newProduct.compareAtPrice) || 0,
+    promotionLabel: newProduct.promotionLabel || '',
+    promotionCta: newProduct.promotionCta || '',
+    promotionBadge: newProduct.promotionBadge || '',
+    description: newProduct.description || '',
+    category: newProduct.category || 'suplementos',
+    image: newProduct.image || 'https://picsum.photos/seed/new/600/600',
+    images: newProduct.images || [],
+    stock: Number(newProduct.stock) || 0,
+    rating: Number(newProduct.rating) || 5,
+    reviews: Number(newProduct.reviews) || 0,
+  }), [editingId, newProduct]);
 
   return (
     <div className="pt-32 pb-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -2450,115 +2803,189 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="bg-white p-8 rounded-3xl border border-gray-100 shadow-xl max-w-2xl mx-auto"
+            className="bg-white p-6 md:p-8 rounded-3xl border border-gray-100 shadow-xl max-w-6xl mx-auto w-full"
           >
             <h2 className="text-2xl font-black mb-6 uppercase">
               {editingId ? 'Editar' : 'Adicionar'} {activeTab === 'products' ? 'Produto' : 'Post'}
             </h2>
             
-            <form onSubmit={activeTab === 'products' ? handleAddProduct : handleAddPost} className="space-y-4">
+            <form onSubmit={activeTab === 'products' ? handleAddProduct : handleAddPost} className={activeTab === 'products' ? 'grid grid-cols-1 xl:grid-cols-[minmax(0,1.35fr)_360px] gap-8' : 'space-y-4'}>
               {activeTab === 'products' ? (
                 <>
-                  <input 
-                    placeholder="Nome do Produto" 
-                    className="w-full p-4 bg-gray-50 rounded-xl border-none outline-none"
-                    value={newProduct.name}
-                    onChange={e => setNewProduct({...newProduct, name: e.target.value})}
-                    required
-                  />
-                  <div className="grid grid-cols-2 gap-4">
-                    <input 
-                      placeholder="Preço" 
-                      type="number" step="0.01"
-                      className="w-full p-4 bg-gray-50 rounded-xl border-none outline-none"
-                      value={newProduct.price}
-                      onChange={e => setNewProduct({...newProduct, price: Number(e.target.value)})}
-                      required
-                    />
-                    <input 
-                      placeholder="Preço de antes (opcional)" 
-                      type="number" step="0.01"
-                      className="w-full p-4 bg-gray-50 rounded-xl border-none outline-none"
-                      value={newProduct.compareAtPrice ?? 0}
-                      onChange={e => setNewProduct({...newProduct, compareAtPrice: Number(e.target.value)})}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <select 
-                      className="w-full p-4 bg-gray-50 rounded-xl border-none outline-none"
-                      value={newProduct.category}
-                      onChange={e => setNewProduct({...newProduct, category: e.target.value as any})}
-                    >
-                      <option value="suplementos">Suplementos</option>
-                      <option value="acessorios">Acessórios</option>
-                      <option value="vestuario">Vestuário</option>
-                    </select>
-                    <input 
-                      placeholder="Selo da campanha" 
-                      className="w-full p-4 bg-gray-50 rounded-xl border-none outline-none"
-                      value={newProduct.promotionLabel || ''}
-                      onChange={e => setNewProduct({...newProduct, promotionLabel: e.target.value})}
-                    />
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input 
-                      placeholder="CTA promocional" 
-                      className="w-full p-4 bg-gray-50 rounded-xl border-none outline-none"
-                      value={newProduct.promotionCta || ''}
-                      onChange={e => setNewProduct({...newProduct, promotionCta: e.target.value})}
-                    />
-                    <input 
-                      placeholder="Badge curto da oferta" 
-                      className="w-full p-4 bg-gray-50 rounded-xl border-none outline-none"
-                      value={newProduct.promotionBadge || ''}
-                      onChange={e => setNewProduct({...newProduct, promotionBadge: e.target.value})}
-                    />
-                  </div>
-                  {hasProductPromotion(newProduct as Product) && (
-                    <div className="rounded-2xl border border-orange-100 bg-orange-50 px-4 py-3 text-sm text-brand-orange font-bold">
-                      Desconto real calculado: {newProduct.discountPercentage || Math.round((((Number(newProduct.compareAtPrice) || 0) - (Number(newProduct.price) || 0)) / (Number(newProduct.compareAtPrice) || 1)) * 100)}% OFF
+                  <div className="space-y-5">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="md:col-span-2">
+                        <label className="block text-[11px] font-black uppercase tracking-widest text-gray-400 mb-2">Nome do produto</label>
+                        <input 
+                          placeholder="Nome do Produto" 
+                          className="w-full p-4 bg-gray-50 rounded-xl border-none outline-none"
+                          value={newProduct.name}
+                          onChange={e => setNewProduct({...newProduct, name: e.target.value})}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-black uppercase tracking-widest text-gray-400 mb-2">Preço atual</label>
+                        <input 
+                          placeholder="Preço" 
+                          type="number" step="0.01"
+                          className="w-full p-4 bg-gray-50 rounded-xl border-none outline-none"
+                          value={newProduct.price}
+                          onChange={e => setNewProduct({...newProduct, price: Number(e.target.value)})}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-black uppercase tracking-widest text-gray-400 mb-2">Preço de comparação</label>
+                        <input 
+                          placeholder="Preço de antes (opcional)" 
+                          type="number" step="0.01"
+                          className="w-full p-4 bg-gray-50 rounded-xl border-none outline-none"
+                          value={newProduct.compareAtPrice ?? 0}
+                          onChange={e => setNewProduct({...newProduct, compareAtPrice: Number(e.target.value)})}
+                        />
+                      </div>
                     </div>
-                  )}
-                  <div className="grid grid-cols-1 gap-4">
-                    <div className="relative group">
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[11px] font-black uppercase tracking-widest text-gray-400 mb-2">Categoria</label>
+                        <select 
+                          className="w-full p-4 bg-gray-50 rounded-xl border-none outline-none"
+                          value={newProduct.category}
+                          onChange={e => setNewProduct({...newProduct, category: e.target.value as any})}
+                        >
+                          <option value="suplementos">Suplementos</option>
+                          <option value="acessorios">Acessórios</option>
+                          <option value="vestuario">Vestuário</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-black uppercase tracking-widest text-gray-400 mb-2">Estoque</label>
+                        <input 
+                          placeholder="Estoque" 
+                          type="number"
+                          className="w-full p-4 bg-gray-50 rounded-xl border-none outline-none"
+                          value={newProduct.stock}
+                          onChange={e => setNewProduct({...newProduct, stock: Number(e.target.value)})}
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[11px] font-black uppercase tracking-widest text-gray-400 mb-2">Selo da campanha</label>
+                        <input 
+                          placeholder="Selo da campanha" 
+                          className="w-full p-4 bg-gray-50 rounded-xl border-none outline-none"
+                          value={newProduct.promotionLabel || ''}
+                          onChange={e => setNewProduct({...newProduct, promotionLabel: e.target.value})}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-black uppercase tracking-widest text-gray-400 mb-2">Badge curto</label>
+                        <input 
+                          placeholder="Badge curto da oferta" 
+                          className="w-full p-4 bg-gray-50 rounded-xl border-none outline-none"
+                          value={newProduct.promotionBadge || ''}
+                          onChange={e => setNewProduct({...newProduct, promotionBadge: e.target.value})}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-black uppercase tracking-widest text-gray-400 mb-2">CTA promocional</label>
                       <input 
-                        placeholder="Imagem Principal (URL)" 
-                        className="w-full p-4 bg-gray-50 rounded-xl border-none outline-none pr-12"
-                        value={newProduct.image}
-                        onChange={e => setNewProduct({...newProduct, image: e.target.value})}
-                        required
+                        placeholder="CTA promocional" 
+                        className="w-full p-4 bg-gray-50 rounded-xl border-none outline-none"
+                        value={newProduct.promotionCta || ''}
+                        onChange={e => setNewProduct({...newProduct, promotionCta: e.target.value})}
                       />
-                      <label className="absolute right-4 top-1/2 -translate-y-1/2 cursor-pointer text-gray-400 hover:text-brand-orange transition-colors">
-                        <Upload size={20} />
-                        <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'product')} />
-                      </label>
                     </div>
-                    {newProduct.image && (
-                      <div className="relative w-20 h-20 rounded-lg overflow-hidden border border-gray-100">
-                        <img src={newProduct.image} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+
+                    {hasProductPromotion(newProduct as Product) && (
+                      <div className="rounded-2xl border border-orange-100 bg-orange-50 px-4 py-3 text-sm text-brand-orange font-bold">
+                        Desconto real calculado: {newProduct.discountPercentage || Math.round((((Number(newProduct.compareAtPrice) || 0) - (Number(newProduct.price) || 0)) / (Number(newProduct.compareAtPrice) || 1)) * 100)}% OFF
                       </div>
                     )}
-                    <input 
-                      placeholder="Estoque" 
-                      type="number"
-                      className="w-full p-4 bg-gray-50 rounded-xl border-none outline-none"
-                      value={newProduct.stock}
-                      onChange={e => setNewProduct({...newProduct, stock: Number(e.target.value)})}
-                      required
-                    />
+
+                    <div className="grid grid-cols-1 gap-4">
+                      <div>
+                        <label className="block text-[11px] font-black uppercase tracking-widest text-gray-400 mb-2">Imagem principal</label>
+                        <div className="relative group">
+                          <input 
+                            placeholder="Imagem Principal (URL)" 
+                            className="w-full p-4 bg-gray-50 rounded-xl border-none outline-none pr-12"
+                            value={newProduct.image}
+                            onChange={e => setNewProduct({...newProduct, image: e.target.value})}
+                            required
+                          />
+                          <label className="absolute right-4 top-1/2 -translate-y-1/2 cursor-pointer text-gray-400 hover:text-brand-orange transition-colors">
+                            <Upload size={20} />
+                            <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'product')} />
+                          </label>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-black uppercase tracking-widest text-gray-400 mb-2">Imagens adicionais</label>
+                        <textarea 
+                          placeholder="Imagens Adicionais (uma URL por linha)" 
+                          className="w-full p-4 bg-gray-50 rounded-xl border-none outline-none h-24"
+                          value={newProduct.images?.join('\n')}
+                          onChange={e => setNewProduct({...newProduct, images: e.target.value.split('\n').filter(url => url.trim() !== '')})}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between gap-3 mb-2">
+                        <label className="block text-[11px] font-black uppercase tracking-widest text-gray-400">Descrição que vai para a loja</label>
+                        <span className="text-[11px] font-bold text-brand-orange uppercase tracking-widest">O texto salvo aparece na página do produto</span>
+                      </div>
+                      <textarea 
+                        placeholder="Descrição" 
+                        className="w-full p-4 bg-gray-50 rounded-xl border-none outline-none h-72 resize-y"
+                        value={newProduct.description}
+                        onChange={e => setNewProduct({...newProduct, description: e.target.value})}
+                      />
+                      <p className="text-xs text-gray-500 mt-2 leading-relaxed">
+                        Dica: se quiser controlar melhor a página do produto, você pode escrever linhas começando com “Para que serve:” e “Composição:”.
+                      </p>
+                    </div>
+
+                    <button type="submit" className="w-full btn-primary py-4">Salvar</button>
                   </div>
-                  <textarea 
-                    placeholder="Imagens Adicionais (uma URL por linha)" 
-                    className="w-full p-4 bg-gray-50 rounded-xl border-none outline-none h-24"
-                    value={newProduct.images?.join('\n')}
-                    onChange={e => setNewProduct({...newProduct, images: e.target.value.split('\n').filter(url => url.trim() !== '')})}
-                  />
-                  <textarea 
-                    placeholder="Descrição" 
-                    className="w-full p-4 bg-gray-50 rounded-xl border-none outline-none h-32"
-                    value={newProduct.description}
-                    onChange={e => setNewProduct({...newProduct, description: e.target.value})}
-                  />
+
+                  <div className="xl:sticky xl:top-28 h-fit space-y-4">
+                    <div className="rounded-[28px] border border-gray-100 bg-gray-50 p-5">
+                      <p className="text-[10px] uppercase tracking-[0.24em] text-brand-orange font-black mb-3">Preview do produto</p>
+                      {newProduct.image && (
+                        <div className="relative w-full aspect-square rounded-2xl overflow-hidden border border-gray-100 bg-white mb-4">
+                          <img src={newProduct.image} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                        </div>
+                      )}
+                      <h3 className="text-xl font-black leading-tight mb-2">{newProduct.name || 'Produto em edição'}</h3>
+                      <div className="flex flex-wrap items-center gap-2 mb-3">
+                        <span className="text-2xl font-black text-brand-orange">{formatPriceBRL(Number(newProduct.price) || 0)}</span>
+                        {hasProductPromotion(newProduct as Product) && (
+                          <span className="text-sm text-gray-400 line-through font-bold">{formatPriceBRL(Number(newProduct.compareAtPrice) || 0)}</span>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-600 leading-relaxed mb-4">{productDraftPreview.summary || 'A descrição principal aparecerá aqui conforme você editar.'}</p>
+                      <div className="space-y-3">
+                        <div className="rounded-2xl bg-white border border-gray-100 p-4">
+                          <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-2">Para que serve</p>
+                          <p className="text-sm text-gray-600 leading-relaxed">{productDraftPreview.purpose}</p>
+                        </div>
+                        <div className="rounded-2xl bg-white border border-gray-100 p-4">
+                          <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-2">Composição</p>
+                          <p className="text-sm text-gray-600 leading-relaxed">{productDraftPreview.composition}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </>
               ) : (
                 <>
@@ -2623,7 +3050,7 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                   />
                 </>
               )}
-              <button type="submit" className="w-full btn-primary py-4">Salvar</button>
+              {activeTab !== 'products' && <button type="submit" className="w-full btn-primary py-4">Salvar</button>}
             </form>
           </motion.div>
         ) : (
