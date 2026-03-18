@@ -70,6 +70,12 @@ export const AffiliateDashboard = ({ refCode }: { refCode: string }) => {
   const [loading, setLoading] = useState(true);
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
   const [period, setPeriod] = useState<'7d' | '30d' | '90d' | 'all'>('30d');
+  const [pixKey, setPixKey] = useState('');
+  const [pixKeyType, setPixKeyType] = useState('cpf');
+  const [requestAmount, setRequestAmount] = useState('');
+  const [requestNote, setRequestNote] = useState('');
+  const [isSubmittingPayout, setIsSubmittingPayout] = useState(false);
+  const [payoutFeedback, setPayoutFeedback] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -97,6 +103,11 @@ export const AffiliateDashboard = ({ refCode }: { refCode: string }) => {
     };
   }, [refCode]);
 
+  useEffect(() => {
+    setPixKey(String(affiliate?.payoutDefaults?.pixKey || ''));
+    setPixKeyType(String(affiliate?.payoutDefaults?.pixKeyType || 'cpf'));
+  }, [affiliate?.payoutDefaults?.pixKey, affiliate?.payoutDefaults?.pixKeyType]);
+
   const copyText = async (text: string, label: string) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -111,9 +122,16 @@ export const AffiliateDashboard = ({ refCode }: { refCode: string }) => {
   const allOrders = Array.isArray(affiliate?.orders)
     ? affiliate.orders
     : (Array.isArray(affiliate?.recentOrders) ? affiliate.recentOrders : []);
+  const allPayoutHistory = Array.isArray(affiliate?.payoutHistory) ? affiliate.payoutHistory : [];
   const shareLinks = affiliate?.shareLinks || {
     home: `${window.location.origin}/?ref=${affiliate?.ref_code || refCode}`,
     store: `${window.location.origin}/loja?ref=${affiliate?.ref_code || refCode}`,
+  };
+  const financialSummary = {
+    availableToWithdraw: Number(stats.availableToWithdraw) || 0,
+    paidOutTotal: Number(stats.paidOutTotal) || 0,
+    pendingPayoutAmount: Number(stats.pendingPayoutAmount) || 0,
+    lastPaymentAt: stats.lastPaymentAt || null,
   };
 
   const filteredOrders = useMemo(
@@ -169,12 +187,59 @@ export const AffiliateDashboard = ({ refCode }: { refCode: string }) => {
     return Array.from(productsMap.values()).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
   }, [filteredOrders]);
 
-  const payoutHistory = useMemo(
-    () => filteredOrders
-      .filter((order: any) => Number(order.commission) > 0)
+  const filteredPayoutHistory = useMemo(
+    () => allPayoutHistory
+      .filter((item: any) => isWithinPeriod(item.requestedAt || item.processedAt, period))
       .slice(0, 12),
-    [filteredOrders]
+    [allPayoutHistory, period]
   );
+
+  const handlePayoutRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const amount = Number(String(requestAmount).replace(',', '.'));
+    if (!pixKey.trim()) {
+      setPayoutFeedback('Informe sua chave Pix.');
+      return;
+    }
+    if (!amount || amount <= 0) {
+      setPayoutFeedback('Informe um valor válido para saque.');
+      return;
+    }
+
+    setIsSubmittingPayout(true);
+    setPayoutFeedback(null);
+
+    try {
+      const response = await fetch(`/api/affiliates/${encodeURIComponent(refCode)}/payout-request`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount,
+          pix_key: pixKey,
+          pix_key_type: pixKeyType,
+          note: requestNote,
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data?.error || 'Falha ao solicitar saque.');
+      }
+
+      setPayoutFeedback('Solicitação de saque enviada com sucesso.');
+      setRequestAmount('');
+      setRequestNote('');
+
+      const refreshed = await fetch(`/api/affiliates/${encodeURIComponent(refCode)}`);
+      const refreshedData = await refreshed.json();
+      setAffiliate(refreshedData);
+    } catch (error: any) {
+      setPayoutFeedback(error?.message || 'Falha ao solicitar saque.');
+    } finally {
+      setIsSubmittingPayout(false);
+    }
+  };
 
   const quickTips = useMemo(() => [
     'Compartilhe primeiro a campanha mais forte e depois o link geral da loja.',
@@ -404,35 +469,78 @@ export const AffiliateDashboard = ({ refCode }: { refCode: string }) => {
           <div className="space-y-4">
             <div className="rounded-3xl bg-emerald-50 border border-emerald-100 p-5">
               <div className="flex items-center gap-3 mb-2"><Wallet className="text-emerald-600" size={20} /><p className="text-[10px] uppercase tracking-widest text-emerald-700 font-black">Disponível para saque</p></div>
-              <p className="text-3xl font-black text-emerald-700">{formatPrice(filteredStats.availableToWithdraw)}</p>
-              <p className="text-sm text-emerald-700/80 mt-2">valor dos pedidos pagos no período filtrado</p>
+              <p className="text-3xl font-black text-emerald-700">{formatPrice(financialSummary.availableToWithdraw)}</p>
+              <p className="text-sm text-emerald-700/80 mt-2">valor real liberado para saque</p>
             </div>
 
             <div className="rounded-3xl bg-amber-50 border border-amber-100 p-5">
               <div className="flex items-center gap-3 mb-2"><Clock3 className="text-amber-700" size={20} /><p className="text-[10px] uppercase tracking-widest text-amber-700 font-black">Pendente de liberação</p></div>
-              <p className="text-3xl font-black text-amber-700">{formatPrice(filteredStats.payableSoon)}</p>
-              <p className="text-sm text-amber-700/80 mt-2">comissões ligadas a pedidos ainda não pagos</p>
+              <p className="text-3xl font-black text-amber-700">{formatPrice(financialSummary.pendingPayoutAmount)}</p>
+              <p className="text-sm text-amber-700/80 mt-2">solicitações em análise ou aguardando pagamento</p>
             </div>
 
             <div className="rounded-3xl bg-gray-50 border border-gray-100 p-5">
               <div className="flex items-center gap-3 mb-2"><CalendarDays className="text-brand-orange" size={20} /><p className="text-[10px] uppercase tracking-widest text-gray-500 font-black">Última comissão liberada</p></div>
-              <p className="text-xl font-black text-brand-black">{formatDate(filteredStats.lastPaidAt)}</p>
-              <p className="text-sm text-gray-500 mt-2">acompanhamento financeiro do seu período atual</p>
+              <p className="text-xl font-black text-brand-black">{formatDate(financialSummary.lastPaymentAt)}</p>
+              <p className="text-sm text-gray-500 mt-2">total já pago: {formatPrice(financialSummary.paidOutTotal)}</p>
             </div>
           </div>
+
+          <form onSubmit={handlePayoutRequest} className="mt-6 rounded-3xl border border-gray-100 bg-gray-50 p-5 space-y-4">
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-brand-orange font-black mb-2">Solicitar saque</p>
+              <h4 className="text-lg font-black text-brand-black">Peça seu repasse</h4>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <label className="block">
+                <span className="text-[10px] uppercase tracking-widest text-gray-400 font-black block mb-2">Tipo de chave Pix</span>
+                <select value={pixKeyType} onChange={(e) => setPixKeyType(e.target.value)} className="w-full p-4 bg-white rounded-2xl border border-gray-200 text-sm text-gray-700">
+                  <option value="cpf">CPF</option>
+                  <option value="email">E-mail</option>
+                  <option value="phone">Telefone</option>
+                  <option value="random">Chave aleatória</option>
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-[10px] uppercase tracking-widest text-gray-400 font-black block mb-2">Valor desejado</span>
+                <input value={requestAmount} onChange={(e) => setRequestAmount(e.target.value)} placeholder="Ex: 150,00" className="w-full p-4 bg-white rounded-2xl border border-gray-200 text-sm text-gray-700" />
+              </label>
+            </div>
+
+            <label className="block">
+              <span className="text-[10px] uppercase tracking-widest text-gray-400 font-black block mb-2">Chave Pix</span>
+              <input value={pixKey} onChange={(e) => setPixKey(e.target.value)} placeholder="Digite a chave para receber" className="w-full p-4 bg-white rounded-2xl border border-gray-200 text-sm text-gray-700" />
+            </label>
+
+            <label className="block">
+              <span className="text-[10px] uppercase tracking-widest text-gray-400 font-black block mb-2">Observação para o admin</span>
+              <textarea value={requestNote} onChange={(e) => setRequestNote(e.target.value)} placeholder="Ex: conta da titularidade do afiliado" className="w-full min-h-[92px] p-4 bg-white rounded-2xl border border-gray-200 text-sm text-gray-700 resize-y" />
+            </label>
+
+            {payoutFeedback && (
+              <div className={`rounded-2xl px-4 py-3 text-sm font-semibold ${payoutFeedback.includes('sucesso') ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-rose-50 text-rose-700 border border-rose-100'}`}>
+                {payoutFeedback}
+              </div>
+            )}
+
+            <button type="submit" disabled={isSubmittingPayout || financialSummary.availableToWithdraw <= 0} className="w-full bg-brand-black text-white py-4 rounded-2xl text-sm font-black uppercase tracking-widest hover:bg-black/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+              {isSubmittingPayout ? 'Enviando solicitação...' : 'Solicitar saque'}
+            </button>
+          </form>
         </div>
 
         <div className="bg-white rounded-[32px] border border-gray-100 shadow-sm p-6 lg:p-8">
           <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black mb-2">Histórico financeiro</p>
           <h3 className="text-2xl font-black uppercase text-brand-black mb-6">Repasses e status</h3>
 
-          {payoutHistory.length === 0 ? (
+          {filteredPayoutHistory.length === 0 ? (
             <div className="rounded-3xl bg-gray-50 border border-gray-100 p-6 text-sm text-gray-500">
               Ainda não há comissões no período selecionado.
             </div>
           ) : (
             <div className="space-y-4">
-              {payoutHistory.map((order: any) => {
+              {filteredPayoutHistory.map((order: any) => {
                 const commissionStatus = commissionStatusMap[order.status] || commissionStatusMap.pending;
 
                 return (

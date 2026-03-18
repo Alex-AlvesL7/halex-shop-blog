@@ -1,11 +1,33 @@
-import React, { useState } from 'react';
-import { Plus, Edit2, Save, X, UserPlus, Users } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Plus, Edit2, Save, X, UserPlus, Users, Wallet } from 'lucide-react';
 
 export const AffiliatesManagement = ({ affiliates, onRefresh }: { affiliates: any[], onRefresh: () => void }) => {
-  const [activeTab, setActiveTab] = useState<'list' | 'create'>('list');
+  const [activeTab, setActiveTab] = useState<'list' | 'create' | 'payouts'>('list');
   const [newAffiliate, setNewAffiliate] = useState({ name: '', email: '', whatsapp: '', ref_code: '', commission_rate: 10 });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editData, setEditData] = useState({ name: '', email: '', whatsapp: '', commission_rate: 10 });
+  const [payouts, setPayouts] = useState<any[]>([]);
+  const [loadingPayouts, setLoadingPayouts] = useState(false);
+
+  const loadPayouts = async () => {
+    setLoadingPayouts(true);
+    try {
+      const response = await fetch('/api/admin/affiliate-payouts');
+      const data = await response.json();
+      setPayouts(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Erro ao carregar saques:', error);
+      setPayouts([]);
+    } finally {
+      setLoadingPayouts(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'payouts') {
+      loadPayouts();
+    }
+  }, [activeTab]);
 
   const handleAddAffiliate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,6 +72,22 @@ export const AffiliatesManagement = ({ affiliates, onRefresh }: { affiliates: an
     onRefresh();
   };
 
+  const handleUpdatePayout = async (id: string, status: 'processing' | 'paid' | 'rejected') => {
+    const admin_note = window.prompt('Observação do admin (opcional):', '') || '';
+    const response = await fetch(`/api/admin/affiliate-payouts/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status, admin_note })
+    });
+
+    if (!response.ok) {
+      alert('Erro ao atualizar saque');
+      return;
+    }
+
+    loadPayouts();
+  };
+
   return (
     <div className="space-y-6">
       {/* Tabs */}
@@ -66,6 +104,12 @@ export const AffiliatesManagement = ({ affiliates, onRefresh }: { affiliates: an
         >
           <UserPlus size={18} /> Novo Afiliado
         </button>
+        <button 
+          onClick={() => setActiveTab('payouts')}
+          className={`flex items-center gap-2 px-6 py-2 rounded-full font-bold transition-all ${activeTab === 'payouts' ? 'bg-white shadow-sm' : 'text-gray-500'}`}
+        >
+          <Wallet size={18} /> Saques
+        </button>
       </div>
 
       {activeTab === 'create' ? (
@@ -80,6 +124,64 @@ export const AffiliatesManagement = ({ affiliates, onRefresh }: { affiliates: an
           </div>
           <button type="submit" className="btn-primary flex items-center gap-2 px-8 py-3"><Plus size={20} /> Salvar Afiliado</button>
         </form>
+      ) : activeTab === 'payouts' ? (
+        <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm">
+          <div className="flex items-center justify-between gap-4 mb-6">
+            <div>
+              <h3 className="text-2xl font-bold">Solicitações de saque</h3>
+              <p className="text-sm text-gray-500 mt-1">Gerencie pedidos de repasse, marque como pago e acompanhe o histórico.</p>
+            </div>
+            <button onClick={loadPayouts} className="px-4 py-2 rounded-xl bg-gray-100 text-gray-700 text-xs font-black uppercase tracking-widest hover:bg-gray-200 transition-colors">
+              Atualizar
+            </button>
+          </div>
+
+          {loadingPayouts ? (
+            <div className="rounded-2xl border border-gray-100 bg-gray-50 p-6 text-sm text-gray-500">Carregando solicitações...</div>
+          ) : payouts.length === 0 ? (
+            <div className="rounded-2xl border border-gray-100 bg-gray-50 p-6 text-sm text-gray-500">Nenhuma solicitação de saque encontrada.</div>
+          ) : (
+            <div className="space-y-4">
+              {payouts.map((payout) => (
+                <div key={payout.id} className="rounded-2xl border border-gray-100 bg-gray-50 p-5">
+                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                        <p className="font-bold text-lg text-gray-900">{payout.affiliate_name || 'Afiliado'}</p>
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${payout.status === 'paid' ? 'bg-emerald-50 text-emerald-700' : payout.status === 'processing' ? 'bg-sky-50 text-sky-700' : payout.status === 'rejected' ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700'}`}>
+                          {payout.status === 'paid' ? 'Pago' : payout.status === 'processing' ? 'Em análise' : payout.status === 'rejected' ? 'Rejeitado' : 'Solicitado'}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-500">{payout.affiliate_email} • Ref: {payout.affiliate_ref_code || '—'}</p>
+                      <p className="text-sm text-gray-500 mt-2">Pix ({payout.pix_key_type || 'pix'}): <span className="font-semibold text-gray-700">{payout.pix_key || '—'}</span></p>
+                      {payout.note && <p className="text-sm text-gray-500 mt-2">Obs. afiliado: {payout.note}</p>}
+                      {payout.admin_note && <p className="text-sm text-gray-500 mt-1">Obs. admin: {payout.admin_note}</p>}
+                    </div>
+
+                    <div className="flex flex-col items-start lg:items-end gap-3">
+                      <div>
+                        <p className="text-xs uppercase tracking-widest text-gray-400 font-black mb-1">Valor</p>
+                        <p className="text-2xl font-black text-brand-orange">R$ {Number(payout.amount || 0).toFixed(2)}</p>
+                        <p className="text-xs text-gray-400 mt-1">Solicitado em {new Date(payout.requested_at || payout.created_at || Date.now()).toLocaleDateString('pt-BR')}</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <button onClick={() => handleUpdatePayout(payout.id, 'processing')} className="px-3 py-2 rounded-xl bg-sky-100 text-sky-700 text-[10px] font-black uppercase tracking-widest hover:bg-sky-200 transition-colors">
+                          Em análise
+                        </button>
+                        <button onClick={() => handleUpdatePayout(payout.id, 'paid')} className="px-3 py-2 rounded-xl bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-200 transition-colors">
+                          Marcar pago
+                        </button>
+                        <button onClick={() => handleUpdatePayout(payout.id, 'rejected')} className="px-3 py-2 rounded-xl bg-rose-100 text-rose-700 text-[10px] font-black uppercase tracking-widest hover:bg-rose-200 transition-colors">
+                          Rejeitar
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       ) : (
         <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm">
           <h3 className="text-2xl font-bold mb-6">Afiliados Cadastrados</h3>

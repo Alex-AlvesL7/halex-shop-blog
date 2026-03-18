@@ -110,6 +110,20 @@ try {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
+    CREATE TABLE IF NOT EXISTS affiliate_payout_requests (
+      id TEXT PRIMARY KEY,
+      affiliate_id TEXT NOT NULL,
+      amount REAL NOT NULL,
+      pix_key TEXT,
+      pix_key_type TEXT,
+      status TEXT DEFAULT 'requested',
+      note TEXT,
+      admin_note TEXT,
+      requested_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      processed_at DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE TABLE IF NOT EXISTS quiz_leads (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -164,6 +178,18 @@ try {
   } catch (e) {}
   try {
     db.exec("ALTER TABLE orders ADD COLUMN affiliate_id TEXT");
+  } catch (e) {}
+  try {
+    db.exec("ALTER TABLE affiliate_payout_requests ADD COLUMN note TEXT");
+  } catch (e) {}
+  try {
+    db.exec("ALTER TABLE affiliate_payout_requests ADD COLUMN admin_note TEXT");
+  } catch (e) {}
+  try {
+    db.exec("ALTER TABLE affiliate_payout_requests ADD COLUMN requested_at DATETIME DEFAULT CURRENT_TIMESTAMP");
+  } catch (e) {}
+  try {
+    db.exec("ALTER TABLE affiliate_payout_requests ADD COLUMN processed_at DATETIME");
   } catch (e) {}
 
   try {
@@ -2666,11 +2692,239 @@ app.post("/api/checkout", async (req, res) => {
     }
   });
 
+  app.get("/api/admin/affiliate-payouts", async (req, res) => {
+    try {
+      let payouts: any[] = [];
+
+      if (supabase) {
+        try {
+          const { data, error } = await supabase
+            .from('affiliate_payout_requests')
+            .select('*, affiliates(name,email,ref_code)')
+            .order('requested_at', { ascending: false });
+          if (!error && data) {
+            payouts = data;
+          }
+        } catch (error) {
+          console.warn('Supabase payout requests fetch failed, using SQLite fallback:', error);
+        }
+      }
+
+      if ((!payouts || payouts.length === 0) && db) {
+        payouts = db.prepare(`
+          SELECT pr.*, a.name as affiliate_name, a.email as affiliate_email, a.ref_code as affiliate_ref_code
+          FROM affiliate_payout_requests pr
+          LEFT JOIN affiliates a ON a.id = pr.affiliate_id
+          ORDER BY COALESCE(pr.requested_at, pr.created_at) DESC
+        `).all();
+      }
+
+      res.json((payouts || []).map((item: any) => ({
+        ...item,
+        affiliate_name: item.affiliate_name || item.affiliates?.name || '',
+        affiliate_email: item.affiliate_email || item.affiliates?.email || '',
+        affiliate_ref_code: item.affiliate_ref_code || item.affiliates?.ref_code || '',
+      })));
+    } catch (error) {
+      console.error('Error in GET /api/admin/affiliate-payouts:', error);
+      res.status(500).json({ error: 'Failed to fetch payout requests', details: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  app.patch("/api/admin/affiliate-payouts/:id", async (req, res) => {
+    const { id } = req.params;
+    const { status, admin_note } = req.body || {};
+    const allowedStatuses = ['requested', 'processing', 'paid', 'rejected'];
+    const nextStatus = allowedStatuses.includes(String(status)) ? String(status) : 'requested';
+    const processedAt = nextStatus === 'paid' || nextStatus === 'rejected' ? new Date().toISOString() : null;
+
+    try {
+      let updated = false;
+      let payoutRecord: any = null;
+      if (supabase) {
+        try {
+          const payload: any = { status: nextStatus, admin_note: String(admin_note || '').trim() || null };
+          if (processedAt) payload.processed_at = processedAt;
+          const { error } = await supabase.from('affiliate_payout_requests').update(payload).eq('id', id);
+          if (!error) {
+            updated = true;
+            const { data } = await supabase
+              .from('affiliate_payout_requests')
+              .select('*, affiliates(name,email,ref_code)')
+              .eq('id', id)
+              .single();
+            payoutRecord = data;
+          }
+        } catch (error) {
+          console.warn('Supabase payout update failed, using SQLite fallback:', error);
+        }
+      }
+
+      if (!updated && db) {
+        db.prepare(`
+          UPDATE affiliate_payout_requests
+          SET status = ?, admin_note = ?, processed_at = COALESCE(?, processed_at)
+          WHERE id = ?
+        `).run(nextStatus, String(admin_note || '').trim() || null, processedAt, id);
+        payoutRecord = db.prepare(`
+          SELECT pr.*, a.name as affiliate_name, a.email as affiliate_email, a.ref_code as affiliate_ref_code
+          FROM affiliate_payout_requests pr
+          LEFT JOIN affiliates a ON a.id = pr.affiliate_id
+          WHERE pr.id = ?
+        `).get(id);
+        updated = true;
+      }
+
+      if (!updated) {
+        return res.status(500).json({ error: 'Payout storage unavailable' });
+      }
+
+      const affiliateEmail = payoutRecord?.affiliate_email || payoutRecord?.affiliates?.email;
+      const affiliateName = payoutRecord?.affiliate_name || payoutRecord?.affiliates?.name || 'afiliado';
+      if (affiliateEmail && (nextStatus === 'paid' || nextStatus === 'rejected' || nextStatus === 'processing')) {
+        try {
+          const statusText = nextStatus === 'paid' ? 'pago' : nextStatus === 'processing' ? 'em análise' : 'rejeitado';
+          await enviarEmail(
+            affiliateEmail,
+            `Atualização do seu saque L7 Fitness`,
+            `Olá ${affiliateName}, sua solicitação de saque foi atualizada para: ${statusText}.${admin_note ? `\n\nObservação do admin: ${admin_note}` : ''}`
+          );
+        } catch (error) {
+          console.warn('Falha ao enviar atualização de saque para afiliado:', error);
+        }
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error in PATCH /api/admin/affiliate-payouts/:id:', error);
+      res.status(500).json({ error: 'Failed to update payout request', details: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  app.post("/api/affiliates/:refCode/payout-request", async (req, res) => {
+    const { refCode } = req.params;
+    const { amount, pix_key, pix_key_type, note } = req.body || {};
+
+    try {
+      let affiliate: any = null;
+      let rawOrders: any[] = [];
+      let existingPayouts: any[] = [];
+
+      if (supabase) {
+        try {
+          const { data, error } = await supabase.from('affiliates').select('*').eq('ref_code', refCode).single();
+          if (!error && data) {
+            affiliate = data;
+            const { data: orders } = await supabase.from('orders').select('*').eq('affiliate_id', data.id);
+            rawOrders = orders || [];
+            const { data: payouts } = await supabase.from('affiliate_payout_requests').select('*').eq('affiliate_id', data.id);
+            existingPayouts = payouts || [];
+          }
+        } catch (error) {
+          console.warn('Supabase payout request preparation failed, using SQLite fallback:', error);
+        }
+      }
+
+      if (!affiliate && db) {
+        affiliate = db.prepare("SELECT * FROM affiliates WHERE ref_code = ?").get(refCode);
+        if (affiliate) {
+          rawOrders = db.prepare("SELECT * FROM orders WHERE affiliate_id = ?").all(affiliate.id);
+          existingPayouts = db.prepare("SELECT * FROM affiliate_payout_requests WHERE affiliate_id = ?").all(affiliate.id);
+        }
+      }
+
+      if (!affiliate) return res.status(404).json({ error: 'Affiliate not found' });
+
+      const parsedAmount = Number(amount) || 0;
+      if (parsedAmount <= 0) return res.status(400).json({ error: 'Informe um valor de saque válido.' });
+      if (!String(pix_key || '').trim()) return res.status(400).json({ error: 'Informe uma chave Pix válida.' });
+
+      const paidCommission = (rawOrders || [])
+        .map((order: any) => normalizeOrderRecord(order))
+        .filter((order: any) => order.status === 'paid')
+        .reduce((acc: number, order: any) => acc + ((Number(order.total) || 0) * ((Number(affiliate.commission_rate) || 0) / 100)), 0);
+
+      const committedPayouts = (existingPayouts || [])
+        .filter((item: any) => ['requested', 'processing', 'paid'].includes(String(item.status || 'requested')))
+        .reduce((acc: number, item: any) => acc + (Number(item.amount) || 0), 0);
+
+      const availableToWithdraw = Math.max(0, paidCommission - committedPayouts);
+      if (parsedAmount > availableToWithdraw + 0.0001) {
+        return res.status(400).json({ error: `Valor acima do disponível para saque (${formatBRL(availableToWithdraw)}).` });
+      }
+
+      const payoutData = {
+        id: crypto.randomUUID(),
+        affiliate_id: affiliate.id,
+        amount: parsedAmount,
+        pix_key: String(pix_key || '').trim(),
+        pix_key_type: String(pix_key_type || '').trim() || 'pix',
+        status: 'requested',
+        note: String(note || '').trim() || null,
+        admin_note: null,
+        requested_at: new Date().toISOString(),
+        processed_at: null,
+      };
+
+      let persisted = false;
+      let storageWarning: string | null = null;
+      if (supabase) {
+        try {
+          const { error } = await supabase.from('affiliate_payout_requests').insert([payoutData]);
+          if (!error) persisted = true;
+          else storageWarning = error.message;
+        } catch (error: any) {
+          storageWarning = error?.message || String(error);
+        }
+      }
+
+      if (!persisted && db) {
+        db.prepare(`
+          INSERT INTO affiliate_payout_requests (id, affiliate_id, amount, pix_key, pix_key_type, status, note, admin_note, requested_at, processed_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          payoutData.id,
+          payoutData.affiliate_id,
+          payoutData.amount,
+          payoutData.pix_key,
+          payoutData.pix_key_type,
+          payoutData.status,
+          payoutData.note,
+          payoutData.admin_note,
+          payoutData.requested_at,
+          payoutData.processed_at,
+        );
+        persisted = true;
+      }
+
+      if (!persisted) {
+        return res.status(500).json({ error: 'Não foi possível registrar a solicitação de saque.', details: storageWarning });
+      }
+
+      try {
+        const adminEmail = process.env.ORDER_NOTIFICATION_EMAIL || process.env.EMAIL_USER || 'contato@mail.l7fitness.com.br';
+        await enviarEmail(
+          adminEmail,
+          `Novo saque solicitado por afiliado`,
+          `Afiliado: ${affiliate.name}\nRef: ${affiliate.ref_code}\nValor: ${formatBRL(parsedAmount)}\nPix (${payoutData.pix_key_type}): ${payoutData.pix_key}${payoutData.note ? `\nObservação: ${payoutData.note}` : ''}`
+        );
+      } catch (error) {
+        console.warn('Falha ao enviar e-mail de solicitação de saque:', error);
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error in POST /api/affiliates/:refCode/payout-request:', error);
+      res.status(500).json({ error: 'Failed to create payout request', details: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
   app.get("/api/affiliates/:refCode", async (req, res) => {
     const { refCode } = req.params;
     try {
       let affiliate: any = null;
       let rawOrders: any[] = [];
+      let payoutRequests: any[] = [];
 
       if (supabase) {
         const { data, error } = await supabase.from('affiliates').select('*').eq('ref_code', refCode).single();
@@ -2685,6 +2939,17 @@ app.post("/api/checkout", async (req, res) => {
           if (!ordersError && orders) {
             rawOrders = orders;
           }
+
+          try {
+            const { data: payouts } = await supabase
+              .from('affiliate_payout_requests')
+              .select('*')
+              .eq('affiliate_id', data.id)
+              .order('requested_at', { ascending: false });
+            payoutRequests = payouts || [];
+          } catch (error) {
+            console.warn('Supabase payout requests unavailable for affiliate dashboard:', error);
+          }
         }
       }
 
@@ -2692,6 +2957,15 @@ app.post("/api/checkout", async (req, res) => {
         affiliate = db.prepare("SELECT * FROM affiliates WHERE ref_code = ?").get(refCode);
         if (affiliate) {
           rawOrders = db.prepare("SELECT * FROM orders WHERE affiliate_id = ? ORDER BY created_at DESC").all(affiliate.id);
+          payoutRequests = db.prepare("SELECT * FROM affiliate_payout_requests WHERE affiliate_id = ? ORDER BY COALESCE(requested_at, created_at) DESC").all(affiliate.id);
+        }
+      }
+
+      if (affiliate && payoutRequests.length === 0 && db) {
+        try {
+          payoutRequests = db.prepare("SELECT * FROM affiliate_payout_requests WHERE affiliate_id = ? ORDER BY COALESCE(requested_at, created_at) DESC").all(affiliate.id);
+        } catch (error) {
+          console.warn('SQLite payout requests fallback failed:', error);
         }
       }
 
@@ -2712,6 +2986,23 @@ app.post("/api/checkout", async (req, res) => {
       const pendingSales = pendingOrders.reduce((acc, order) => acc + (Number(order.total) || 0), 0);
       const paidCommission = paidSales * (commissionRate / 100);
       const pendingCommission = pendingSales * (commissionRate / 100);
+      const normalizedPayouts = (payoutRequests || []).map((item: any) => ({
+        ...item,
+        amount: Number(item.amount) || 0,
+        requested_at: item.requested_at || item.created_at || null,
+        processed_at: item.processed_at || null,
+      }));
+      const paidOutTotal = normalizedPayouts
+        .filter((item: any) => item.status === 'paid')
+        .reduce((acc: number, item: any) => acc + (Number(item.amount) || 0), 0);
+      const lockedPayouts = normalizedPayouts
+        .filter((item: any) => ['requested', 'processing', 'paid'].includes(String(item.status || 'requested')))
+        .reduce((acc: number, item: any) => acc + (Number(item.amount) || 0), 0);
+      const pendingPayoutAmount = normalizedPayouts
+        .filter((item: any) => ['requested', 'processing'].includes(String(item.status || 'requested')))
+        .reduce((acc: number, item: any) => acc + (Number(item.amount) || 0), 0);
+      const availableToWithdraw = Math.max(0, paidCommission - lockedPayouts);
+      const lastPaidPayout = normalizedPayouts.find((item: any) => item.status === 'paid');
 
       const startOfMonth = new Date();
       startOfMonth.setDate(1);
@@ -2763,11 +3054,30 @@ app.post("/api/checkout", async (req, res) => {
           pendingOrders: pendingOrders.length,
           totalOrders: normalizedOrders.length,
           averageTicket: validOrders.length ? grossSales / validOrders.length : 0,
+          availableToWithdraw,
+          paidOutTotal,
+          pendingPayoutAmount,
+          lastPaymentAt: lastPaidPayout?.processed_at || lastPaidPayout?.requested_at || null,
         },
         shareLinks: {
           home: `${appUrl}/?ref=${encodeURIComponent(affiliate.ref_code || refCode)}`,
           store: `${appUrl}/loja?ref=${encodeURIComponent(affiliate.ref_code || refCode)}`,
         },
+        payoutDefaults: {
+          pixKey: normalizedPayouts[0]?.pix_key || '',
+          pixKeyType: normalizedPayouts[0]?.pix_key_type || 'cpf',
+        },
+        payoutHistory: normalizedPayouts.map((item: any) => ({
+          id: item.id,
+          amount: Number(item.amount) || 0,
+          status: item.status || 'requested',
+          pixKey: item.pix_key || '',
+          pixKeyType: item.pix_key_type || 'pix',
+          note: item.note || '',
+          adminNote: item.admin_note || '',
+          requestedAt: item.requested_at || null,
+          processedAt: item.processed_at || null,
+        })),
         orders: normalizedOrders.map((order) => ({
           id: order.id,
           orderNsu: order.order_nsu,
