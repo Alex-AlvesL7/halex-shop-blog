@@ -34,7 +34,7 @@ export interface BlogPost {
   title: string;
   excerpt: string;
   content: string;
-  category: 'alimentacao' | 'treino' | 'dieta';
+  category: 'alimentacao' | 'treino' | 'dieta' | 'negocios';
   author: string;
   date: string;
   image: string;

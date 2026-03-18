@@ -3,7 +3,7 @@ import { Plus, Edit2, Save, X, Trash2, FileText } from 'lucide-react';
 
 export const BlogManagement = ({ posts, onRefresh }: { posts: any[], onRefresh: () => void }) => {
   const [activeTab, setActiveTab] = useState<'list' | 'create'>('list');
-  const [newPost, setNewPost] = useState({ title: '', excerpt: '', content: '', category: 'alimentacao', author: 'Equipe Halex', image: '', readtime: '5 min' });
+  const [newPost, setNewPost] = useState({ title: '', excerpt: '', content: '', category: 'alimentacao', author: 'Equipe L7 Fitness', image: '/images/blog/l7-ultra-guide.svg', readtime: '5 min' });
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const handleSavePost = async (e: React.FormEvent) => {
@@ -24,7 +24,7 @@ export const BlogManagement = ({ posts, onRefresh }: { posts: any[], onRefresh: 
     }
 
     alert(`Post ${editingId ? 'atualizado' : 'criado'} com sucesso!`);
-    setNewPost({ title: '', excerpt: '', content: '', category: 'alimentacao', author: 'Equipe Halex', image: '', readtime: '5 min' });
+    setNewPost({ title: '', excerpt: '', content: '', category: 'alimentacao', author: 'Equipe L7 Fitness', image: '/images/blog/l7-ultra-guide.svg', readtime: '5 min' });
     setEditingId(null);
     onRefresh();
     setActiveTab('list');

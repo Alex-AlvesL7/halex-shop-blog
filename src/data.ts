@@ -128,35 +128,187 @@ export const PRODUCTS: Product[] = [
 export const POSTS: BlogPost[] = [
   {
     id: '1',
-    title: '5 Dicas de Alimentação para Ganho de Massa',
-    excerpt: 'Descubra como estruturar sua dieta para maximizar a hipertrofia muscular com alimentos estratégicos.',
-    content: 'O ganho de massa muscular exige um superávit calórico e a ingestão adequada de macronutrientes...',
+    title: 'Por que o L7 Ultra virou um dos emagrecedores mais comentados da rotina feminina',
+    excerpt: 'Entenda como saciedade, constância alimentar e estratégia certa fazem o L7 Ultra ganhar espaço entre quem quer secar com mais controle.',
+    content: `Emagrecer não depende só de força de vontade. Na prática, a maior dificuldade da maioria das pessoas está em manter consistência por semanas sem cair em fome exagerada, ansiedade e desistência rápida.
+
+É exatamente por isso que produtos com foco em saciedade e suporte à rotina ganharam tanto espaço. O L7 Ultra entrou nesse cenário como uma opção procurada por quem quer controlar melhor o apetite, organizar a alimentação e reduzir os excessos do dia a dia.
+
+## O que faz o L7 Ultra chamar atenção
+
+O interesse pelo L7 Ultra cresce porque ele conversa com uma dor real: a pessoa que até começa a dieta, mas perde o ritmo quando a fome aperta ou quando a rotina fica corrida.
+
+Quando o produto ajuda na percepção de saciedade, a adesão alimentar tende a melhorar. Isso significa mais chance de manter déficit calórico, menos beliscos fora de hora e mais constância ao longo do processo.
+
+## Onde o produto entra dentro da rotina
+
+O L7 Ultra não substitui alimentação equilibrada, hidratação e rotina ativa. Ele entra como apoio para quem precisa de mais controle e quer executar melhor o próprio plano.
+
+Na prática, o melhor uso acontece quando a pessoa combina:
+
+- refeições com proteína e fibra;
+- ingestão adequada de água;
+- rotina de sono mais organizada;
+- caminhada ou treino de força;
+- acompanhamento do próprio progresso.
+
+## Benefícios percebidos por quem usa com estratégia
+
+Os relatos mais comuns giram em torno de quatro pontos:
+
+1. menor fome entre refeições;
+2. mais facilidade para manter o plano;
+3. menos sensação de descontrole alimentar;
+4. mais confiança para seguir o processo por mais tempo.
+
+## Como potencializar os resultados
+
+Quem costuma ter melhor resposta é quem evita buscar solução mágica e usa o produto como parte de uma rotina organizada. O segredo é simples: repetir o básico por tempo suficiente para o resultado aparecer.
+
+## Conclusão
+
+O L7 Ultra chama atenção porque se encaixa em uma necessidade real do mercado: emagrecer com mais controle, menos recaída e maior consistência. Quando existe disciplina, boa alimentação e uso responsável, o processo fica mais sustentável e previsível.`,
     category: 'alimentacao',
-    author: 'Equipe Halex',
-    date: '2024-03-01',
-    image: 'https://picsum.photos/seed/food1/800/400',
-    readTime: '5 min'
+    author: 'Equipe L7 Fitness',
+    date: '2026-03-18',
+    image: '/images/blog/l7-ultra-guide.svg',
+    readTime: '6 min'
   },
   {
     id: '2',
-    title: 'Treino de Pernas: O Guia Definitivo',
-    excerpt: 'Não pule o dia de pernas! Aprenda os melhores exercícios para construir membros inferiores poderosos.',
-    content: 'Um treino de pernas eficiente deve focar em exercícios compostos como agachamento e leg press...',
+    title: 'Treino em casa com L7 Turbo: como aumentar intensidade mesmo com rotina corrida',
+    excerpt: 'Veja como organizar sessões curtas, manter consistência e usar o L7 Turbo como apoio para mais energia e ritmo no dia a dia.',
+    content: `Muita gente adia o treino porque não consegue ir para academia todos os dias. Mas a verdade é que um plano simples, bem executado e repetido com constância já pode gerar evolução real.
+
+Quando a meta é secar, ganhar condicionamento e se sentir mais disposto, treinar em casa pode funcionar muito bem. O ponto principal é estruturar sessões objetivas, com progressão e regularidade.
+
+## Por que o treino em casa funciona
+
+O treino em casa elimina deslocamento, reduz atrito e facilita a execução. Em vez de depender de um cenário perfeito, a pessoa cria um sistema que cabe na própria rotina.
+
+Uma estrutura simples pode incluir:
+
+- agachamento;
+- avanço alternado;
+- flexão adaptada;
+- prancha;
+- polichinelo;
+- corrida parada ou subida de joelhos.
+
+## Onde o L7 Turbo entra
+
+O L7 Turbo é lembrado por quem quer mais disposição para sustentar a rotina. Ele não faz o trabalho sozinho, mas pode ajudar a pessoa a entrar no treino com mais energia e menos sensação de lentidão.
+
+Isso se torna ainda mais útil para quem treina cedo, na pausa do almoço ou no final do expediente, momentos em que o cansaço normalmente vira desculpa.
+
+## Exemplo de rotina de 30 minutos
+
+1. 5 minutos de aquecimento;
+2. 15 minutos de circuito com agachamento, flexão, prancha e avanço;
+3. 5 minutos de estímulo cardiovascular;
+4. 5 minutos de alongamento e desaceleração.
+
+## Como evoluir sem complicar
+
+O progresso pode vir de três ajustes básicos:
+
+- aumentar repetições;
+- reduzir intervalo;
+- melhorar execução.
+
+## Conclusão
+
+Treino em casa funciona quando existe método e disciplina. O L7 Turbo pode ser um apoio interessante para quem quer mais energia e constância, mas o resultado vem da soma entre execução, alimentação e repetição inteligente.`,
     category: 'treino',
-    author: 'Coach Halex',
-    date: '2024-02-28',
-    image: 'https://picsum.photos/seed/gym1/800/400',
-    readTime: '8 min'
+    author: 'Time Performance L7',
+    date: '2026-03-17',
+    image: '/images/blog/l7-turbo-home-workout.svg',
+    readTime: '7 min'
   },
   {
     id: '3',
-    title: 'Dieta Flexível: Funciona Mesmo?',
-    excerpt: 'Entenda os conceitos da dieta flexível e como ela pode ajudar na aderência ao seu plano alimentar.',
-    content: 'A dieta flexível foca no controle de macronutrientes, permitindo maior liberdade nas escolhas alimentares...',
+    title: 'Dieta flexível com L7 Nitro: quando liberdade alimentar encontra disciplina',
+    excerpt: 'Entenda por que a dieta flexível pode melhorar a adesão e como o L7 Nitro entra como suporte para quem quer controle e intensidade no processo.',
+    content: `A dieta flexível ficou popular porque resolve um problema comum: pessoas que abandonam o plano alimentar quando sentem que tudo ficou rígido demais.
+
+Ao trabalhar com metas e organização, em vez de proibição absoluta, ela tende a gerar mais aderência. E aderência é um dos fatores mais importantes quando o assunto é emagrecimento.
+
+## O que é dieta flexível na prática
+
+Ela não significa comer qualquer coisa sem critério. Significa construir uma meta alimentar e encaixar escolhas com mais inteligência, mantendo foco em calorias, proteína, fibra e regularidade.
+
+## Como o L7 Nitro pode apoiar esse processo
+
+O L7 Nitro costuma atrair quem quer uma proposta mais intensa. Dentro de uma rotina organizada, ele entra como suporte para quem busca mais controle do apetite e mais firmeza para sustentar o plano.
+
+## Erros que estragam a dieta flexível
+
+- usar a ideia de flexibilidade como desculpa para exagerar;
+- ignorar proteína e fibra;
+- não medir porções;
+- compensar erro com jejum desorganizado;
+- desistir por causa de um único dia ruim.
+
+## Estratégia simples para funcionar melhor
+
+1. Defina refeições-base fáceis de repetir.
+2. Garanta proteína em todas elas.
+3. Deixe uma margem para uma refeição mais livre sem perder o controle do dia.
+4. Monitore peso, medidas e constância semanal.
+
+## Conclusão
+
+Dieta flexível funciona quando existe estrutura. O L7 Nitro pode ser um suporte para quem quer mais intensidade, mas os melhores resultados continuam vindo da combinação entre disciplina, estratégia e repetição ao longo das semanas.`,
     category: 'dieta',
-    author: 'Nutri Halex',
-    date: '2024-02-25',
-    image: 'https://picsum.photos/seed/diet1/800/400',
+    author: 'Nutrição L7 Fitness',
+    date: '2026-03-16',
+    image: '/images/blog/l7-nitro-dieta-flexivel.svg',
     readTime: '6 min'
+  },
+  {
+    id: '4',
+    title: 'Como faturar com suplementos sendo afiliado da L7 Fitness',
+    excerpt: 'Descubra por que o mercado de afiliados combina com o nicho fitness e como transformar conteúdo, atendimento e audiência em comissão recorrente.',
+    content: `Nem todo mundo quer vender estoque, lidar com logística ou montar operação própria. Por isso o modelo de afiliados cresceu tanto dentro do fitness: ele permite monetizar audiência, relacionamento e indicação sem assumir toda a estrutura de uma loja.
+
+## Por que o nicho de suplementos converte bem
+
+O mercado fitness trabalha com dores muito claras: emagrecer, melhorar desempenho, manter rotina, sentir mais energia e recuperar autoestima. Quando o afiliado entende essa dor e direciona a oferta certa, a comunicação fica mais objetiva e a conversão tende a melhorar.
+
+## Como funciona o faturamento de um afiliado
+
+O afiliado recebe um link ou código de referência. Quando o cliente entra por esse caminho e conclui uma compra aprovada, a venda fica vinculada ao afiliado e gera comissão.
+
+O faturamento mensal depende de três fatores principais:
+
+- quantidade de pessoas alcançadas;
+- taxa de conversão da oferta;
+- ticket médio dos produtos vendidos.
+
+## Quem tem mais chance de performar bem
+
+Os perfis que mais crescem normalmente são:
+
+- criadores de conteúdo de nicho;
+- profissionais que atendem no WhatsApp;
+- blogueiros e páginas de conteúdo;
+- vendedores com boa habilidade de objeção;
+- clientes que já têm prova social real.
+
+## O que acelera as primeiras vendas
+
+1. Usar uma oferta clara.
+2. Falar da dor antes do produto.
+3. Criar conteúdo com prova, contexto e chamada forte.
+4. Levar o tráfego para uma página preparada para converter.
+
+## Conclusão
+
+Ser afiliado da L7 Fitness pode virar uma nova frente de receita para quem sabe gerar atenção e confiança. Com link rastreável, página pronta, materiais e rotina de divulgação, o afiliado passa a atuar com mais profissionalismo e previsibilidade.`,
+    category: 'negocios',
+    author: 'Equipe Afiliados L7',
+    date: '2026-03-18',
+    image: '/images/blog/l7-afiliados-faturamento.svg',
+    readTime: '5 min'
   }
 ];

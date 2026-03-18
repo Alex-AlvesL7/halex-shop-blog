@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef, createContext, useContext } from 'react';
+import React, { Suspense, lazy, useState, useEffect, useMemo, useRef, createContext, useContext } from 'react';
 import { ShoppingBag, Menu, X, User, Search, ChevronRight, Instagram, Facebook, Youtube, Plus, Trash2, LayoutDashboard, Package, FileText, Edit, Upload, CheckCircle, TrendingUp, DollarSign, Users, BarChart3, Heart, LogOut, Tag, ArrowLeft, Mail, Phone, MapPin, CreditCard, Sun, Moon, Monitor, Sparkles, ShieldCheck, Truck, Pill, Leaf, Droplets } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
@@ -8,16 +8,17 @@ import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from './services/supabaseClient';
 import { PRODUCTS, POSTS } from './data';
 import { Product, BlogPost, CartItem } from './types';
-import { SupportChat } from './components/SupportChat';
-import { AffiliatesManagement } from './components/AffiliatesManagement';
-import { BlogManagement } from './components/admin/BlogManagement';
-import { ProductManagement } from './components/admin/ProductManagement';
-import { CategoryManagement } from './components/admin/CategoryManagement';
-import { AffiliateDashboard } from './components/AffiliateDashboard';
-import { FreteCalculator } from './components/FreteCalculator';
+import { AffiliatePromoCard } from './components/AffiliatePromoCard';
 import { FreteOption } from './services/melhorEnvioService';
 
 import { generateSalesInsight, generateSalesQuizRecommendation, SalesQuizProfile } from './services/geminiService';
+
+const SupportChat = lazy(() => import('./components/SupportChat').then((module) => ({ default: module.SupportChat })));
+const AffiliatesManagement = lazy(() => import('./components/AffiliatesManagement').then((module) => ({ default: module.AffiliatesManagement })));
+const CategoryManagement = lazy(() => import('./components/admin/CategoryManagement').then((module) => ({ default: module.CategoryManagement })));
+const AffiliateDashboard = lazy(() => import('./components/AffiliateDashboard').then((module) => ({ default: module.AffiliateDashboard })));
+const AffiliateLanding = lazy(() => import('./components/AffiliateLanding').then((module) => ({ default: module.AffiliateLanding })));
+const FreteCalculator = lazy(() => import('./components/FreteCalculator').then((module) => ({ default: module.FreteCalculator })));
 
 // --- Contexts ---
 const AuthContext = createContext<{ user: any, favorites: any[], toggleFavorite: (id: string, type: 'product' | 'post') => void, isFavorite: (id: string) => boolean, logout: () => void }>({ user: null, favorites: [], toggleFavorite: () => {}, isFavorite: () => false, logout: () => {} });
@@ -566,6 +567,12 @@ const formatPriceBRL = (value?: number | null) => `R$ ${Number(value || 0).toFix
 
 const hasProductPromotion = (product?: Product | null) => Boolean(product?.compareAtPrice && product.compareAtPrice > product.price && product.discountPercentage);
 
+const LazySectionFallback = ({ label = 'Carregando...' }: { label?: string }) => (
+  <div className="rounded-[28px] border border-gray-100 bg-white/80 px-6 py-5 text-sm font-bold text-gray-500 shadow-sm">
+    {label}
+  </div>
+);
+
 // --- Components ---
 
 const ThemeToggle = ({
@@ -635,6 +642,7 @@ const Navbar = ({ cartCount, onCartClick, onNavigate, themePreference, resolvedT
               <button onClick={() => onNavigate('store')} className="nav-link">Loja</button>
               <button onClick={() => onNavigate('blog')} className="nav-link">Blog</button>
               <button onClick={() => onNavigate('tips')} className="nav-link">Dicas AI</button>
+              <button onClick={() => onNavigate('affiliate-program')} className="nav-link">Afiliados</button>
             </div>
           </div>
 
@@ -691,6 +699,7 @@ const Navbar = ({ cartCount, onCartClick, onNavigate, themePreference, resolvedT
                 <button onClick={() => { onNavigate('store'); setIsMobileMenuOpen(false); }} className="text-left py-2 font-medium">Loja</button>
                 <button onClick={() => { onNavigate('blog'); setIsMobileMenuOpen(false); }} className="text-left py-2 font-medium">Blog</button>
                 <button onClick={() => { onNavigate('tips'); setIsMobileMenuOpen(false); }} className="text-left py-2 font-medium">Dicas AI</button>
+                <button onClick={() => { onNavigate('affiliate-program'); setIsMobileMenuOpen(false); }} className="text-left py-2 font-medium">Afiliados</button>
                 {user && <button onClick={() => { logout(); setIsMobileMenuOpen(false); }} className="text-left py-2 font-medium text-red-500">Sair</button>}
               </div>
             </motion.div>
@@ -783,7 +792,7 @@ const ProductCard: React.FC<{ product: Product, onAddToCart: (p: Product) => voi
   );
 };
 
-const BlogPostCard: React.FC<{ post: BlogPost, onClick: (p: BlogPost) => void }> = ({ post, onClick }) => {
+const BlogPostCard: React.FC<{ post: BlogPost, onClick: (p: BlogPost) => void, onAffiliateClick?: () => void }> = ({ post, onClick, onAffiliateClick }) => {
   const { toggleFavorite, isFavorite, user } = useAuth();
   const favorited = isFavorite(post.id);
 
@@ -821,6 +830,17 @@ const BlogPostCard: React.FC<{ post: BlogPost, onClick: (p: BlogPost) => void }>
       <p className="text-gray-600 text-sm line-clamp-2">
         {post.excerpt}
       </p>
+      {onAffiliateClick && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onAffiliateClick();
+          }}
+          className="mt-3 inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-4 py-2 text-[11px] font-black uppercase tracking-widest text-brand-orange transition hover:bg-brand-orange hover:text-white"
+        >
+          Faturar como afiliado <ChevronRight size={14} />
+        </button>
+      )}
     </div>
   </motion.div>
   );
@@ -927,6 +947,17 @@ const HomePage = ({ onNavigate, onAddToCart, products, posts, onProductClick, on
       </div>
     </section>
 
+    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <AffiliatePromoCard
+        onNavigate={onNavigate}
+        badge="Captação de afiliados"
+        title="A home agora também vende a oportunidade de parceria com a L7 Fitness."
+        description="Quem chega pela página principal pode entender rapidamente como funciona o programa, quanto pode faturar e seguir para uma landing completa com cadastro e explicações detalhadas."
+        primaryLabel="Conhecer programa"
+        secondaryLabel="Ver produtos"
+      />
+    </section>
+
     {/* Featured Products */}
     <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="flex justify-between items-end mb-12">
@@ -954,7 +985,7 @@ const HomePage = ({ onNavigate, onAddToCart, products, posts, onProductClick, on
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
           {posts.map(post => (
-            <BlogPostCard key={post.id} post={post} onClick={onPostClick} />
+            <BlogPostCard key={post.id} post={post} onClick={onPostClick} onAffiliateClick={() => onNavigate('affiliate-program')} />
           ))}
         </div>
       </div>
@@ -962,7 +993,7 @@ const HomePage = ({ onNavigate, onAddToCart, products, posts, onProductClick, on
   </div>
 );
 
-const StorePage = ({ onAddToCart, products, onProductClick }: { onAddToCart: (p: Product) => void, products: Product[], onProductClick: (p: Product) => void }) => {
+const StorePage = ({ onAddToCart, products, onProductClick, onNavigate }: { onAddToCart: (p: Product) => void, products: Product[], onProductClick: (p: Product) => void, onNavigate: (p: string) => void }) => {
   const [filter, setFilter] = useState('todos');
   
   const filteredProducts = filter === 'todos' 
@@ -988,6 +1019,17 @@ const StorePage = ({ onAddToCart, products, onProductClick }: { onAddToCart: (p:
           ))}
         </div>
       </div>
+
+      <AffiliatePromoCard
+        onNavigate={onNavigate}
+        variant="inline"
+        className="mb-12"
+        badge="Monetize a loja"
+        title="Gostou da vitrine? Agora imagine divulgar esses produtos com seu link exclusivo."
+        description="A loja também virou ponto de captação: quem tiver perfil comercial pode entrar no programa, acessar material de divulgação e transformar tráfego em comissão."
+        primaryLabel="Quero vender como afiliado"
+        secondaryLabel="Continuar comprando"
+      />
       
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
         {filteredProducts.map(product => (
@@ -998,24 +1040,43 @@ const StorePage = ({ onAddToCart, products, onProductClick }: { onAddToCart: (p:
   );
 };
 
-const BlogPage = ({ posts, onPostClick }: { posts: BlogPost[], onPostClick: (p: BlogPost) => void }) => (
+const BlogPage = ({ posts, onPostClick, onNavigate }: { posts: BlogPost[], onPostClick: (p: BlogPost) => void, onNavigate: (p: string) => void }) => (
   <div className="pt-32 pb-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-    <div className="max-w-3xl mb-16">
-      <h1 className="text-5xl font-black mb-4 uppercase">Halex Blog</h1>
-      <p className="text-gray-500 text-lg">
-        Sua fonte de conhecimento para otimizar cada aspecto da sua vida fitness.
-      </p>
+    <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between mb-16">
+      <div className="max-w-3xl">
+        <h1 className="text-5xl font-black mb-4 uppercase">Halex Blog</h1>
+        <p className="text-gray-500 text-lg">
+          Sua fonte de conhecimento para otimizar cada aspecto da sua vida fitness.
+        </p>
+      </div>
+      <button
+        onClick={() => onNavigate('affiliate-program')}
+        className="inline-flex items-center gap-2 rounded-full bg-brand-orange px-6 py-3 text-sm font-black uppercase tracking-widest text-white transition hover:bg-orange-600"
+      >
+        Quero faturar como afiliado <ChevronRight size={16} />
+      </button>
     </div>
+
+    <AffiliatePromoCard
+      onNavigate={onNavigate}
+      variant="inline"
+      className="mb-12"
+      badge="CTA do blog"
+      title="No blog, todo conteúdo também pode virar porta de entrada para novos afiliados."
+      description="Além dos artigos, agora existe um CTA permanente levando para a página que explica ganhos, processo de entrada, materiais e potencial de faturamento."
+      primaryLabel="Ver página de afiliado"
+      secondaryLabel="Ir para loja"
+    />
     
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
       {posts.map(post => (
-        <BlogPostCard key={post.id} post={post} onClick={onPostClick} />
+        <BlogPostCard key={post.id} post={post} onClick={onPostClick} onAffiliateClick={() => onNavigate('affiliate-program')} />
       ))}
     </div>
   </div>
 );
 
-const BlogPostDetailsPage: React.FC<{ post: BlogPost, onBack: () => void }> = ({ post, onBack }) => {
+const BlogPostDetailsPage: React.FC<{ post: BlogPost, onBack: () => void, onNavigate: (p: string) => void }> = ({ post, onBack, onNavigate }) => {
   return (
     <div className="pt-32 pb-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <button 
@@ -1063,6 +1124,16 @@ const BlogPostDetailsPage: React.FC<{ post: BlogPost, onBack: () => void }> = ({
             {post.content}
           </div>
         </div>
+
+        <AffiliatePromoCard
+          onNavigate={onNavigate}
+          variant="inline"
+          badge="Ganhe indicando"
+          title="Gostou deste conteúdo? Você também pode monetizar artigos, rede social ou atendimento com o programa de afiliados."
+          description="Abrimos uma página dedicada explicando por que ser afiliado, como funciona o faturamento, quais materiais você recebe e como começar do jeito certo."
+          primaryLabel="Quero conhecer"
+          secondaryLabel="Ver loja"
+        />
       </div>
     </div>
   );
@@ -2829,7 +2900,7 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
 
   // Post Form State
   const [newPost, setNewPost] = useState<Partial<BlogPost>>({
-    title: '', excerpt: '', content: '', category: 'alimentacao', author: 'Equipe Halex', date: new Date().toISOString().split('T')[0], image: 'https://picsum.photos/seed/post/800/400', readTime: '5 min'
+    title: '', excerpt: '', content: '', category: 'alimentacao', author: 'Equipe L7 Fitness', date: new Date().toISOString().split('T')[0], image: '/images/blog/l7-ultra-guide.svg', readTime: '5 min'
   });
 
   const handleAddProduct = async (e: React.FormEvent) => {
@@ -2892,7 +2963,7 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
     setShowForm(false);
     setEditingId(null);
     setNewProduct({ name: '', price: 0, compareAtPrice: 0, promotionLabel: '', promotionCta: '', promotionBadge: '', description: '', category: 'suplementos', image: 'https://picsum.photos/seed/new/600/600', images: [], stock: 0, rating: 5, reviews: 0 });
-    setNewPost({ title: '', excerpt: '', content: '', category: 'alimentacao', author: 'Equipe Halex', date: new Date().toISOString().split('T')[0], image: 'https://picsum.photos/seed/post/800/400', readTime: '5 min' });
+    setNewPost({ title: '', excerpt: '', content: '', category: 'alimentacao', author: 'Equipe L7 Fitness', date: new Date().toISOString().split('T')[0], image: '/images/blog/l7-ultra-guide.svg', readTime: '5 min' });
   };
 
   const handleEditProduct = (product: Product) => {
@@ -3543,6 +3614,7 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                     <option value="alimentacao">Alimentação</option>
                     <option value="treino">Treino</option>
                     <option value="dieta">Dieta</option>
+                    <option value="negocios">Negócios</option>
                   </select>
                   <div className="grid grid-cols-2 gap-4">
                     <input 
@@ -4000,7 +4072,9 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                 </div>
               ))
             ) : activeTab === 'categories' ? (
-              <CategoryManagement onRefresh={onRefresh} />
+              <Suspense fallback={<LazySectionFallback label="Carregando categorias..." />}>
+                <CategoryManagement onRefresh={onRefresh} />
+              </Suspense>
             ) : activeTab === 'posts' ? (
               posts.map(p => (
                 <div key={p.id} className="bg-white p-4 rounded-2xl border border-gray-100 flex items-center justify-between group hover:shadow-md transition-all">
@@ -4028,7 +4102,9 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                 </div>
               ))
             ) : activeTab === 'affiliates' ? (
-              <AffiliatesManagement affiliates={affiliates} onRefresh={onRefresh} />
+              <Suspense fallback={<LazySectionFallback label="Carregando afiliados..." />}>
+                <AffiliatesManagement affiliates={affiliates} onRefresh={onRefresh} />
+              </Suspense>
             ) : activeTab === 'leads' ? (
               <div className="space-y-4">
                 <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto] gap-3 items-center">
@@ -5000,6 +5076,7 @@ function MainApp() {
     if (page === 'store') return '/loja';
     if (page === 'tips') return '/dicas-ai';
     if (page === 'blog') return '/blog';
+    if (page === 'affiliate-program') return '/afiliados';
     if (page === 'blog-details' && options?.postId) return `/blog/${encodeURIComponent(options.postId)}`;
     if (page === 'product-info' && options?.productId) return `/produto/${encodeURIComponent(options.productId)}/informacoes`;
     if (page === 'product-details' && options?.productId) return `/produto/${encodeURIComponent(options.productId)}`;
@@ -5075,6 +5152,13 @@ function MainApp() {
       setSelectedProductId(null);
       setSelectedPostId(null);
       setCurrentPage('blog');
+      return;
+    }
+
+    if (pathname === '/afiliados') {
+      setSelectedProductId(null);
+      setSelectedPostId(null);
+      setCurrentPage('affiliate-program');
       return;
     }
 
@@ -5367,7 +5451,7 @@ function MainApp() {
           )}
           {currentPage === 'store' && (
             <motion.div key="store" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <StorePage onAddToCart={addToCart} products={products} onProductClick={handleProductClick} />
+              <StorePage onAddToCart={addToCart} products={products} onProductClick={handleProductClick} onNavigate={navigateTo} />
             </motion.div>
           )}
           {currentPage === 'product-details' && selectedProductId && (
@@ -5426,7 +5510,7 @@ function MainApp() {
           )}
           {currentPage === 'blog' && (
             <motion.div key="blog" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <BlogPage posts={posts} onPostClick={handlePostClick} />
+              <BlogPage posts={posts} onPostClick={handlePostClick} onNavigate={navigateTo} />
             </motion.div>
           )}
           {currentPage === 'blog-details' && selectedPostId && (
@@ -5438,10 +5522,18 @@ function MainApp() {
                   <BlogPostDetailsPage 
                     key={post.id}
                     post={post} 
-                    onBack={() => navigateTo('blog')} 
+                    onBack={() => navigateTo('blog')}
+                    onNavigate={navigateTo}
                   />
                 );
               })()}
+            </motion.div>
+          )}
+          {currentPage === 'affiliate-program' && (
+            <motion.div key="affiliate-program" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <Suspense fallback={<div className="pt-32 pb-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"><LazySectionFallback label="Carregando programa de afiliados..." /></div>}>
+                <AffiliateLanding onNavigate={navigateTo} />
+              </Suspense>
             </motion.div>
           )}
           {currentPage === 'tips' && (
@@ -5465,7 +5557,9 @@ function MainApp() {
           )}
           {currentPage === 'affiliate-dashboard' && selectedAffiliateRef && (
             <motion.div key="affiliate" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <AffiliateDashboard refCode={selectedAffiliateRef} />
+              <Suspense fallback={<div className="pt-32 pb-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"><LazySectionFallback label="Carregando painel do afiliado..." /></div>}>
+                <AffiliateDashboard refCode={selectedAffiliateRef} />
+              </Suspense>
             </motion.div>
           )}
           {currentPage === 'checkout' && (
@@ -5500,7 +5594,11 @@ function MainApp() {
 
       {!isCheckoutFlowPage && <Footer />}
 
-      {!isCheckoutFlowPage && <SupportChat products={products} />}
+      {!isCheckoutFlowPage && (
+        <Suspense fallback={null}>
+          <SupportChat products={products} />
+        </Suspense>
+      )}
 
       {/* Cart Sidebar */}
       <AnimatePresence>
@@ -5562,7 +5660,9 @@ function MainApp() {
               {cart.length > 0 && (
                 <>
                   <div className="px-6 py-4 border-t border-gray-100 bg-gradient-to-b from-gray-50 to-white">
-                    <FreteCalculator cartItems={cart} onFreteSelect={setSelectedFrete} />
+                    <Suspense fallback={<LazySectionFallback label="Carregando cálculo de frete..." />}>
+                      <FreteCalculator cartItems={cart} onFreteSelect={setSelectedFrete} />
+                    </Suspense>
                   </div>
                   
                   <div className="p-6 border-t border-gray-100 bg-gray-50">
