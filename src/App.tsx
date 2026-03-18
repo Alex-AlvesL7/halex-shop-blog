@@ -2074,8 +2074,11 @@ const getProductOfferWhatsAppLink = (product?: Product | null) => {
   const campaignUrl = product?.id
     ? `${typeof window !== 'undefined' ? window.location.origin : 'https://www.l7fitness.com.br'}/oferta/${encodeURIComponent(String(product.id))}`
     : '';
-  const urlLine = campaignUrl ? `\n\n🔗 ${campaignUrl}` : '';
-  const message = encodeURIComponent(`Olá! Tenho interesse no *${productName}* da L7 Fitness. ${cta}.${urlLine}`);
+  const message = encodeURIComponent(
+    campaignUrl
+      ? `${campaignUrl}\n\nTenho interesse em ${productName}. ${cta}.`
+      : `Tenho interesse em ${productName}. ${cta}.`
+  );
   return `https://wa.me/${normalized}?text=${message}`;
 };
 
@@ -3853,10 +3856,9 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                           <button
                             onClick={() => {
                               const campaignUrl = getCampaignOfferUrl(p.id);
-                              const productName = p.name || 'nosso produto';
                               const cta = p.promotionCta || 'Veja a oferta completa';
-                              const msg = encodeURIComponent(`Olá! Preparamos uma oferta especial do *${productName}* pra você 🔥\n\n${cta}:\n\n${campaignUrl}`);
-                              window.open(`https://wa.me/?text=${msg}`, '_blank', 'noopener,noreferrer');
+                              const msg = encodeURIComponent(`${campaignUrl}\n\n${p.name}\n${cta}`);
+                              window.open(`https://api.whatsapp.com/send?text=${msg}`, '_blank', 'noopener,noreferrer');
                             }}
                             className="px-3 py-2 rounded-xl bg-[#25d366] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#1ebe5d] transition-colors flex items-center gap-1.5"
                           >
@@ -3951,7 +3953,7 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                         <div className="p-4">
                           {/* Balão de mensagem simulado */}
                           <div className="bg-[#1a4d38] rounded-2xl rounded-tl-sm px-4 py-3 mb-3 text-sm text-white leading-relaxed whitespace-pre-line">
-                            {`Olá! Preparamos uma oferta especial do *${p.name}* pra você 🔥\n\n${p.promotionCta || 'Veja a oferta completa'}:\n\n${getCampaignOfferUrl(p.id)}`}
+                            {`${getCampaignOfferUrl(p.id)}\n\n${p.name}\n${p.promotionCta || 'Veja a oferta completa'}`}
                           </div>
                           {/* Preview do link OG */}
                           <div className="bg-[#0d2b21] rounded-xl overflow-hidden border border-emerald-900/40">
