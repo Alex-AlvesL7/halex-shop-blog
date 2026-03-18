@@ -2668,24 +2668,128 @@ app.post("/api/checkout", async (req, res) => {
 
   app.get("/api/affiliates/:refCode", async (req, res) => {
     const { refCode } = req.params;
-    if (supabase) {
-      const { data, error } = await supabase.from('affiliates').select('*').eq('ref_code', refCode).single();
-      if (!error && data) {
-        // Get stats
-        const { data: orders } = await supabase.from('orders').select('total').eq('affiliate_id', data.id);
-        const totalSales = orders?.reduce((acc, o) => acc + o.total, 0) || 0;
-        return res.json({ ...data, totalSales });
+    try {
+      let affiliate: any = null;
+      let rawOrders: any[] = [];
+
+      if (supabase) {
+        const { data, error } = await supabase.from('affiliates').select('*').eq('ref_code', refCode).single();
+        if (!error && data) {
+          affiliate = data;
+          const { data: orders, error: ordersError } = await supabase
+            .from('orders')
+            .select('*')
+            .eq('affiliate_id', data.id)
+            .order('created_at', { ascending: false });
+
+          if (!ordersError && orders) {
+            rawOrders = orders;
+          }
+        }
       }
-    }
-    if (db) {
-      const affiliate = db.prepare("SELECT * FROM affiliates WHERE ref_code = ?").get(refCode);
-      if (affiliate) {
-        const orders = db.prepare("SELECT total FROM orders WHERE affiliate_id = ?").all(affiliate.id);
-        const totalSales = orders.reduce((acc, o) => acc + o.total, 0);
-        return res.json({ ...affiliate, totalSales });
+
+      if (!affiliate && db) {
+        affiliate = db.prepare("SELECT * FROM affiliates WHERE ref_code = ?").get(refCode);
+        if (affiliate) {
+          rawOrders = db.prepare("SELECT * FROM orders WHERE affiliate_id = ? ORDER BY created_at DESC").all(affiliate.id);
+        }
       }
+
+      if (!affiliate) {
+        return res.status(404).json({ error: "Affiliate not found" });
+      }
+
+      const commissionRate = Number(affiliate.commission_rate) || 0;
+      const normalizedOrders = rawOrders
+        .map((order) => normalizeOrderRecord(order))
+        .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+
+      const validOrders = normalizedOrders.filter((order) => order.status !== 'failed');
+      const paidOrders = normalizedOrders.filter((order) => order.status === 'paid');
+      const pendingOrders = normalizedOrders.filter((order) => order.status === 'pending');
+      const grossSales = validOrders.reduce((acc, order) => acc + (Number(order.total) || 0), 0);
+      const paidSales = paidOrders.reduce((acc, order) => acc + (Number(order.total) || 0), 0);
+      const pendingSales = pendingOrders.reduce((acc, order) => acc + (Number(order.total) || 0), 0);
+      const paidCommission = paidSales * (commissionRate / 100);
+      const pendingCommission = pendingSales * (commissionRate / 100);
+
+      const startOfMonth = new Date();
+      startOfMonth.setDate(1);
+      startOfMonth.setHours(0, 0, 0, 0);
+
+      const monthPaidSales = paidOrders.reduce((acc, order) => {
+        const createdAt = new Date(order.created_at || 0);
+        if (createdAt >= startOfMonth) {
+          return acc + (Number(order.total) || 0);
+        }
+        return acc;
+      }, 0);
+
+      const topProductsMap = new Map<string, { name: string; orders: number; quantity: number; revenue: number }>();
+      validOrders.forEach((order) => {
+        const seenProducts = new Set<string>();
+
+        (order.items || []).forEach((item: any) => {
+          if (!item || item.type === 'frete' || item.type === 'customer_metadata') return;
+          const name = String(item.name || 'Produto').trim() || 'Produto';
+          const quantity = Number(item.quantity) || 1;
+          const revenue = (Number(item.price) || 0) * quantity;
+          const existing = topProductsMap.get(name) || { name, orders: 0, quantity: 0, revenue: 0 };
+
+          existing.quantity += quantity;
+          existing.revenue += revenue;
+          if (!seenProducts.has(name)) {
+            existing.orders += 1;
+            seenProducts.add(name);
+          }
+
+          topProductsMap.set(name, existing);
+        });
+      });
+
+      const appUrl = resolveAppUrl(req);
+
+      return res.json({
+        ...affiliate,
+        totalSales: grossSales,
+        stats: {
+          grossSales,
+          paidSales,
+          pendingSales,
+          paidCommission,
+          pendingCommission,
+          monthlyCommission: monthPaidSales * (commissionRate / 100),
+          approvedOrders: paidOrders.length,
+          pendingOrders: pendingOrders.length,
+          totalOrders: normalizedOrders.length,
+          averageTicket: validOrders.length ? grossSales / validOrders.length : 0,
+        },
+        shareLinks: {
+          home: `${appUrl}/?ref=${encodeURIComponent(affiliate.ref_code || refCode)}`,
+          store: `${appUrl}/loja?ref=${encodeURIComponent(affiliate.ref_code || refCode)}`,
+        },
+        recentOrders: normalizedOrders.slice(0, 12).map((order) => ({
+          id: order.id,
+          orderNsu: order.order_nsu,
+          createdAt: order.created_at,
+          status: order.status,
+          total: Number(order.total) || 0,
+          commission: (Number(order.total) || 0) * (commissionRate / 100),
+          customerEmail: order.customer?.email || order.customer_email || '',
+          customerName: order.customer?.name || '',
+          items: (order.items || []).map((item: any) => ({
+            name: item?.name || 'Produto',
+            quantity: Number(item?.quantity) || 1,
+          })),
+        })),
+        topProducts: Array.from(topProductsMap.values())
+          .sort((a, b) => b.revenue - a.revenue)
+          .slice(0, 5),
+      });
+    } catch (error) {
+      console.error("Error in GET /api/affiliates/:refCode:", error);
+      res.status(500).json({ error: "Failed to fetch affiliate dashboard", details: error instanceof Error ? error.message : String(error) });
     }
-    res.status(404).json({ error: "Affiliate not found" });
   });
 
   // Favorites API
