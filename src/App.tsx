@@ -1840,6 +1840,11 @@ const ProductInfoPage: React.FC<{ product: Product, onAddToCart: (p: Product) =>
 const CampaignOfferPage: React.FC<{ product: Product, onAddToCart: (p: Product) => void, onBack: () => void, onShowToast: (msg: string) => void, onNavigate: (page: string, options?: any) => void }> = ({ product, onAddToCart, onBack, onShowToast, onNavigate }) => {
   const marketing = getProductMarketingSummary(product);
   const whatsappLink = getProductOfferWhatsAppLink(product);
+  const promiseCopy = toPlainProductCopy(marketing.purpose || marketing.summary || `Oferta especial de ${product.name}`);
+  const urgencyCopy = product.stock > 0
+    ? `${product.stock} unidades em estoque • frete rápido`
+    : 'Oferta ativa por tempo limitado';
+  const primaryCta = product.promotionCta || 'Garantir oferta agora';
 
   return (
     <div className="pt-24 pb-24 bg-gradient-to-b from-[#fff7ed] via-white to-white min-h-screen">
@@ -1852,7 +1857,7 @@ const CampaignOfferPage: React.FC<{ product: Product, onAddToCart: (p: Product) 
         </button>
 
         <div className="rounded-[40px] overflow-hidden bg-brand-black text-white border border-white/5 shadow-2xl">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
+          <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-0">
             <div className="p-8 lg:p-12 flex flex-col justify-center">
               <div className="flex flex-wrap gap-3 mb-6">
                 {product.promotionLabel && (
@@ -1874,7 +1879,17 @@ const CampaignOfferPage: React.FC<{ product: Product, onAddToCart: (p: Product) 
 
               <p className="text-[11px] uppercase tracking-[0.3em] text-brand-orange font-black mb-4">Oferta dedicada</p>
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black uppercase leading-[1.05] mb-6">{product.name}</h1>
-              <p className="text-base sm:text-lg text-gray-300 leading-relaxed mb-8">{marketing.summary}</p>
+              <p className="text-xl sm:text-2xl text-white font-semibold leading-tight mb-3 max-w-2xl">{promiseCopy}</p>
+              <p className="text-sm sm:text-base text-gray-300 leading-relaxed mb-6 max-w-2xl">{marketing.summary}</p>
+
+              <div className="flex flex-wrap gap-3 mb-8">
+                <span className="px-4 py-2 rounded-full bg-brand-orange/15 text-brand-orange text-[11px] font-black uppercase tracking-widest border border-brand-orange/20">
+                  Oferta ativa hoje
+                </span>
+                <span className="px-4 py-2 rounded-full bg-white/10 text-white text-[11px] font-black uppercase tracking-widest border border-white/10">
+                  {urgencyCopy}
+                </span>
+              </div>
 
               <div className="flex flex-wrap items-end gap-4 mb-8">
                 <span className="text-5xl font-black text-brand-orange">{formatPriceBRL(product.price)}</span>
@@ -1904,30 +1919,35 @@ const CampaignOfferPage: React.FC<{ product: Product, onAddToCart: (p: Product) 
                 </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-4">
+              <div className="rounded-[28px] bg-white/5 border border-white/10 p-4 sm:p-5">
                 <button
                   onClick={() => {
                     onAddToCart(product);
                     onShowToast('Oferta adicionada ao carrinho.');
                   }}
-                  className="flex-1 bg-brand-orange text-white py-5 text-base font-black rounded-2xl flex items-center justify-center gap-3 hover:bg-brand-orange/90 transition-all"
+                  className="w-full bg-brand-orange text-white py-5 text-base sm:text-lg font-black rounded-2xl flex items-center justify-center gap-3 hover:bg-brand-orange/90 transition-all shadow-[0_18px_40px_rgba(249,115,22,0.3)]"
                 >
-                  <ShoppingBag size={22} /> {product.promotionCta || 'Garantir oferta agora'}
+                  <ShoppingBag size={22} /> {primaryCta}
                 </button>
-                <a
-                  href={whatsappLink}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex-1 bg-white text-brand-black py-5 text-base font-black rounded-2xl flex items-center justify-center gap-3 hover:bg-gray-100 transition-all"
-                >
-                  <Phone size={22} /> Tirar dúvida no WhatsApp
-                </a>
+                <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <p className="text-xs sm:text-sm text-gray-300 font-semibold">
+                    Compra segura • estoque atual • envio rápido
+                  </p>
+                  <a
+                    href={whatsappLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 text-sm font-black text-white/80 hover:text-white transition-colors"
+                  >
+                    <Phone size={16} /> Tirar dúvida rápida no WhatsApp
+                  </a>
+                </div>
               </div>
             </div>
 
             <div className="relative min-h-[420px] lg:min-h-full bg-gradient-to-br from-[#111318] to-[#0b0b0f] p-8 lg:p-12 flex items-center justify-center">
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,99,33,0.25),transparent_35%),radial-gradient(circle_at_bottom_left,rgba(255,99,33,0.18),transparent_28%)]" />
-              <div className="relative w-full max-w-xl">
+              <div className="relative w-full max-w-lg lg:max-w-md">
                 <div className="rounded-[36px] overflow-hidden border border-white/10 bg-white shadow-2xl">
                   <img src={product.image} alt={product.name} className="w-full aspect-square object-cover" referrerPolicy="no-referrer" />
                 </div>
