@@ -1,8 +1,7 @@
 import React from 'react';
 import {
   ArrowUpRight,
-  BarChart3,
-  CheckCircle2,
+  BookOpen,
   ChevronRight,
   DollarSign,
   Flame,
@@ -37,91 +36,51 @@ export const HomePage = ({
   const featuredProducts = products.slice(0, 4);
   const latestPosts = posts.slice(0, 3);
   const secondaryPosts = latestPosts.slice(1, 3);
-  const spotlightProduct = products.find((product) => hasProductPromotion(product)) || products[0];
+  const spotlightProduct =
+    products.find((p) => hasProductPromotion(p)) || products[0];
   const heroPost = latestPosts[0];
-  const catalogCategories = Array.from(
-    new Set(
-      products.flatMap((product) => (
-        product.categories?.length
-          ? product.categories
-          : product.category
-            ? [product.category]
-            : []
-      )),
-    ),
+
+  const reviewVolume = products.reduce(
+    (total, p) => total + (p.reviews || 0),
+    0,
   );
-  const reviewVolume = products.reduce((total, product) => total + (product.reviews || 0), 0);
 
-  const quickStats = [
-    {
-      value: `${products.length}+`,
-      label: 'produtos com oferta mais clara e percepção premium',
-      icon: Sparkles,
-    },
-    {
-      value: `${catalogCategories.length || 1}`,
-      label: 'frentes de catálogo organizadas para facilitar decisão',
-      icon: BarChart3,
-    },
-    {
-      value: `${reviewVolume}+`,
-      label: 'avaliações somadas para reforçar confiança de compra',
-      icon: Star,
-    },
-  ];
-
-  const experienceBlocks = [
-    {
-      title: 'Direção de arte mais premium',
-      description: 'Camadas, contraste e hierarquia visual para transformar a primeira impressão em desejo real de compra.',
-      icon: Sparkles,
-    },
-    {
-      title: 'Jornada comercial organizada',
-      description: 'A home conduz para loja, conteúdo e programa de afiliados com blocos mais limpos e estratégicos.',
-      icon: BarChart3,
-    },
-    {
-      title: 'Oferta com mais autoridade',
-      description: 'Produtos e conteúdos aparecem com mais contexto, valor percebido e gatilhos de confiança.',
-      icon: ShieldCheck,
-    },
-    {
-      title: 'Programa de afiliados visível',
-      description: 'Captação posicionada como nova fonte de receita para aumentar ticket e recorrência do tráfego.',
-      icon: Users,
-    },
+  const brandStats = [
+    { value: `${products.length}+`, label: 'Produtos', icon: Sparkles },
+    { value: `${reviewVolume}+`, label: 'Avaliações', icon: Star },
+    { value: '50%', label: 'Comissão afiliado', icon: DollarSign },
   ];
 
   const brandPillars = [
-    'Curadoria de suplementos para performance e rotina',
-    'Conteúdo que prepara a decisão antes do checkout',
-    'Afiliados como canal de crescimento e recorrência',
-  ];
-
-  const storeBenefits = [
-    'Produtos destacados com preço, benefício e prova social na mesma dobra.',
-    'Transição clara entre descoberta, detalhes do produto e checkout.',
-    'Visual mais consistente para elevar percepção de marca e ticket médio.',
-  ];
-
-  const contentBenefits = [
     {
-      title: 'Mais autoridade',
-      description: 'Conteúdo bem posicionado faz a marca parecer mais sólida e confiável.',
+      icon: ShieldCheck,
+      title: 'Suplementos selecionados',
+      description:
+        'Curadoria rigorosa focada em qualidade, resultado e procedência. Produtos que entregam o que prometem.',
     },
     {
-      title: 'Mais retenção',
-      description: 'O visitante encontra motivo para continuar navegando sem se perder.',
+      icon: Zap,
+      title: 'Performance comprovada',
+      description:
+        'Fórmulas desenvolvidas para acelerar resultados — seja no ganho de massa, definição ou emagrecimento.',
     },
     {
-      title: 'Mais conversão',
-      description: 'A jornada ganha contexto antes do clique em produto ou afiliados.',
+      icon: BookOpen,
+      title: 'Conteúdo que converte',
+      description:
+        'Guias, dicas e artigos para você entender o que toma e comprar com mais segurança e consciência.',
+    },
+    {
+      icon: Users,
+      title: 'Programa de afiliados',
+      description:
+        'Indique produtos L7 Fitness, ganhe até 50% de comissão por venda e construa uma renda recorrente.',
     },
   ];
 
   return (
     <div className="overflow-hidden bg-[linear-gradient(180deg,#070707_0%,#111111_16%,#f7f3ee_16%,#fffaf6_46%,#ffffff_100%)] pb-24">
+      {/* ── HERO ─────────────────────────────────────────────── */}
       <section className="relative overflow-hidden pt-32 pb-16 lg:pb-20">
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute left-[-8%] top-14 h-72 w-72 rounded-full bg-brand-orange/20 blur-3xl" />
@@ -130,23 +89,26 @@ export const HomePage = ({
         </div>
 
         <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="grid items-center gap-12 lg:grid-cols-[1.02fr_0.98fr]">
+          <div className="grid items-center gap-12 lg:grid-cols-[1fr_1fr]">
+            {/* Left column */}
             <motion.div
               initial={{ opacity: 0, y: 32 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7 }}
-              className="max-w-3xl"
             >
               <span className="inline-flex items-center gap-2 rounded-full border border-brand-orange/20 bg-brand-orange/10 px-4 py-2 text-[11px] font-black uppercase tracking-[0.28em] text-brand-orange">
                 <Flame size={14} /> L7 Fitness Performance Store
               </span>
 
               <h1 className="mt-6 text-5xl font-black uppercase leading-[0.92] text-white sm:text-6xl lg:text-7xl">
-                Uma home mais <span className="text-brand-orange">premium</span>, organizada e pronta para vender melhor.
+                Suplementos para quem{' '}
+                <span className="text-brand-orange">treina de verdade.</span>
               </h1>
 
-              <p className="mt-6 max-w-2xl text-lg leading-relaxed text-gray-300 sm:text-xl">
-                Reestruturamos a experiência para deixar a marca mais profissional, destacar produtos com mais valor percebido e abrir caminhos claros para compra, conteúdo e afiliados.
+              <p className="mt-6 max-w-xl text-lg leading-relaxed text-gray-300">
+                Performance, emagrecimento e ganho de massa com produtos
+                selecionados, entrega rápida e conteúdo estratégico para
+                acelerar seus resultados.
               </p>
 
               <div className="mt-8 flex flex-wrap gap-4">
@@ -154,50 +116,39 @@ export const HomePage = ({
                   onClick={() => onNavigate('store')}
                   className="btn-primary inline-flex items-center gap-2 shadow-[0_20px_40px_rgba(255,99,33,0.24)]"
                 >
-                  Comprar agora <ChevronRight size={18} />
+                  Ver produtos <ChevronRight size={18} />
                 </button>
                 <button
                   onClick={() => onNavigate('affiliate-program')}
                   className="rounded-full border border-white/15 bg-white/5 px-6 py-3 text-sm font-black uppercase tracking-widest text-white transition hover:border-brand-orange hover:text-brand-orange"
                 >
-                  Quero faturar como afiliado
-                </button>
-                <button
-                  onClick={() => onNavigate('blog')}
-                  className="rounded-full border border-white/10 px-6 py-3 text-sm font-black uppercase tracking-widest text-gray-200 transition hover:border-white/30 hover:text-white"
-                >
-                  Ler conteúdos estratégicos
+                  Quero ser afiliado
                 </button>
               </div>
 
-              <div className="mt-10 grid gap-4 sm:grid-cols-3">
-                {quickStats.map((item) => {
-                  const Icon = item.icon;
-
+              {/* Stats row */}
+              <div className="mt-10 flex flex-wrap gap-4">
+                {brandStats.map((stat) => {
+                  const Icon = stat.icon;
                   return (
-                    <div key={item.label} className="rounded-[26px] border border-white/10 bg-white/5 p-5 backdrop-blur-sm">
-                      <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-orange text-white shadow-[0_15px_30px_rgba(255,99,33,0.3)]">
-                        <Icon size={18} />
+                    <div
+                      key={stat.label}
+                      className="flex items-center gap-3 rounded-[20px] border border-white/10 bg-white/5 px-5 py-4 backdrop-blur-sm"
+                    >
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-orange text-white shadow-[0_12px_24px_rgba(255,99,33,0.3)]">
+                        <Icon size={16} />
                       </div>
-                      <p className="text-2xl font-black text-white">{item.value}</p>
-                      <p className="mt-1 text-sm leading-relaxed text-gray-400">{item.label}</p>
+                      <div>
+                        <p className="text-xl font-black text-white">{stat.value}</p>
+                        <p className="text-xs text-gray-400">{stat.label}</p>
+                      </div>
                     </div>
                   );
                 })}
               </div>
-
-              <div className="mt-8 flex flex-wrap gap-3">
-                {brandPillars.map((pillar) => (
-                  <span
-                    key={pillar}
-                    className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-gray-200 backdrop-blur-sm"
-                  >
-                    {pillar}
-                  </span>
-                ))}
-              </div>
             </motion.div>
 
+            {/* Right column — spotlight product */}
             <motion.div
               initial={{ opacity: 0, y: 36 }}
               animate={{ opacity: 1, y: 0 }}
@@ -211,11 +162,11 @@ export const HomePage = ({
                     <img
                       src={spotlightProduct.image}
                       alt={spotlightProduct.name}
-                      className="h-[520px] w-full object-cover"
+                      className="h-[480px] w-full object-cover"
                       referrerPolicy="no-referrer"
                     />
                   ) : (
-                    <div className="flex h-[520px] items-center justify-center text-sm font-bold uppercase tracking-widest text-gray-500">
+                    <div className="flex h-[480px] items-center justify-center text-sm font-bold uppercase tracking-widest text-gray-500">
                       Produto em destaque
                     </div>
                   )}
@@ -225,24 +176,34 @@ export const HomePage = ({
 
                 {spotlightProduct && (
                   <div className="absolute inset-x-8 bottom-8 text-white">
-                    <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
-                      <div className="max-w-md">
-                        <p className="text-[10px] font-black uppercase tracking-[0.26em] text-brand-orange">Produto em destaque</p>
-                        <h2 className="mt-3 text-3xl font-black uppercase leading-tight">{spotlightProduct.name}</h2>
-                        <p className="mt-3 line-clamp-2 max-w-xl text-sm leading-7 text-gray-300">
+                    <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
+                      <div className="max-w-xs">
+                        <p className="text-[10px] font-black uppercase tracking-[0.26em] text-brand-orange">
+                          {hasProductPromotion(spotlightProduct)
+                            ? spotlightProduct.promotionLabel || 'Oferta especial'
+                            : 'Produto em destaque'}
+                        </p>
+                        <h2 className="mt-2 text-2xl font-black uppercase leading-tight">
+                          {spotlightProduct.name}
+                        </h2>
+                        <p className="mt-2 line-clamp-2 text-sm leading-6 text-gray-300">
                           {spotlightProduct.description}
                         </p>
                       </div>
 
-                      <div className="rounded-[24px] border border-white/10 bg-white/10 px-4 py-3 text-right backdrop-blur-md">
-                        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-gray-300">Oferta atual</p>
-                        <p className="mt-2 text-3xl font-black text-brand-orange">{formatPriceBRL(spotlightProduct.price)}</p>
+                      <div className="rounded-[20px] border border-white/10 bg-white/10 px-4 py-3 text-right backdrop-blur-md">
+                        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-gray-300">
+                          Preço
+                        </p>
+                        <p className="mt-1 text-2xl font-black text-brand-orange">
+                          {formatPriceBRL(spotlightProduct.price)}
+                        </p>
                         {hasProductPromotion(spotlightProduct) && (
-                          <div className="mt-2 flex items-center justify-end gap-2">
+                          <div className="mt-1 flex items-center justify-end gap-2">
                             <span className="text-xs font-bold text-gray-400 line-through">
                               {formatPriceBRL(spotlightProduct.compareAtPrice)}
                             </span>
-                            <span className="rounded-full bg-brand-orange px-3 py-1 text-[10px] font-black uppercase tracking-widest text-white">
+                            <span className="rounded-full bg-brand-orange px-2 py-0.5 text-[10px] font-black uppercase text-white">
                               {spotlightProduct.discountPercentage}% OFF
                             </span>
                           </div>
@@ -253,14 +214,14 @@ export const HomePage = ({
                     <div className="flex flex-wrap gap-3">
                       <button
                         onClick={() => onProductClick(spotlightProduct)}
-                        className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-xs font-black uppercase tracking-widest text-brand-black transition hover:bg-brand-orange hover:text-white"
+                        className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-xs font-black uppercase tracking-widest text-brand-black transition hover:bg-brand-orange hover:text-white"
                       >
                         Ver oferta <ArrowUpRight size={14} />
                       </button>
                       {spotlightProduct.stock > 0 && (
                         <button
                           onClick={() => onAddToCart(spotlightProduct)}
-                          className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/8 px-5 py-3 text-xs font-black uppercase tracking-widest text-white transition hover:border-brand-orange hover:text-brand-orange"
+                          className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/8 px-5 py-2.5 text-xs font-black uppercase tracking-widest text-white transition hover:border-brand-orange hover:text-brand-orange"
                         >
                           Adicionar ao carrinho <ChevronRight size={14} />
                         </button>
@@ -269,78 +230,48 @@ export const HomePage = ({
                   </div>
                 )}
               </div>
-
-              <div className="mt-5 grid gap-4 md:grid-cols-2">
-                <div className="rounded-[28px] border border-white/10 bg-[#121212] p-5 text-white shadow-[0_24px_60px_rgba(0,0,0,0.22)]">
-                  <p className="text-[10px] font-black uppercase tracking-[0.24em] text-brand-orange">Leitura da marca</p>
-                  <div className="mt-4 space-y-3">
-                    {[
-                      'Hero mais limpo com CTA imediato para compra.',
-                      'Oferta, conteúdo e afiliação na mesma narrativa visual.',
-                      'Mais contraste e profundidade para parecer uma marca maior.',
-                    ].map((item) => (
-                      <div key={item} className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-gray-200">
-                        <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-brand-orange" />
-                        <span>{item}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="rounded-[28px] border border-white/10 bg-white/8 p-5 text-white backdrop-blur-md">
-                  <p className="text-[10px] font-black uppercase tracking-[0.24em] text-brand-orange">Leituras rápidas</p>
-                  <div className="mt-4 space-y-3">
-                    {quickStats.map((item) => {
-                      const Icon = item.icon;
-
-                      return (
-                        <div key={item.label} className="flex items-start gap-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-orange/15 text-brand-orange">
-                            <Icon size={18} />
-                          </div>
-                          <div>
-                            <p className="text-lg font-black text-white">{item.value}</p>
-                            <p className="text-sm leading-6 text-gray-300">{item.label}</p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
             </motion.div>
           </div>
         </div>
       </section>
 
+      {/* ── BRAND PILLARS ─────────────────────────────────────── */}
       <section className="relative z-10 mx-auto -mt-1 max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="rounded-[36px] border border-orange-100/80 bg-white p-7 shadow-[0_25px_60px_rgba(15,23,42,0.08)] sm:p-8 lg:p-10">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-3xl">
-              <p className="text-[11px] font-black uppercase tracking-[0.28em] text-brand-orange">Arquitetura da experiência</p>
-              <h2 className="mt-3 text-3xl font-black uppercase text-brand-black sm:text-4xl">
-                A primeira dobra ficou mais sólida, elegante e comercial.
+          <div className="mb-8 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.28em] text-brand-orange">
+                Por que L7 Fitness
+              </p>
+              <h2 className="mt-2 text-3xl font-black uppercase text-brand-black sm:text-4xl">
+                Tudo que você precisa para evoluir.
               </h2>
             </div>
-            <div className="rounded-[22px] bg-orange-50 px-4 py-3 text-sm font-semibold text-brand-orange">
-              Visual mais limpo, mais premium e com CTA mais claro.
-            </div>
+            <button
+              onClick={() => onNavigate('store')}
+              className="self-start text-sm font-black uppercase tracking-wider text-brand-orange transition hover:underline"
+            >
+              Ver catálogo →
+            </button>
           </div>
 
-          <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {experienceBlocks.map((block) => {
-              const Icon = block.icon;
-
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+            {brandPillars.map((pillar) => {
+              const Icon = pillar.icon;
               return (
                 <div
-                  key={block.title}
+                  key={pillar.title}
                   className="rounded-[28px] border border-gray-100 bg-[linear-gradient(180deg,#ffffff_0%,#fff8f3_100%)] p-6"
                 >
                   <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-[20px] bg-gradient-to-br from-brand-orange to-orange-400 text-white shadow-[0_18px_40px_rgba(255,99,33,0.2)]">
                     <Icon size={22} />
                   </div>
-                  <h3 className="text-lg font-black text-brand-black">{block.title}</h3>
-                  <p className="mt-3 text-sm leading-7 text-gray-600">{block.description}</p>
+                  <h3 className="text-base font-black text-brand-black">
+                    {pillar.title}
+                  </h3>
+                  <p className="mt-2.5 text-sm leading-7 text-gray-600">
+                    {pillar.description}
+                  </p>
                 </div>
               );
             })}
@@ -348,27 +279,32 @@ export const HomePage = ({
         </div>
       </section>
 
+      {/* ── AFFILIATE PROMO ───────────────────────────────────── */}
       <section className="mx-auto max-w-7xl px-4 pt-16 sm:px-6 lg:px-8">
         <AffiliatePromoCard
           onNavigate={onNavigate}
-          badge="Captação de afiliados"
-          title="A home agora apresenta a parceria L7 Fitness com mais autoridade e muito mais apelo comercial."
-          description="Quem entra no site já percebe uma marca mais estruturada, uma oferta mais refinada e um caminho direto para entender o programa, visualizar ganhos e iniciar o cadastro."
+          badge="Programa de afiliados"
+          title="Ganhe até 50% de comissão indicando produtos L7 Fitness."
+          description="Crie sua conta, compartilhe seu link e receba comissão aprovada por cada venda realizada. Construa uma renda recorrente sem estoque e sem complicação."
           primaryLabel="Conhecer programa"
           secondaryLabel="Ver produtos"
           className="border-orange-300/60"
         />
       </section>
 
+      {/* ── FEATURED PRODUCTS ─────────────────────────────────── */}
       <section className="mx-auto max-w-7xl px-4 pt-20 sm:px-6 lg:px-8">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-3xl">
-            <p className="text-[11px] font-black uppercase tracking-[0.28em] text-brand-orange">Loja em destaque</p>
-            <h2 className="mt-3 text-4xl font-black uppercase text-brand-black sm:text-5xl">
-              Vitrine com mais impacto visual e cara de marca premium.
+        <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-[11px] font-black uppercase tracking-[0.28em] text-brand-orange">
+              Produtos em destaque
+            </p>
+            <h2 className="mt-2 text-4xl font-black uppercase text-brand-black sm:text-5xl">
+              Os mais vendidos da loja.
             </h2>
-            <p className="mt-4 text-base leading-8 text-gray-600 sm:text-lg">
-              O foco aqui é abrir a jornada com produtos fortes, prova social e atalhos claros para avançar com mais confiança até o checkout.
+            <p className="mt-3 max-w-xl text-base leading-7 text-gray-600">
+              Suplementos com maior demanda, melhores avaliações e resultados
+              comprovados pelos nossos clientes.
             </p>
           </div>
           <button
@@ -379,29 +315,32 @@ export const HomePage = ({
           </button>
         </div>
 
-        <div className="mt-8 grid gap-4 lg:grid-cols-3">
-          {storeBenefits.map((item) => (
-            <div key={item} className="flex items-start gap-3 rounded-[26px] border border-orange-100 bg-white px-5 py-5 text-sm leading-7 text-gray-700 shadow-sm">
-              <CheckCircle2 size={18} className="mt-1 shrink-0 text-brand-orange" />
-              <span>{item}</span>
-            </div>
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
+          {featuredProducts.map((product) => (
+            <ProductCard
+              key={product.id}
+              product={product}
+              onAddToCart={onAddToCart}
+              onClick={onProductClick}
+            />
           ))}
-        </div>
-
-        <div className="mt-10 grid grid-cols-1 gap-8 sm:grid-cols-2 xl:grid-cols-4">
-            {featuredProducts.map((product) => (
-              <ProductCard key={product.id} product={product} onAddToCart={onAddToCart} onClick={onProductClick} />
-            ))}
         </div>
       </section>
 
+      {/* ── BLOG ──────────────────────────────────────────────── */}
       <section className="mx-auto max-w-7xl px-4 pt-24 sm:px-6 lg:px-8">
         <div className="mb-10 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-2xl">
-            <p className="text-[11px] font-black uppercase tracking-[0.28em] text-brand-orange">Conteúdo com função comercial</p>
-            <h2 className="mt-3 text-4xl font-black uppercase text-brand-black sm:text-5xl">
-              Artigos que reforçam autoridade, aquecem lead e sustentam conversão.
+          <div>
+            <p className="text-[11px] font-black uppercase tracking-[0.28em] text-brand-orange">
+              Conteúdo e dicas
+            </p>
+            <h2 className="mt-2 text-4xl font-black uppercase text-brand-black sm:text-5xl">
+              Treino, dieta e nutrição na prática.
             </h2>
+            <p className="mt-3 max-w-xl text-base leading-7 text-gray-600">
+              Artigos escritos para quem quer resultados reais — sem enrolação e
+              com embasamento para cada escolha.
+            </p>
           </div>
           <button
             onClick={() => onNavigate('blog')}
@@ -411,35 +350,29 @@ export const HomePage = ({
           </button>
         </div>
 
-        <div className="grid gap-8 xl:grid-cols-[1.1fr_0.9fr]">
+        <div className="grid gap-8 xl:grid-cols-[1.15fr_0.85fr]">
+          {/* Hero post */}
           <div className="overflow-hidden rounded-[36px] bg-brand-black text-white shadow-[0_30px_80px_rgba(15,23,42,0.18)]">
             {heroPost ? (
               <>
-                <div className="aspect-[16/10] overflow-hidden border-b border-white/10">
+                <div className="aspect-[16/9] overflow-hidden border-b border-white/10">
                   <img
                     src={heroPost.image}
                     alt={heroPost.title}
-                    className="h-full w-full object-cover"
+                    className="h-full w-full object-cover transition duration-500 hover:scale-105"
                     referrerPolicy="no-referrer"
                   />
                 </div>
                 <div className="p-8 sm:p-10">
-                  <p className="text-[11px] font-black uppercase tracking-[0.3em] text-brand-orange">Post em destaque</p>
-                  <h3 className="mt-4 text-3xl font-black uppercase leading-tight">{heroPost.title}</h3>
-                  <p className="mt-5 text-base leading-8 text-gray-300">{heroPost.excerpt}</p>
-
-                  <div className="mt-8 flex flex-wrap gap-3">
-                    {[
-                      'Temas que educam antes da compra',
-                      'Autoridade para a marca parecer maior',
-                      'Gancho natural para afiliados e ofertas',
-                    ].map((item) => (
-                      <span key={item} className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-gray-200">
-                        {item}
-                      </span>
-                    ))}
-                  </div>
-
+                  <p className="text-[11px] font-black uppercase tracking-[0.3em] text-brand-orange">
+                    Post em destaque
+                  </p>
+                  <h3 className="mt-4 text-2xl font-black uppercase leading-tight sm:text-3xl">
+                    {heroPost.title}
+                  </h3>
+                  <p className="mt-4 text-base leading-8 text-gray-300">
+                    {heroPost.excerpt}
+                  </p>
                   <button
                     onClick={() => onPostClick(heroPost)}
                     className="mt-8 inline-flex items-center gap-2 rounded-full bg-brand-orange px-6 py-3 text-sm font-black uppercase tracking-widest text-white transition hover:bg-orange-600"
@@ -449,50 +382,53 @@ export const HomePage = ({
                 </div>
               </>
             ) : (
-              <div className="p-8 text-sm text-gray-300">Adicione conteúdos para destacar o blog na home.</div>
+              <div className="p-8 text-sm text-gray-300">
+                Adicione conteúdos para destacar o blog na home.
+              </div>
             )}
           </div>
 
-          <div className="grid gap-6">
-            {(secondaryPosts.length ? secondaryPosts : latestPosts).map((post) => (
-              <div key={post.id} className="rounded-[30px] border border-orange-100 bg-white p-5 shadow-[0_20px_50px_rgba(15,23,42,0.06)]">
-                <BlogPostCard
-                  post={post}
-                  onClick={onPostClick}
-                  onAffiliateClick={() => onNavigate('affiliate-program')}
-                />
-              </div>
-            ))}
-
-            <div className="rounded-[30px] border border-orange-100 bg-[linear-gradient(180deg,#fff8f3_0%,#ffffff_100%)] p-6 shadow-[0_20px_50px_rgba(15,23,42,0.06)]">
-              <p className="text-[11px] font-black uppercase tracking-[0.28em] text-brand-orange">Por que isso melhora a home</p>
-              <div className="mt-5 grid gap-4 sm:grid-cols-3">
-                {contentBenefits.map((item) => (
-                  <div key={item.title} className="rounded-[22px] border border-white bg-white p-5 shadow-sm">
-                    <p className="text-lg font-black text-brand-black">{item.title}</p>
-                    <p className="mt-2 text-sm leading-7 text-gray-600">{item.description}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
+          {/* Secondary posts */}
+          <div className="flex flex-col gap-6">
+            {(secondaryPosts.length ? secondaryPosts : latestPosts).map(
+              (post) => (
+                <div
+                  key={post.id}
+                  className="overflow-hidden rounded-[28px] border border-orange-100 bg-white shadow-[0_16px_48px_rgba(15,23,42,0.06)]"
+                >
+                  <BlogPostCard
+                    post={post}
+                    onClick={onPostClick}
+                    onAffiliateClick={() => onNavigate('affiliate-program')}
+                  />
+                </div>
+              ),
+            )}
           </div>
         </div>
       </section>
 
+      {/* ── CTA FOOTER ────────────────────────────────────────── */}
       <section className="mx-auto max-w-7xl px-4 pt-24 sm:px-6 lg:px-8">
         <div className="overflow-hidden rounded-[40px] border border-orange-100 bg-[linear-gradient(135deg,#fff7f0_0%,#ffffff_42%,#fff2e7_100%)] p-8 shadow-[0_25px_70px_rgba(255,99,33,0.08)] sm:p-10 lg:p-12">
           <div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-center">
-            <div className="max-w-3xl">
-              <p className="text-[11px] font-black uppercase tracking-[0.3em] text-brand-orange">Próximo passo</p>
+            <div className="max-w-2xl">
+              <p className="text-[11px] font-black uppercase tracking-[0.3em] text-brand-orange">
+                Comece agora
+              </p>
               <h2 className="mt-3 text-3xl font-black uppercase text-brand-black sm:text-4xl">
-                A home já passa mais confiança. Agora ela também fecha a jornada com clareza.
+                Sua evolução começa com a escolha certa.
               </h2>
-              <p className="mt-4 text-base leading-8 text-gray-600 sm:text-lg">
-                O visitante escolhe rapidamente entre entrar na loja ou ativar uma frente de receita com o programa de afiliados, sem ruído visual e com muito mais consistência de marca.
+              <p className="mt-4 text-base leading-8 text-gray-600">
+                Entre na loja e explore nossos produtos — ou cadastre-se como
+                afiliado e comece a gerar renda com a L7 Fitness.
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
-              <button onClick={() => onNavigate('store')} className="btn-primary whitespace-nowrap">
+              <button
+                onClick={() => onNavigate('store')}
+                className="btn-primary whitespace-nowrap"
+              >
                 Ir para a loja
               </button>
               <button
