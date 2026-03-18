@@ -2072,7 +2072,7 @@ const getProductOfferWhatsAppLink = (product?: Product | null) => {
   const productName = product?.name || 'o produto da oferta';
   const cta = product?.promotionCta || 'Quero aproveitar a oferta';
   const campaignUrl = product?.id
-    ? `${typeof window !== 'undefined' ? window.location.origin : 'https://www.l7fitness.com.br'}/oferta/${encodeURIComponent(String(product.id))}`
+    ? `${typeof window !== 'undefined' ? window.location.origin : 'https://www.l7fitness.com.br'}/campanha/${encodeURIComponent(String(product.id))}`
     : '';
   const message = encodeURIComponent(
     campaignUrl
@@ -3060,7 +3060,7 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
   };
 
   const getPublicProductUrl = (productId?: string | null) => `${window.location.origin}/produto/${encodeURIComponent(String(productId || ''))}`;
-  const getCampaignOfferUrl = (productId?: string | null) => `${window.location.origin}/oferta/${encodeURIComponent(String(productId || ''))}`;
+  const getCampaignOfferUrl = (productId?: string | null) => `${window.location.origin}/campanha/${encodeURIComponent(String(productId || ''))}`;
 
   const handleCopyCampaignLink = async (productId?: string | null) => {
     const url = getCampaignOfferUrl(productId);
@@ -4983,7 +4983,7 @@ function MainApp() {
     if (page === 'blog-details' && options?.postId) return `/blog/${encodeURIComponent(options.postId)}`;
     if (page === 'product-info' && options?.productId) return `/produto/${encodeURIComponent(options.productId)}/informacoes`;
     if (page === 'product-details' && options?.productId) return `/produto/${encodeURIComponent(options.productId)}`;
-    if (page === 'campaign-offer' && options?.productId) return `/oferta/${encodeURIComponent(options.productId)}`;
+    if (page === 'campaign-offer' && options?.productId) return `/campanha/${encodeURIComponent(options.productId)}`;
     if (page === 'admin') return '/admin';
     if (page === 'checkout') return '/checkout';
     if (page === 'checkout-success') return '/checkout/success';
@@ -5027,7 +5027,7 @@ function MainApp() {
       return;
     }
 
-    if (pathname.startsWith('/oferta/')) {
+    if (pathname.startsWith('/campanha/') || pathname.startsWith('/oferta/')) {
       const productId = decodeURIComponent(pathname.split('/')[2] || '');
       setSelectedProductId(productId || null);
       setSelectedPostId(null);

@@ -33,6 +33,10 @@
       "dest": "server.ts"
     },
     {
+      "src": "/campanha/(.*)",
+      "dest": "server.ts"
+    },
+    {
       "src": "/blog",
       "dest": "server.ts"
     },

@@ -663,7 +663,7 @@ const buildMetaBlock = (meta: {
 const getRouteMetaAsync = async (pathname: string, appUrl: string) => {
   const normalizedPath = String(pathname || '/').split('?')[0] || '/';
   const productMatch = normalizedPath.match(/^\/produto\/([^/]+)$/);
-  const offerMatch = normalizedPath.match(/^\/oferta\/([^/]+)$/);
+  const offerMatch = normalizedPath.match(/^\/(?:campanha|oferta)\/([^/]+)$/);
 
   if (offerMatch) {
     const productId = decodeURIComponent(offerMatch[1]);
@@ -673,7 +673,7 @@ const getRouteMetaAsync = async (pathname: string, appUrl: string) => {
       return {
         title: `${campaignLabel}: ${product.name} | Oferta L7 Fitness`,
         description: `${getProductSocialDescription(product)} Página dedicada da campanha com CTA forte para conversão.`,
-        canonicalUrl: `${appUrl}/oferta/${encodeURIComponent(productId)}`,
+        canonicalUrl: `${appUrl}/campanha/${encodeURIComponent(productId)}`,
         imageUrl: `${appUrl}/og/product/${encodeURIComponent(productId)}.png`,
         imageAlt: `${product.name} em página de campanha da L7 Fitness`,
         imageType: 'image/png',
@@ -704,7 +704,7 @@ const getRouteMetaAsync = async (pathname: string, appUrl: string) => {
 const getRouteMeta = (pathname: string, appUrl: string) => {
   const normalizedPath = String(pathname || '/').split('?')[0] || '/';
   const productMatch = normalizedPath.match(/^\/produto\/([^/]+)$/);
-  const offerMatch = normalizedPath.match(/^\/oferta\/([^/]+)$/);
+  const offerMatch = normalizedPath.match(/^\/(?:campanha|oferta)\/([^/]+)$/);
   const blogDetailMatch = normalizedPath.match(/^\/blog\/([^/]+)$/);
 
   const defaultMeta = {
@@ -725,7 +725,7 @@ const getRouteMeta = (pathname: string, appUrl: string) => {
       return {
         title: `${campaignLabel}: ${product.name} | Oferta L7 Fitness`,
         description: `${getProductSocialDescription(product)} Página dedicada da campanha com CTA forte para conversão.`,
-        canonicalUrl: `${appUrl}/oferta/${encodeURIComponent(productId)}`,
+        canonicalUrl: `${appUrl}/campanha/${encodeURIComponent(productId)}`,
         imageUrl: `${appUrl}/og/product/${encodeURIComponent(productId)}.png`,
         imageAlt: `${product.name} em página de campanha da L7 Fitness`,
         imageType: 'image/png',
@@ -3068,7 +3068,7 @@ app.post("/api/checkout", async (req, res) => {
     })();
   } else {
     app.use(express.static(path.join(__dirname, "dist")));
-    app.get(['/', '/loja', '/dicas-ai', '/produto/:id', '/oferta/:id', '/blog', '/blog/:id', '/admin', '/checkout', '/checkout/success', '/afiliado/:refCode'], renderAppWithMeta);
+    app.get(['/', '/loja', '/dicas-ai', '/produto/:id', '/oferta/:id', '/campanha/:id', '/blog', '/blog/:id', '/admin', '/checkout', '/checkout/success', '/afiliado/:refCode'], renderAppWithMeta);
     app.get("*", (req, res, next) => {
       if (req.path.startsWith("/api")) return next();
       renderAppWithMeta(req, res, next);
