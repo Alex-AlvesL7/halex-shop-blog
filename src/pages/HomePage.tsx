@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ArrowUpRight,
   BookOpen,
+  ChevronLeft,
   ChevronRight,
   DollarSign,
   Flame,
@@ -11,7 +12,7 @@ import {
   Users,
   Zap,
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 import { BlogPost, Product } from '../types';
 import { AffiliatePromoCard } from '../components/AffiliatePromoCard';
 import { BlogPostCard } from '../components/BlogPostCard';
@@ -36,9 +37,46 @@ export const HomePage = ({
   const featuredProducts = products.slice(0, 4);
   const latestPosts = posts.slice(0, 3);
   const secondaryPosts = latestPosts.slice(1, 3);
-  const spotlightProduct =
-    products.find((p) => hasProductPromotion(p)) || products[0];
   const heroPost = latestPosts[0];
+
+  // Carousel: promoted products first, fill up to 5
+  const carouselProducts = [
+    ...products.filter((p) => hasProductPromotion(p)),
+    ...products.filter((p) => !hasProductPromotion(p)),
+  ].slice(0, 5);
+
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [direction, setDirection] = useState<1 | -1>(1);
+  const [paused, setPaused] = useState(false);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const goTo = useCallback(
+    (index: number, dir: 1 | -1 = 1) => {
+      setDirection(dir);
+      setActiveIndex(
+        (index + carouselProducts.length) % carouselProducts.length,
+      );
+    },
+    [carouselProducts.length],
+  );
+
+  const next = useCallback(() => {
+    goTo(activeIndex + 1, 1);
+  }, [activeIndex, goTo]);
+
+  const prev = useCallback(() => {
+    goTo(activeIndex - 1, -1);
+  }, [activeIndex, goTo]);
+
+  useEffect(() => {
+    if (paused || carouselProducts.length <= 1) return;
+    intervalRef.current = setInterval(next, 4000);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [next, paused, carouselProducts.length]);
+
+  const currentProduct = carouselProducts[activeIndex];
 
   const reviewVolume = products.reduce(
     (total, p) => total + (p.reviews || 0),
@@ -148,86 +186,144 @@ export const HomePage = ({
               </div>
             </motion.div>
 
-            {/* Right column — spotlight product */}
+            {/* Right column — product carousel */}
             <motion.div
               initial={{ opacity: 0, y: 36 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.1 }}
               className="relative"
+              onMouseEnter={() => setPaused(true)}
+              onMouseLeave={() => setPaused(false)}
             >
               <div className="absolute -left-8 top-8 hidden h-36 w-36 rounded-full bg-brand-orange/20 blur-3xl lg:block" />
+
               <div className="relative overflow-hidden rounded-[36px] border border-white/10 bg-white/6 p-4 shadow-[0_35px_100px_rgba(0,0,0,0.35)] backdrop-blur-md">
-                <div className="overflow-hidden rounded-[30px] border border-white/10 bg-[#161616]">
-                  {spotlightProduct ? (
-                    <img
-                      src={spotlightProduct.image}
-                      alt={spotlightProduct.name}
-                      className="h-[480px] w-full object-cover"
-                      referrerPolicy="no-referrer"
-                    />
-                  ) : (
-                    <div className="flex h-[480px] items-center justify-center text-sm font-bold uppercase tracking-widest text-gray-500">
-                      Produto em destaque
-                    </div>
+                {/* Slides */}
+                <div className="relative h-[480px] overflow-hidden rounded-[30px] border border-white/10 bg-[#161616]">
+                  <AnimatePresence initial={false} custom={direction} mode="wait">
+                    {currentProduct ? (
+                      <motion.img
+                        key={currentProduct.id}
+                        src={currentProduct.image}
+                        alt={currentProduct.name}
+                        className="absolute inset-0 h-full w-full object-cover"
+                        referrerPolicy="no-referrer"
+                        custom={direction}
+                        initial={{ x: direction * 60, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        exit={{ x: direction * -60, opacity: 0 }}
+                        transition={{ duration: 0.45, ease: 'easeInOut' }}
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-sm font-bold uppercase tracking-widest text-gray-500">
+                        Produtos em destaque
+                      </div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Arrow buttons */}
+                  {carouselProducts.length > 1 && (
+                    <>
+                      <button
+                        onClick={prev}
+                        className="absolute left-3 top-1/2 z-10 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-black/40 text-white backdrop-blur-sm transition hover:bg-brand-orange hover:border-brand-orange"
+                      >
+                        <ChevronLeft size={16} />
+                      </button>
+                      <button
+                        onClick={next}
+                        className="absolute right-3 top-1/2 z-10 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-black/40 text-white backdrop-blur-sm transition hover:bg-brand-orange hover:border-brand-orange"
+                      >
+                        <ChevronRight size={16} />
+                      </button>
+                    </>
                   )}
                 </div>
 
+                {/* Gradient overlay */}
                 <div className="pointer-events-none absolute inset-x-4 bottom-4 top-4 rounded-[30px] bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
 
-                {spotlightProduct && (
-                  <div className="absolute inset-x-8 bottom-8 text-white">
-                    <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
-                      <div className="max-w-xs">
-                        <p className="text-[10px] font-black uppercase tracking-[0.26em] text-brand-orange">
-                          {hasProductPromotion(spotlightProduct)
-                            ? spotlightProduct.promotionLabel || 'Oferta especial'
-                            : 'Produto em destaque'}
-                        </p>
-                        <h2 className="mt-2 text-2xl font-black uppercase leading-tight">
-                          {spotlightProduct.name}
-                        </h2>
-                        <p className="mt-2 line-clamp-2 text-sm leading-6 text-gray-300">
-                          {spotlightProduct.description}
-                        </p>
+                {/* Product info overlay */}
+                {currentProduct && (
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={currentProduct.id + '-info'}
+                      className="absolute inset-x-8 bottom-8 text-white"
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
+                        <div className="max-w-xs">
+                          <p className="text-[10px] font-black uppercase tracking-[0.26em] text-brand-orange">
+                            {hasProductPromotion(currentProduct)
+                              ? currentProduct.promotionLabel || 'Oferta especial'
+                              : 'Produto em destaque'}
+                          </p>
+                          <h2 className="mt-2 text-2xl font-black uppercase leading-tight">
+                            {currentProduct.name}
+                          </h2>
+                          <p className="mt-2 line-clamp-2 text-sm leading-6 text-gray-300">
+                            {currentProduct.description}
+                          </p>
+                        </div>
+
+                        <div className="rounded-[20px] border border-white/10 bg-white/10 px-4 py-3 text-right backdrop-blur-md">
+                          <p className="text-[10px] font-black uppercase tracking-[0.24em] text-gray-300">
+                            Preço
+                          </p>
+                          <p className="mt-1 text-2xl font-black text-brand-orange">
+                            {formatPriceBRL(currentProduct.price)}
+                          </p>
+                          {hasProductPromotion(currentProduct) && (
+                            <div className="mt-1 flex items-center justify-end gap-2">
+                              <span className="text-xs font-bold text-gray-400 line-through">
+                                {formatPriceBRL(currentProduct.compareAtPrice)}
+                              </span>
+                              <span className="rounded-full bg-brand-orange px-2 py-0.5 text-[10px] font-black uppercase text-white">
+                                {currentProduct.discountPercentage}% OFF
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       </div>
 
-                      <div className="rounded-[20px] border border-white/10 bg-white/10 px-4 py-3 text-right backdrop-blur-md">
-                        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-gray-300">
-                          Preço
-                        </p>
-                        <p className="mt-1 text-2xl font-black text-brand-orange">
-                          {formatPriceBRL(spotlightProduct.price)}
-                        </p>
-                        {hasProductPromotion(spotlightProduct) && (
-                          <div className="mt-1 flex items-center justify-end gap-2">
-                            <span className="text-xs font-bold text-gray-400 line-through">
-                              {formatPriceBRL(spotlightProduct.compareAtPrice)}
-                            </span>
-                            <span className="rounded-full bg-brand-orange px-2 py-0.5 text-[10px] font-black uppercase text-white">
-                              {spotlightProduct.discountPercentage}% OFF
-                            </span>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <button
+                          onClick={() => onProductClick(currentProduct)}
+                          className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-xs font-black uppercase tracking-widest text-brand-black transition hover:bg-brand-orange hover:text-white"
+                        >
+                          Ver oferta <ArrowUpRight size={14} />
+                        </button>
+                        {currentProduct.stock > 0 && (
+                          <button
+                            onClick={() => onAddToCart(currentProduct)}
+                            className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/8 px-5 py-2.5 text-xs font-black uppercase tracking-widest text-white transition hover:border-brand-orange hover:text-brand-orange"
+                          >
+                            Adicionar ao carrinho <ChevronRight size={14} />
+                          </button>
+                        )}
+
+                        {/* Dots */}
+                        {carouselProducts.length > 1 && (
+                          <div className="ml-auto flex gap-1.5">
+                            {carouselProducts.map((_, i) => (
+                              <button
+                                key={i}
+                                onClick={() => goTo(i, i > activeIndex ? 1 : -1)}
+                                className={`h-2 rounded-full transition-all duration-300 ${
+                                  i === activeIndex
+                                    ? 'w-6 bg-brand-orange'
+                                    : 'w-2 bg-white/30 hover:bg-white/60'
+                                }`}
+                              />
+                            ))}
                           </div>
                         )}
                       </div>
-                    </div>
-
-                    <div className="flex flex-wrap gap-3">
-                      <button
-                        onClick={() => onProductClick(spotlightProduct)}
-                        className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-xs font-black uppercase tracking-widest text-brand-black transition hover:bg-brand-orange hover:text-white"
-                      >
-                        Ver oferta <ArrowUpRight size={14} />
-                      </button>
-                      {spotlightProduct.stock > 0 && (
-                        <button
-                          onClick={() => onAddToCart(spotlightProduct)}
-                          className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/8 px-5 py-2.5 text-xs font-black uppercase tracking-widest text-white transition hover:border-brand-orange hover:text-brand-orange"
-                        >
-                          Adicionar ao carrinho <ChevronRight size={14} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
+                    </motion.div>
+                  </AnimatePresence>
                 )}
               </div>
             </motion.div>
