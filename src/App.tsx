@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, createContext, useContext } from 'react';
+import React, { useState, useEffect, useMemo, useRef, createContext, useContext } from 'react';
 import { ShoppingBag, Menu, X, User, Search, ChevronRight, Instagram, Facebook, Youtube, Plus, Trash2, LayoutDashboard, Package, FileText, Edit, Upload, CheckCircle, TrendingUp, DollarSign, Users, BarChart3, Heart, LogOut, Tag, ArrowLeft, Mail, Phone, MapPin, CreditCard, Sun, Moon, Monitor, Sparkles, ShieldCheck, Truck, Pill, Leaf, Droplets } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
@@ -1464,22 +1464,19 @@ const TipsPage = ({
 
 const ProductDetailsPage: React.FC<{ product: Product, onAddToCart: (p: Product) => void, onBack: () => void, onNavigate: (page: string, options?: any) => void, onShowToast: (msg: string) => void }> = ({ product, onAddToCart, onBack, onNavigate, onShowToast }) => {
   const [activeImage, setActiveImage] = useState(product.image);
+  const [activeSlide, setActiveSlide] = useState(0);
+  const touchStartX = useRef<number>(0);
   const compositionPanels = useMemo(() => getProductCompositionPanels(product), [product]);
   const allImages = [product.image, ...(product.images || [])];
   const marketing = useMemo(() => getProductMarketingSummary(product), [product]);
   const detailContent = useMemo(() => getProductDetailContent(product), [product]);
-  const mobileHighlights = useMemo(() => {
-    const candidates = [
-      detailContent.purpose,
-      detailContent.kitContents,
-      detailContent.composition,
-    ]
-      .map((text) => toPlainProductCopy(text))
-      .filter(Boolean)
-      .map((text) => (text.length > 140 ? `${text.slice(0, 140).trimEnd()}…` : text));
-
-    return candidates.slice(0, 3);
-  }, [detailContent]);
+  const infoSlides = useMemo(() => [
+    { title: 'Para que serve', content: detailContent.purpose },
+    { title: 'Como usar', content: detailContent.usage },
+    { title: 'O que vem no kit', content: detailContent.kitContents },
+    { title: 'Composição', content: detailContent.composition },
+    { title: 'Qtd / Cápsulas', content: detailContent.capsules },
+  ].filter(slide => String(slide.content || '').trim()), [detailContent]);
   const productBenefits = useMemo(() => {
     const source = normalizeProductText(`${product.name} ${product.description}`);
     const isKit = compositionPanels.length > 1;
@@ -1512,6 +1509,7 @@ const ProductDetailsPage: React.FC<{ product: Product, onAddToCart: (p: Product)
 
   useEffect(() => {
     setActiveImage(product.image);
+    setActiveSlide(0);
   }, [product.id, product.image]);
 
   return (
@@ -1591,29 +1589,67 @@ const ProductDetailsPage: React.FC<{ product: Product, onAddToCart: (p: Product)
             <p className="text-gray-600 text-lg leading-relaxed line-clamp-5 md:line-clamp-none">
               {marketing.summary || "Este produto premium da Halex Shop foi desenvolvido com os mais altos padrões de qualidade para garantir que você alcance seus objetivos físicos com eficiência e segurança."}
             </p>
-            <div className="space-y-2">
-              {mobileHighlights.map((item, idx) => (
-                <div key={`${product.id}-mobile-h-${idx}`} className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm text-gray-600 leading-relaxed">
-                  {item}
-                </div>
-              ))}
-            </div>
+            {infoSlides.length > 0 && (
+              <div className="rounded-2xl border border-gray-100 bg-white overflow-hidden select-none">
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={activeSlide}
+                    initial={{ opacity: 0, x: 24 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -24 }}
+                    transition={{ duration: 0.22, ease: 'easeInOut' }}
+                    className="px-5 pt-5 pb-4 min-h-[130px]"
+                    onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
+                    onTouchEnd={(e) => {
+                      const diff = touchStartX.current - e.changedTouches[0].clientX;
+                      if (Math.abs(diff) > 40) {
+                        if (diff > 0) setActiveSlide(prev => Math.min(prev + 1, infoSlides.length - 1));
+                        else setActiveSlide(prev => Math.max(prev - 1, 0));
+                      }
+                    }}
+                  >
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-brand-orange font-black mb-2">
+                      {infoSlides[activeSlide].title}
+                    </p>
+                    <p className="text-sm text-gray-600 leading-relaxed line-clamp-5">
+                      {toPlainProductCopy(infoSlides[activeSlide].content)}
+                    </p>
+                  </motion.div>
+                </AnimatePresence>
 
-            <div className="space-y-3">
-              {[
-                ['Para que serve', detailContent.purpose],
-                ['O que vem no kit', detailContent.kitContents],
-                ['Composição', detailContent.composition],
-              ].filter(([, value]) => String(value || '').trim()).map(([title, value], index) => (
-                <details key={`${product.id}-compact-${title}`} className="rounded-2xl border border-gray-100 bg-white px-4 py-3" open={index === 0}>
-                  <summary className="cursor-pointer list-none flex items-center justify-between text-[11px] uppercase tracking-widest text-brand-orange font-black">
-                    {title}
-                    <span className="text-gray-400 text-xs">Ver</span>
-                  </summary>
-                  <p className="mt-3 text-sm text-gray-600 leading-relaxed">{value}</p>
-                </details>
-              ))}
-            </div>
+                <div className="flex items-center justify-between border-t border-gray-100 px-4 py-2">
+                  <button
+                    onClick={() => setActiveSlide(prev => Math.max(prev - 1, 0))}
+                    disabled={activeSlide === 0}
+                    className="p-1.5 rounded-xl text-gray-400 hover:text-brand-orange disabled:opacity-25 transition-colors"
+                  >
+                    <ChevronRight className="rotate-180" size={16} />
+                  </button>
+
+                  <div className="flex items-center gap-1.5">
+                    {infoSlides.map((_, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setActiveSlide(i)}
+                        className={`rounded-full transition-all ${
+                          i === activeSlide
+                            ? 'w-5 h-2 bg-brand-orange'
+                            : 'w-2 h-2 bg-gray-200 hover:bg-gray-300'
+                        }`}
+                      />
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={() => setActiveSlide(prev => Math.min(prev + 1, infoSlides.length - 1))}
+                    disabled={activeSlide === infoSlides.length - 1}
+                    className="p-1.5 rounded-xl text-gray-400 hover:text-brand-orange disabled:opacity-25 transition-colors"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex flex-wrap items-center gap-6 mb-10">
