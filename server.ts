@@ -500,6 +500,22 @@ const getProductByIdForMeta = (id?: string | null) => {
   return getProductsCatalog().find((product: any) => String(product.id) === String(id)) || null;
 };
 
+const getProductByIdForMetaAsync = async (id?: string | null): Promise<any | null> => {
+  if (!id) return null;
+  // Try Supabase first so we always get fresh data (even on Vercel ephemeral SQLite)
+  if (supabase) {
+    try {
+      const { data, error } = await (supabase as any)
+        .from('products')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
+      if (!error && data) return normalizeProductRecord(data);
+    } catch { /* fall through */ }
+  }
+  return getProductByIdForMeta(id);
+};
+
 const getPostByIdForMeta = (id?: string | null) => {
   if (!id) return null;
   return getPostsCatalog().find((post: any) => String(post.id) === String(id)) || null;
@@ -512,10 +528,17 @@ const truncateText = (value: any, maxLength: number) => {
   return `${text.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
 };
 
-const getProductBenefitLine = (product: any) => {
-  const description = String(product?.description || '').trim();
-  if (!description) return 'Oferta especial com frete rápido e atendimento direto no WhatsApp.';
+const stripStructuredMarkers = (text: string) => text.replace(/\[\[[^\]]*\]\]\s*/g, '').trim();
 
+const getProductBenefitLine = (product: any) => {
+  const rawDesc = String(product?.description || '').trim();
+  // Extract [[summary]] field if present (AI-filled structured content)
+  const summaryMatch = rawDesc.match(/\[\[summary\]\]\s*([\s\S]*?)(?=\[\[|$)/i);
+  const description = summaryMatch
+    ? summaryMatch[1].trim()
+    : stripStructuredMarkers(rawDesc);
+
+  if (!description) return 'Oferta especial com frete rápido e atendimento direto no WhatsApp.';
   const sentence = description.split(/[.!?]/).map((item) => item.trim()).find(Boolean) || description;
   return truncateText(sentence, 88);
 };
@@ -636,6 +659,47 @@ const buildMetaBlock = (meta: {
     <meta name="twitter:image" content="${escapeHtml(meta.imageUrl)}" />
     <meta name="twitter:image:alt" content="${escapeHtml(meta.imageAlt)}" />
   `;
+
+const getRouteMetaAsync = async (pathname: string, appUrl: string) => {
+  const normalizedPath = String(pathname || '/').split('?')[0] || '/';
+  const productMatch = normalizedPath.match(/^\/produto\/([^/]+)$/);
+  const offerMatch = normalizedPath.match(/^\/oferta\/([^/]+)$/);
+
+  if (offerMatch) {
+    const productId = decodeURIComponent(offerMatch[1]);
+    const product = await getProductByIdForMetaAsync(productId);
+    if (product) {
+      const campaignLabel = getProductCampaignLabel(product);
+      return {
+        title: `${campaignLabel}: ${product.name} | Oferta L7 Fitness`,
+        description: `${getProductSocialDescription(product)} Página dedicada da campanha com CTA forte para conversão.`,
+        canonicalUrl: `${appUrl}/oferta/${encodeURIComponent(productId)}`,
+        imageUrl: `${appUrl}/og/product/${encodeURIComponent(productId)}.png`,
+        imageAlt: `${product.name} em página de campanha da L7 Fitness`,
+        imageType: 'image/png',
+        type: 'product',
+      };
+    }
+  }
+
+  if (productMatch) {
+    const productId = decodeURIComponent(productMatch[1]);
+    const product = await getProductByIdForMetaAsync(productId);
+    if (product) {
+      return {
+        title: `${product.name} | Compre agora na L7 Fitness`,
+        description: getProductSocialDescription(product),
+        canonicalUrl: `${appUrl}/produto/${encodeURIComponent(productId)}`,
+        imageUrl: `${appUrl}/og/product/${encodeURIComponent(productId)}.png`,
+        imageAlt: `${product.name} com CTA de compra da L7 Fitness`,
+        imageType: 'image/png',
+        type: 'product',
+      };
+    }
+  }
+
+  return getRouteMeta(pathname, appUrl);
+};
 
 const getRouteMeta = (pathname: string, appUrl: string) => {
   const normalizedPath = String(pathname || '/').split('?')[0] || '/';
@@ -2881,8 +2945,8 @@ app.post("/api/checkout", async (req, res) => {
     }
   });
 
-  app.get('/og/product/:id.svg', (req, res) => {
-    const product = getProductByIdForMeta(decodeURIComponent(req.params.id || ''));
+  app.get('/og/product/:id.svg', async (req, res) => {
+    const product = await getProductByIdForMetaAsync(decodeURIComponent(req.params.id || ''));
     const benefit = getProductBenefitLine(product);
     const offerLine = getProductOfferLine(product);
     const imageUrl = String(product?.image || product?.images?.[0] || '').trim() || undefined;
@@ -2905,7 +2969,7 @@ app.post("/api/checkout", async (req, res) => {
   });
 
   app.get('/og/product/:id.png', async (req, res) => {
-    const product = getProductByIdForMeta(decodeURIComponent(req.params.id || ''));
+    const product = await getProductByIdForMetaAsync(decodeURIComponent(req.params.id || ''));
     const benefit = getProductBenefitLine(product);
     const offerLine = getProductOfferLine(product);
     const imageUrl = String(product?.image || product?.images?.[0] || '').trim() || undefined;
@@ -2971,13 +3035,13 @@ app.post("/api/checkout", async (req, res) => {
     }
   });
 
-  const renderAppWithMeta = (req: any, res: any, next?: any) => {
+  const renderAppWithMeta = async (req: any, res: any, next?: any) => {
     try {
       const htmlPath = process.env.NODE_ENV === 'production'
         ? path.join(__dirname, 'dist', 'index.html')
         : path.join(__dirname, 'index.html');
       const html = fs.readFileSync(htmlPath, 'utf-8');
-      const meta = getRouteMeta(req.path, resolveAppUrl(req));
+      const meta = await getRouteMetaAsync(req.path, resolveAppUrl(req));
       const injectedHtml = html.replace(
         /<!-- SEO_META_START -->([\s\S]*?)<!-- SEO_META_END -->/,
         `<!-- SEO_META_START -->${buildMetaBlock(meta)}<!-- SEO_META_END -->`
