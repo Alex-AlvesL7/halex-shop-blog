@@ -1466,6 +1466,8 @@ const ProductDetailsPage: React.FC<{ product: Product, onAddToCart: (p: Product)
   const [activeImage, setActiveImage] = useState(product.image);
   const [activeSlide, setActiveSlide] = useState(0);
   const touchStartX = useRef<number>(0);
+  const slidesPaused = useRef(false);
+  const pauseTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const compositionPanels = useMemo(() => getProductCompositionPanels(product), [product]);
   const allImages = [product.image, ...(product.images || [])];
   const marketing = useMemo(() => getProductMarketingSummary(product), [product]);
@@ -1511,6 +1513,22 @@ const ProductDetailsPage: React.FC<{ product: Product, onAddToCart: (p: Product)
     setActiveImage(product.image);
     setActiveSlide(0);
   }, [product.id, product.image]);
+
+  useEffect(() => {
+    if (infoSlides.length <= 1) return;
+    const interval = setInterval(() => {
+      if (!slidesPaused.current) {
+        setActiveSlide(prev => (prev + 1) % infoSlides.length);
+      }
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [infoSlides.length]);
+
+  const pauseAutoPlay = () => {
+    slidesPaused.current = true;
+    if (pauseTimeout.current) clearTimeout(pauseTimeout.current);
+    pauseTimeout.current = setTimeout(() => { slidesPaused.current = false; }, 8000);
+  };
 
   return (
     <div className="pt-32 pb-40 md:pb-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1603,6 +1621,7 @@ const ProductDetailsPage: React.FC<{ product: Product, onAddToCart: (p: Product)
                     onTouchEnd={(e) => {
                       const diff = touchStartX.current - e.changedTouches[0].clientX;
                       if (Math.abs(diff) > 40) {
+                        pauseAutoPlay();
                         if (diff > 0) setActiveSlide(prev => Math.min(prev + 1, infoSlides.length - 1));
                         else setActiveSlide(prev => Math.max(prev - 1, 0));
                       }
@@ -1619,7 +1638,7 @@ const ProductDetailsPage: React.FC<{ product: Product, onAddToCart: (p: Product)
 
                 <div className="flex items-center justify-between border-t border-gray-100 px-4 py-2">
                   <button
-                    onClick={() => setActiveSlide(prev => Math.max(prev - 1, 0))}
+                    onClick={() => { pauseAutoPlay(); setActiveSlide(prev => Math.max(prev - 1, 0)); }}
                     disabled={activeSlide === 0}
                     className="p-1.5 rounded-xl text-gray-400 hover:text-brand-orange disabled:opacity-25 transition-colors"
                   >
@@ -1630,7 +1649,7 @@ const ProductDetailsPage: React.FC<{ product: Product, onAddToCart: (p: Product)
                     {infoSlides.map((_, i) => (
                       <button
                         key={i}
-                        onClick={() => setActiveSlide(i)}
+                        onClick={() => { pauseAutoPlay(); setActiveSlide(i); }}
                         className={`rounded-full transition-all ${
                           i === activeSlide
                             ? 'w-5 h-2 bg-brand-orange'
@@ -1641,7 +1660,7 @@ const ProductDetailsPage: React.FC<{ product: Product, onAddToCart: (p: Product)
                   </div>
 
                   <button
-                    onClick={() => setActiveSlide(prev => Math.min(prev + 1, infoSlides.length - 1))}
+                    onClick={() => { pauseAutoPlay(); setActiveSlide(prev => Math.min(prev + 1, infoSlides.length - 1)); }}
                     disabled={activeSlide === infoSlides.length - 1}
                     className="p-1.5 rounded-xl text-gray-400 hover:text-brand-orange disabled:opacity-25 transition-colors"
                   >
