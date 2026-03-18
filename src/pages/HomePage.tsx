@@ -108,6 +108,12 @@ export const HomePage = ({
     },
   ];
 
+  const aiProofItems = [
+    `${reviewVolume}+ avaliações ajudam a destacar os produtos com mais confiança`,
+    `${products.length}+ opções na loja para encaixar no seu objetivo`,
+    'Leitura inicial em cerca de 1 minuto com peso, altura e meta',
+  ];
+
   return (
     <div className="overflow-hidden bg-[linear-gradient(180deg,#070707_0%,#111111_16%,#f7f3ee_16%,#fffaf6_46%,#ffffff_100%)] pb-24">
       {/* ── HERO ─────────────────────────────────────────────── */}
@@ -141,12 +147,16 @@ export const HomePage = ({
                 acelerar seu emagrecimento com mais segurança.
               </p>
 
+              <div className="mt-6 inline-flex rounded-full border border-brand-orange/20 bg-brand-orange/10 px-4 py-2 text-xs font-black uppercase tracking-[0.24em] text-brand-orange">
+                Descubra seu protocolo em 1 minuto
+              </div>
+
               <div className="mt-8 flex flex-wrap gap-4">
                 <button
                   onClick={() => onNavigate('tips')}
                   className="btn-primary inline-flex items-center gap-2 shadow-[0_20px_40px_rgba(255,99,33,0.24)]"
                 >
-                  Fazer análise com IA <ChevronRight size={18} />
+                  Descobrir meu protocolo <ChevronRight size={18} />
                 </button>
                 <button
                   onClick={() => onNavigate('store')}
@@ -154,6 +164,17 @@ export const HomePage = ({
                 >
                   Ver produtos
                 </button>
+              </div>
+
+              <div className="mt-8 grid gap-3 sm:grid-cols-3">
+                {aiProofItems.map((item) => (
+                  <div
+                    key={item}
+                    className="rounded-[22px] border border-white/10 bg-white/5 px-4 py-4 text-sm leading-6 text-gray-300 backdrop-blur-sm"
+                  >
+                    {item}
+                  </div>
+                ))}
               </div>
 
               {/* Stats row */}
@@ -334,6 +355,9 @@ export const HomePage = ({
               <h2 className="mt-2 text-3xl font-black uppercase text-brand-black sm:text-4xl">
                 Analise peso, altura e objetivo antes de comprar.
               </h2>
+              <p className="mt-4 text-xl font-black uppercase leading-tight text-brand-black sm:text-2xl">
+                Menos dúvida, mais clique no produto certo.
+              </p>
               <p className="mt-4 max-w-2xl text-base leading-8 text-gray-600 sm:text-lg">
                 Em vez de sair clicando sem direção, a cliente informa peso,
                 altura, idade e objetivo. A IA devolve uma leitura inicial,
@@ -341,12 +365,27 @@ export const HomePage = ({
                 saúde.
               </p>
 
+              <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                <div className="rounded-[22px] border border-orange-100 bg-orange-50 px-4 py-4">
+                  <p className="text-[10px] font-black uppercase tracking-[0.24em] text-brand-orange">Promessa</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-brand-black">Receba uma direção inicial antes de comprar qualquer kit.</p>
+                </div>
+                <div className="rounded-[22px] border border-orange-100 bg-white px-4 py-4">
+                  <p className="text-[10px] font-black uppercase tracking-[0.24em] text-brand-orange">Tempo</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-brand-black">Fluxo rápido para aumentar conversão sem cansar a visitante.</p>
+                </div>
+                <div className="rounded-[22px] border border-orange-100 bg-white px-4 py-4">
+                  <p className="text-[10px] font-black uppercase tracking-[0.24em] text-brand-orange">Foco</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-brand-black">Peso, altura, medidas e meta de emagrecimento em destaque.</p>
+                </div>
+              </div>
+
               <div className="mt-6 flex flex-wrap gap-4">
                 <button
                   onClick={() => onNavigate('tips')}
                   className="btn-primary inline-flex items-center gap-2"
                 >
-                  Começar análise <ChevronRight size={18} />
+                  Descobrir meu protocolo em 1 minuto <ChevronRight size={18} />
                 </button>
                 <button
                   onClick={() => onNavigate('store')}
@@ -370,6 +409,43 @@ export const HomePage = ({
                   a pessoa entende seu perfil, depois recebe a oferta certa.
                 </p>
               </div>
+
+              <button
+                onClick={() => onNavigate('tips')}
+                className="mt-5 block w-full rounded-[26px] border border-white/10 bg-white px-5 py-5 text-left text-brand-black shadow-[0_20px_50px_rgba(0,0,0,0.2)] transition hover:scale-[1.01]"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.24em] text-brand-orange">
+                      Prévia do formulário
+                    </p>
+                    <h4 className="mt-2 text-lg font-black uppercase leading-tight">
+                      Monte sua análise em segundos
+                    </h4>
+                  </div>
+                  <ArrowUpRight size={18} className="shrink-0 text-brand-orange" />
+                </div>
+
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  {[
+                    'Objetivo: emagrecimento',
+                    'Peso atual',
+                    'Altura e idade',
+                    'Medidas e rotina',
+                  ].map((field) => (
+                    <div
+                      key={field}
+                      className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-600"
+                    >
+                      {field}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-5 rounded-2xl bg-brand-black px-4 py-4 text-center text-sm font-black uppercase tracking-widest text-white">
+                  Descobrir meu protocolo em 1 minuto
+                </div>
+              </button>
 
               <div className="mt-5 grid gap-4">
                 {aiHighlights.map((item) => {
