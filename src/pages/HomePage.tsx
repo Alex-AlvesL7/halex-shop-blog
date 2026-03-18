@@ -1,16 +1,14 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ArrowUpRight,
-  BookOpen,
   ChevronLeft,
   ChevronRight,
-  DollarSign,
   Flame,
-  ShieldCheck,
+  Ruler,
+  Scale,
   Sparkles,
   Star,
-  Users,
-  Zap,
+  WandSparkles,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { BlogPost, Product } from '../types';
@@ -86,33 +84,27 @@ export const HomePage = ({
   const brandStats = [
     { value: `${products.length}+`, label: 'Produtos', icon: Sparkles },
     { value: `${reviewVolume}+`, label: 'Avaliações', icon: Star },
-    { value: '50%', label: 'Comissão afiliado', icon: DollarSign },
+    { value: '1 min', label: 'Análise com IA', icon: WandSparkles },
   ];
 
-  const brandPillars = [
+  const aiHighlights = [
     {
-      icon: ShieldCheck,
-      title: 'Suplementos selecionados',
+      icon: Scale,
+      title: 'Peso e objetivo',
       description:
-        'Curadoria rigorosa focada em qualidade, resultado e procedência. Produtos que entregam o que prometem.',
+        'A IA entende seu peso atual, meta e rotina para indicar um caminho inicial mais coerente.',
     },
     {
-      icon: Zap,
-      title: 'Performance comprovada',
+      icon: Ruler,
+      title: 'Altura e medidas',
       description:
-        'Fórmulas desenvolvidas para acelerar resultados — seja no ganho de massa, definição ou emagrecimento.',
+        'Você informa altura e dados corporais para receber uma leitura mais personalizada do seu perfil.',
     },
     {
-      icon: BookOpen,
-      title: 'Conteúdo que converte',
+      icon: WandSparkles,
+      title: 'Recomendação inteligente',
       description:
-        'Guias, dicas e artigos para você entender o que toma e comprar com mais segurança e consciência.',
-    },
-    {
-      icon: Users,
-      title: 'Programa de afiliados',
-      description:
-        'Indique produtos L7 Fitness, ganhe até 50% de comissão por venda e construa uma renda recorrente.',
+        'A consultora IA sugere produtos, rotina inicial e próximos passos para emagrecer com mais clareza.',
     },
   ];
 
@@ -139,28 +131,28 @@ export const HomePage = ({
               </span>
 
               <h1 className="mt-6 text-5xl font-black uppercase leading-[0.92] text-white sm:text-6xl lg:text-7xl">
-                Suplementos para quem{' '}
-                <span className="text-brand-orange">treina de verdade.</span>
+                L7 Fitness{' '}
+                <span className="text-brand-orange">emagreça com saúde!</span>
               </h1>
 
               <p className="mt-6 max-w-xl text-lg leading-relaxed text-gray-300">
-                Performance, emagrecimento e ganho de massa com produtos
-                selecionados, entrega rápida e conteúdo estratégico para
-                acelerar seus resultados.
+                Descubra o suplemento ideal para seu momento com ajuda da nossa
+                consultora IA, análise de peso e medidas e ofertas pensadas para
+                acelerar seu emagrecimento com mais segurança.
               </p>
 
               <div className="mt-8 flex flex-wrap gap-4">
                 <button
-                  onClick={() => onNavigate('store')}
+                  onClick={() => onNavigate('tips')}
                   className="btn-primary inline-flex items-center gap-2 shadow-[0_20px_40px_rgba(255,99,33,0.24)]"
                 >
-                  Ver produtos <ChevronRight size={18} />
+                  Fazer análise com IA <ChevronRight size={18} />
                 </button>
                 <button
-                  onClick={() => onNavigate('affiliate-program')}
+                  onClick={() => onNavigate('store')}
                   className="rounded-full border border-white/15 bg-white/5 px-6 py-3 text-sm font-black uppercase tracking-widest text-white transition hover:border-brand-orange hover:text-brand-orange"
                 >
-                  Quero ser afiliado
+                  Ver produtos
                 </button>
               </div>
 
@@ -331,95 +323,82 @@ export const HomePage = ({
         </div>
       </section>
 
-      {/* ── BRAND PILLARS ─────────────────────────────────────── */}
+      {/* ── CONSULTORA IA ─────────────────────────────────────── */}
       <section className="relative z-10 mx-auto -mt-1 max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="rounded-[36px] border border-orange-100/80 bg-white p-7 shadow-[0_25px_60px_rgba(15,23,42,0.08)] sm:p-8 lg:p-10">
-          <div className="mb-8 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
             <div>
               <p className="text-[11px] font-black uppercase tracking-[0.28em] text-brand-orange">
-                Por que L7 Fitness
+                Consultora IA L7 Fitness
               </p>
               <h2 className="mt-2 text-3xl font-black uppercase text-brand-black sm:text-4xl">
-                Tudo que você precisa para evoluir.
+                Analise peso, altura e objetivo antes de comprar.
               </h2>
-            </div>
-            <button
-              onClick={() => onNavigate('store')}
-              className="self-start text-sm font-black uppercase tracking-wider text-brand-orange transition hover:underline"
-            >
-              Ver catálogo →
-            </button>
-          </div>
+              <p className="mt-4 max-w-2xl text-base leading-8 text-gray-600 sm:text-lg">
+                Em vez de sair clicando sem direção, a cliente informa peso,
+                altura, idade e objetivo. A IA devolve uma leitura inicial,
+                recomendações e o produto mais alinhado para emagrecimento com
+                saúde.
+              </p>
 
-          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-            {brandPillars.map((pillar) => {
-              const Icon = pillar.icon;
-              return (
-                <div
-                  key={pillar.title}
-                  className="rounded-[28px] border border-gray-100 bg-[linear-gradient(180deg,#ffffff_0%,#fff8f3_100%)] p-6"
+              <div className="mt-6 flex flex-wrap gap-4">
+                <button
+                  onClick={() => onNavigate('tips')}
+                  className="btn-primary inline-flex items-center gap-2"
                 >
-                  <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-[20px] bg-gradient-to-br from-brand-orange to-orange-400 text-white shadow-[0_18px_40px_rgba(255,99,33,0.2)]">
-                    <Icon size={22} />
-                  </div>
-                  <h3 className="text-base font-black text-brand-black">
-                    {pillar.title}
-                  </h3>
-                  <p className="mt-2.5 text-sm leading-7 text-gray-600">
-                    {pillar.description}
-                  </p>
-                </div>
-              );
-            })}
+                  Começar análise <ChevronRight size={18} />
+                </button>
+                <button
+                  onClick={() => onNavigate('store')}
+                  className="rounded-full border border-brand-orange/20 bg-orange-50 px-6 py-3 text-sm font-black uppercase tracking-widest text-brand-orange transition hover:bg-brand-orange hover:text-white"
+                >
+                  Ver produtos para emagrecimento
+                </button>
+              </div>
+            </div>
+
+            <div className="rounded-[32px] border border-brand-black/5 bg-[linear-gradient(180deg,#111111_0%,#1a1a1a_100%)] p-6 text-white shadow-[0_30px_70px_rgba(15,23,42,0.18)] sm:p-7">
+              <div className="rounded-[24px] border border-white/10 bg-white/5 p-5">
+                <p className="text-[10px] font-black uppercase tracking-[0.26em] text-brand-orange">
+                  Consultoria guiada por IA
+                </p>
+                <h3 className="mt-3 text-2xl font-black uppercase leading-tight">
+                  Diagnóstico inicial em poucos passos.
+                </h3>
+                <p className="mt-3 text-sm leading-7 text-gray-300">
+                  Uma experiência pensada para aumentar CTR e conversão: primeiro
+                  a pessoa entende seu perfil, depois recebe a oferta certa.
+                </p>
+              </div>
+
+              <div className="mt-5 grid gap-4">
+                {aiHighlights.map((item) => {
+                  const Icon = item.icon;
+
+                  return (
+                    <div
+                      key={item.title}
+                      className="rounded-[24px] border border-white/10 bg-white/5 p-5"
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-brand-orange/15 text-brand-orange">
+                          <Icon size={20} />
+                        </div>
+                        <div>
+                          <h3 className="text-base font-black uppercase text-white">
+                            {item.title}
+                          </h3>
+                          <p className="mt-2 text-sm leading-7 text-gray-300">
+                            {item.description}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
-        </div>
-      </section>
-
-      {/* ── AFFILIATE PROMO ───────────────────────────────────── */}
-      <section className="mx-auto max-w-7xl px-4 pt-16 sm:px-6 lg:px-8">
-        <AffiliatePromoCard
-          onNavigate={onNavigate}
-          badge="Programa de afiliados"
-          title="Ganhe até 50% de comissão indicando produtos L7 Fitness."
-          description="Crie sua conta, compartilhe seu link e receba comissão aprovada por cada venda realizada. Construa uma renda recorrente sem estoque e sem complicação."
-          primaryLabel="Conhecer programa"
-          secondaryLabel="Ver produtos"
-          className="border-orange-300/60"
-        />
-      </section>
-
-      {/* ── FEATURED PRODUCTS ─────────────────────────────────── */}
-      <section className="mx-auto max-w-7xl px-4 pt-20 sm:px-6 lg:px-8">
-        <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-[11px] font-black uppercase tracking-[0.28em] text-brand-orange">
-              Produtos em destaque
-            </p>
-            <h2 className="mt-2 text-4xl font-black uppercase text-brand-black sm:text-5xl">
-              Os mais vendidos da loja.
-            </h2>
-            <p className="mt-3 max-w-xl text-base leading-7 text-gray-600">
-              Suplementos com maior demanda, melhores avaliações e resultados
-              comprovados pelos nossos clientes.
-            </p>
-          </div>
-          <button
-            onClick={() => onNavigate('store')}
-            className="inline-flex items-center gap-2 self-start rounded-full border border-brand-orange/20 bg-orange-50 px-6 py-3 text-sm font-black uppercase tracking-widest text-brand-orange transition hover:bg-brand-orange hover:text-white"
-          >
-            Ver catálogo completo <ChevronRight size={16} />
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
-          {featuredProducts.map((product) => (
-            <ProductCard
-              key={product.id}
-              product={product}
-              onAddToCart={onAddToCart}
-              onClick={onProductClick}
-            />
-          ))}
         </div>
       </section>
 
@@ -504,6 +483,54 @@ export const HomePage = ({
         </div>
       </section>
 
+      {/* ── AFFILIATE PROMO ───────────────────────────────────── */}
+      <section className="mx-auto max-w-7xl px-4 pt-20 sm:px-6 lg:px-8">
+        <AffiliatePromoCard
+          onNavigate={onNavigate}
+          badge="Programa de afiliados"
+          title="Ganhe até 50% de comissão indicando produtos L7 Fitness."
+          description="Depois de educar e converter a audiência com conteúdo e ofertas, a home também convida criadores, parceiros e social sellers para monetizar com a marca."
+          primaryLabel="Conhecer programa"
+          secondaryLabel="Ver produtos"
+          className="border-orange-300/60"
+        />
+      </section>
+
+      {/* ── FEATURED PRODUCTS ─────────────────────────────────── */}
+      <section className="mx-auto max-w-7xl px-4 pt-20 sm:px-6 lg:px-8">
+        <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-[11px] font-black uppercase tracking-[0.28em] text-brand-orange">
+              Produtos em destaque
+            </p>
+            <h2 className="mt-2 text-4xl font-black uppercase text-brand-black sm:text-5xl">
+              Os mais vendidos da loja.
+            </h2>
+            <p className="mt-3 max-w-xl text-base leading-7 text-gray-600">
+              Depois da análise e do conteúdo, aqui ficam os produtos com maior
+              potencial de clique e conversão.
+            </p>
+          </div>
+          <button
+            onClick={() => onNavigate('store')}
+            className="inline-flex items-center gap-2 self-start rounded-full border border-brand-orange/20 bg-orange-50 px-6 py-3 text-sm font-black uppercase tracking-widest text-brand-orange transition hover:bg-brand-orange hover:text-white"
+          >
+            Ver catálogo completo <ChevronRight size={16} />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
+          {featuredProducts.map((product) => (
+            <ProductCard
+              key={product.id}
+              product={product}
+              onAddToCart={onAddToCart}
+              onClick={onProductClick}
+            />
+          ))}
+        </div>
+      </section>
+
       {/* ── CTA FOOTER ────────────────────────────────────────── */}
       <section className="mx-auto max-w-7xl px-4 pt-24 sm:px-6 lg:px-8">
         <div className="overflow-hidden rounded-[40px] border border-orange-100 bg-[linear-gradient(135deg,#fff7f0_0%,#ffffff_42%,#fff2e7_100%)] p-8 shadow-[0_25px_70px_rgba(255,99,33,0.08)] sm:p-10 lg:p-12">
@@ -513,25 +540,26 @@ export const HomePage = ({
                 Comece agora
               </p>
               <h2 className="mt-3 text-3xl font-black uppercase text-brand-black sm:text-4xl">
-                Sua evolução começa com a escolha certa.
+                O próximo passo pode ser sua análise com IA.
               </h2>
               <p className="mt-4 text-base leading-8 text-gray-600">
-                Entre na loja e explore nossos produtos — ou cadastre-se como
-                afiliado e comece a gerar renda com a L7 Fitness.
+                Se quiser uma orientação mais certeira antes de comprar,
+                comece pela consultora IA. Se já estiver pronta, avance para a
+                loja e escolha seu kit ideal.
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
               <button
-                onClick={() => onNavigate('store')}
+                onClick={() => onNavigate('tips')}
                 className="btn-primary whitespace-nowrap"
               >
-                Ir para a loja
+                Fazer análise com IA
               </button>
               <button
-                onClick={() => onNavigate('affiliate-program')}
+                onClick={() => onNavigate('store')}
                 className="rounded-full border border-brand-orange/20 bg-white px-6 py-3 text-sm font-black uppercase tracking-widest text-brand-orange transition hover:bg-brand-orange hover:text-white"
               >
-                Virar afiliado
+                Ir para a loja
               </button>
             </div>
           </div>
