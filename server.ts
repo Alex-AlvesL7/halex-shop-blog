@@ -2768,6 +2768,20 @@ app.post("/api/checkout", async (req, res) => {
           home: `${appUrl}/?ref=${encodeURIComponent(affiliate.ref_code || refCode)}`,
           store: `${appUrl}/loja?ref=${encodeURIComponent(affiliate.ref_code || refCode)}`,
         },
+        orders: normalizedOrders.map((order) => ({
+          id: order.id,
+          orderNsu: order.order_nsu,
+          createdAt: order.created_at,
+          status: order.status,
+          total: Number(order.total) || 0,
+          commission: (Number(order.total) || 0) * (commissionRate / 100),
+          customerEmail: order.customer?.email || order.customer_email || '',
+          customerName: order.customer?.name || '',
+          items: (order.items || []).map((item: any) => ({
+            name: item?.name || 'Produto',
+            quantity: Number(item?.quantity) || 1,
+          })),
+        })),
         recentOrders: normalizedOrders.slice(0, 12).map((order) => ({
           id: order.id,
           orderNsu: order.order_nsu,

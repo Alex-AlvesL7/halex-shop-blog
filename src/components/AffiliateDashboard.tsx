@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { BadgePercent, CheckCircle2, Clock3, Copy, DollarSign, Link2, Package, ShoppingBag, TrendingUp, Users } from 'lucide-react';
+import { BadgePercent, CheckCircle2, Clock3, Copy, DollarSign, Link2, Package, ShoppingBag, TrendingUp, Users, Wallet, CalendarDays } from 'lucide-react';
 
 const formatPrice = (value: number) => new Intl.NumberFormat('pt-BR', {
   style: 'currency',
@@ -32,10 +32,44 @@ const statusMap: Record<string, { label: string; className: string }> = {
   },
 };
 
+const commissionStatusMap: Record<string, { label: string; className: string }> = {
+  paid: {
+    label: 'Liberado',
+    className: 'bg-emerald-50 text-emerald-700 border border-emerald-100',
+  },
+  pending: {
+    label: 'Pendente',
+    className: 'bg-amber-50 text-amber-700 border border-amber-100',
+  },
+  failed: {
+    label: 'Não aprovado',
+    className: 'bg-rose-50 text-rose-700 border border-rose-100',
+  },
+};
+
+const periodOptions = [
+  { value: '7d', label: '7 dias' },
+  { value: '30d', label: '30 dias' },
+  { value: '90d', label: '90 dias' },
+  { value: 'all', label: 'Todo período' },
+] as const;
+
+const isWithinPeriod = (value: string | undefined, period: '7d' | '30d' | '90d' | 'all') => {
+  if (period === 'all') return true;
+  const date = new Date(value || '');
+  if (Number.isNaN(date.getTime())) return false;
+  const days = period === '7d' ? 7 : period === '30d' ? 30 : 90;
+  const threshold = new Date();
+  threshold.setDate(threshold.getDate() - days);
+  threshold.setHours(0, 0, 0, 0);
+  return date >= threshold;
+};
+
 export const AffiliateDashboard = ({ refCode }: { refCode: string }) => {
   const [affiliate, setAffiliate] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
+  const [period, setPeriod] = useState<'7d' | '30d' | '90d' | 'all'>('30d');
 
   useEffect(() => {
     let cancelled = false;
@@ -74,12 +108,73 @@ export const AffiliateDashboard = ({ refCode }: { refCode: string }) => {
   };
 
   const stats = affiliate?.stats || {};
-  const recentOrders = Array.isArray(affiliate?.recentOrders) ? affiliate.recentOrders : [];
-  const topProducts = Array.isArray(affiliate?.topProducts) ? affiliate.topProducts : [];
+  const allOrders = Array.isArray(affiliate?.orders)
+    ? affiliate.orders
+    : (Array.isArray(affiliate?.recentOrders) ? affiliate.recentOrders : []);
   const shareLinks = affiliate?.shareLinks || {
     home: `${window.location.origin}/?ref=${affiliate?.ref_code || refCode}`,
     store: `${window.location.origin}/loja?ref=${affiliate?.ref_code || refCode}`,
   };
+
+  const filteredOrders = useMemo(
+    () => allOrders.filter((order: any) => isWithinPeriod(order.createdAt, period)),
+    [allOrders, period]
+  );
+
+  const filteredStats = useMemo(() => {
+    const validOrders = filteredOrders.filter((order: any) => order.status !== 'failed');
+    const paidOrders = filteredOrders.filter((order: any) => order.status === 'paid');
+    const pendingOrders = filteredOrders.filter((order: any) => order.status === 'pending');
+
+    const grossSales = validOrders.reduce((acc: number, order: any) => acc + (Number(order.total) || 0), 0);
+    const paidCommission = paidOrders.reduce((acc: number, order: any) => acc + (Number(order.commission) || 0), 0);
+    const pendingCommission = pendingOrders.reduce((acc: number, order: any) => acc + (Number(order.commission) || 0), 0);
+
+    return {
+      grossSales,
+      paidCommission,
+      pendingCommission,
+      totalOrders: filteredOrders.length,
+      approvedOrders: paidOrders.length,
+      pendingOrders: pendingOrders.length,
+      averageTicket: validOrders.length ? grossSales / validOrders.length : 0,
+      availableToWithdraw: paidCommission,
+      payableSoon: pendingCommission,
+      lastPaidAt: paidOrders[0]?.createdAt || null,
+    };
+  }, [filteredOrders]);
+
+  const filteredTopProducts = useMemo(() => {
+    const productsMap = new Map<string, { name: string; orders: number; quantity: number; revenue: number }>();
+
+    filteredOrders
+      .filter((order: any) => order.status !== 'failed')
+      .forEach((order: any) => {
+        const seen = new Set<string>();
+        (order.items || []).forEach((item: any) => {
+          const name = String(item?.name || 'Produto').trim() || 'Produto';
+          const quantity = Number(item?.quantity) || 1;
+          const revenue = (Number(order.total) || 0) / Math.max(1, (order.items || []).length);
+          const current = productsMap.get(name) || { name, orders: 0, quantity: 0, revenue: 0 };
+          current.quantity += quantity;
+          current.revenue += revenue;
+          if (!seen.has(name)) {
+            current.orders += 1;
+            seen.add(name);
+          }
+          productsMap.set(name, current);
+        });
+      });
+
+    return Array.from(productsMap.values()).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
+  }, [filteredOrders]);
+
+  const payoutHistory = useMemo(
+    () => filteredOrders
+      .filter((order: any) => Number(order.commission) > 0)
+      .slice(0, 12),
+    [filteredOrders]
+  );
 
   const quickTips = useMemo(() => [
     'Compartilhe primeiro a campanha mais forte e depois o link geral da loja.',
@@ -121,23 +216,23 @@ export const AffiliateDashboard = ({ refCode }: { refCode: string }) => {
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
               <div className="rounded-3xl bg-white/5 border border-white/10 p-5">
                 <div className="flex items-center gap-3 mb-3"><DollarSign className="text-brand-orange" size={22} /><p className="text-[10px] uppercase tracking-widest text-gray-400 font-black">Comissão paga</p></div>
-                <p className="text-3xl font-black text-white">{formatPrice(stats.paidCommission)}</p>
+                <p className="text-3xl font-black text-white">{formatPrice(filteredStats.paidCommission)}</p>
                 <p className="text-xs text-gray-400 mt-2">ganho já confirmado</p>
               </div>
               <div className="rounded-3xl bg-white/5 border border-white/10 p-5">
                 <div className="flex items-center gap-3 mb-3"><Clock3 className="text-brand-orange" size={22} /><p className="text-[10px] uppercase tracking-widest text-gray-400 font-black">Comissão pendente</p></div>
-                <p className="text-3xl font-black text-white">{formatPrice(stats.pendingCommission)}</p>
+                <p className="text-3xl font-black text-white">{formatPrice(filteredStats.pendingCommission)}</p>
                 <p className="text-xs text-gray-400 mt-2">aguardando aprovação</p>
               </div>
               <div className="rounded-3xl bg-white/5 border border-white/10 p-5">
                 <div className="flex items-center gap-3 mb-3"><TrendingUp className="text-brand-orange" size={22} /><p className="text-[10px] uppercase tracking-widest text-gray-400 font-black">Vendas geradas</p></div>
-                <p className="text-3xl font-black text-white">{formatPrice(stats.grossSales)}</p>
-                <p className="text-xs text-gray-400 mt-2">ticket médio {formatPrice(stats.averageTicket)}</p>
+                <p className="text-3xl font-black text-white">{formatPrice(filteredStats.grossSales)}</p>
+                <p className="text-xs text-gray-400 mt-2">ticket médio {formatPrice(filteredStats.averageTicket)}</p>
               </div>
               <div className="rounded-3xl bg-white/5 border border-white/10 p-5">
                 <div className="flex items-center gap-3 mb-3"><ShoppingBag className="text-brand-orange" size={22} /><p className="text-[10px] uppercase tracking-widest text-gray-400 font-black">Pedidos atribuídos</p></div>
-                <p className="text-3xl font-black text-white">{Number(stats.totalOrders) || 0}</p>
-                <p className="text-xs text-gray-400 mt-2">{Number(stats.approvedOrders) || 0} pagos • {Number(stats.pendingOrders) || 0} pendentes</p>
+                <p className="text-3xl font-black text-white">{Number(filteredStats.totalOrders) || 0}</p>
+                <p className="text-xs text-gray-400 mt-2">{Number(filteredStats.approvedOrders) || 0} pagos • {Number(filteredStats.pendingOrders) || 0} pendentes</p>
               </div>
             </div>
           </div>
@@ -177,6 +272,26 @@ export const AffiliateDashboard = ({ refCode }: { refCode: string }) => {
         </div>
       </div>
 
+      <div className="bg-white rounded-[32px] border border-gray-100 shadow-sm p-5 lg:p-6 mb-6">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div>
+            <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black mb-2">Análise por período</p>
+            <h3 className="text-2xl font-black uppercase text-brand-black">Filtrar ganhos e pedidos</h3>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {periodOptions.map((option) => (
+              <button
+                key={option.value}
+                onClick={() => setPeriod(option.value)}
+                className={`px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest transition-colors ${period === option.value ? 'bg-brand-black text-white' : 'bg-gray-100 text-gray-500 hover:text-brand-orange'}`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 xl:grid-cols-[1.5fr_0.9fr] gap-6 mb-6">
         <div className="bg-white rounded-[32px] border border-gray-100 shadow-sm p-6 lg:p-8">
           <div className="flex items-center justify-between gap-4 mb-6">
@@ -186,13 +301,13 @@ export const AffiliateDashboard = ({ refCode }: { refCode: string }) => {
             </div>
           </div>
 
-          {recentOrders.length === 0 ? (
+          {filteredOrders.length === 0 ? (
             <div className="rounded-3xl bg-gray-50 border border-gray-100 p-6 text-sm text-gray-500">
               Ainda não há pedidos vinculados ao seu código. Use seus links acima para começar a divulgar.
             </div>
           ) : (
             <div className="space-y-4">
-              {recentOrders.map((order: any) => {
+              {filteredOrders.slice(0, 12).map((order: any) => {
                 const statusInfo = statusMap[order.status] || statusMap.pending;
 
                 return (
@@ -233,11 +348,11 @@ export const AffiliateDashboard = ({ refCode }: { refCode: string }) => {
             <h3 className="text-2xl font-black uppercase text-brand-black mb-5">Produtos que mais giram</h3>
 
             <div className="space-y-3">
-              {topProducts.length === 0 ? (
+              {filteredTopProducts.length === 0 ? (
                 <div className="rounded-2xl bg-gray-50 border border-gray-100 p-4 text-sm text-gray-500">
                   Assim que os pedidos entrarem, mostramos aqui os produtos mais vendidos pelo seu código.
                 </div>
-              ) : topProducts.map((product: any, index: number) => (
+              ) : filteredTopProducts.map((product: any, index: number) => (
                 <div key={product.name} className="rounded-2xl bg-gray-50 border border-gray-100 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -278,6 +393,75 @@ export const AffiliateDashboard = ({ refCode }: { refCode: string }) => {
               ))}
             </div>
           </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-[0.95fr_1.05fr] gap-6">
+        <div className="bg-white rounded-[32px] border border-gray-100 shadow-sm p-6 lg:p-8">
+          <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black mb-2">Financeiro</p>
+          <h3 className="text-2xl font-black uppercase text-brand-black mb-6">Saldo e saque</h3>
+
+          <div className="space-y-4">
+            <div className="rounded-3xl bg-emerald-50 border border-emerald-100 p-5">
+              <div className="flex items-center gap-3 mb-2"><Wallet className="text-emerald-600" size={20} /><p className="text-[10px] uppercase tracking-widest text-emerald-700 font-black">Disponível para saque</p></div>
+              <p className="text-3xl font-black text-emerald-700">{formatPrice(filteredStats.availableToWithdraw)}</p>
+              <p className="text-sm text-emerald-700/80 mt-2">valor dos pedidos pagos no período filtrado</p>
+            </div>
+
+            <div className="rounded-3xl bg-amber-50 border border-amber-100 p-5">
+              <div className="flex items-center gap-3 mb-2"><Clock3 className="text-amber-700" size={20} /><p className="text-[10px] uppercase tracking-widest text-amber-700 font-black">Pendente de liberação</p></div>
+              <p className="text-3xl font-black text-amber-700">{formatPrice(filteredStats.payableSoon)}</p>
+              <p className="text-sm text-amber-700/80 mt-2">comissões ligadas a pedidos ainda não pagos</p>
+            </div>
+
+            <div className="rounded-3xl bg-gray-50 border border-gray-100 p-5">
+              <div className="flex items-center gap-3 mb-2"><CalendarDays className="text-brand-orange" size={20} /><p className="text-[10px] uppercase tracking-widest text-gray-500 font-black">Última comissão liberada</p></div>
+              <p className="text-xl font-black text-brand-black">{formatDate(filteredStats.lastPaidAt)}</p>
+              <p className="text-sm text-gray-500 mt-2">acompanhamento financeiro do seu período atual</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-[32px] border border-gray-100 shadow-sm p-6 lg:p-8">
+          <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black mb-2">Histórico financeiro</p>
+          <h3 className="text-2xl font-black uppercase text-brand-black mb-6">Repasses e status</h3>
+
+          {payoutHistory.length === 0 ? (
+            <div className="rounded-3xl bg-gray-50 border border-gray-100 p-6 text-sm text-gray-500">
+              Ainda não há comissões no período selecionado.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {payoutHistory.map((order: any) => {
+                const commissionStatus = commissionStatusMap[order.status] || commissionStatusMap.pending;
+
+                return (
+                  <div key={`payout-${order.id}`} className="rounded-3xl border border-gray-100 bg-gray-50 p-5">
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          <p className="text-sm font-black text-brand-black">{order.orderNsu || order.id}</p>
+                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${commissionStatus.className}`}>{commissionStatus.label}</span>
+                        </div>
+                        <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">{formatDate(order.createdAt)} • {order.customerName || order.customerEmail || 'Cliente identificado'}</p>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4 min-w-[220px]">
+                        <div>
+                          <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black mb-1">Venda</p>
+                          <p className="text-lg font-black text-brand-black">{formatPrice(order.total)}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black mb-1">Repasse</p>
+                          <p className="text-lg font-black text-brand-orange">{formatPrice(order.commission)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>
