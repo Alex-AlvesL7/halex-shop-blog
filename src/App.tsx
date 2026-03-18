@@ -2071,7 +2071,11 @@ const getProductOfferWhatsAppLink = (product?: Product | null) => {
   const normalized = digits.startsWith('55') ? digits : `55${digits}`;
   const productName = product?.name || 'o produto da oferta';
   const cta = product?.promotionCta || 'Quero aproveitar a oferta';
-  const message = encodeURIComponent(`Olá! Vi a página da campanha de ${productName} na L7 Fitness. ${cta}. Pode me explicar como comprar e como usar corretamente?`);
+  const campaignUrl = product?.id
+    ? `${typeof window !== 'undefined' ? window.location.origin : 'https://www.l7fitness.com.br'}/oferta/${encodeURIComponent(String(product.id))}`
+    : '';
+  const urlLine = campaignUrl ? `\n\n🔗 ${campaignUrl}` : '';
+  const message = encodeURIComponent(`Olá! Tenho interesse no *${productName}* da L7 Fitness. ${cta}.${urlLine}`);
   return `https://wa.me/${normalized}?text=${message}`;
 };
 
@@ -3847,6 +3851,18 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                             Copiar link da campanha
                           </button>
                           <button
+                            onClick={() => {
+                              const campaignUrl = getCampaignOfferUrl(p.id);
+                              const productName = p.name || 'nosso produto';
+                              const cta = p.promotionCta || 'Veja a oferta completa';
+                              const msg = encodeURIComponent(`Olá! Preparamos uma oferta especial do *${productName}* pra você 🔥\n\n${cta}:\n\n${campaignUrl}`);
+                              window.open(`https://wa.me/?text=${msg}`, '_blank', 'noopener,noreferrer');
+                            }}
+                            className="px-3 py-2 rounded-xl bg-[#25d366] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#1ebe5d] transition-colors flex items-center gap-1.5"
+                          >
+                            <Phone size={12} /> Enviar no WhatsApp
+                          </button>
+                          <button
                             onClick={() => window.open(getCampaignOfferUrl(p.id), '_blank', 'noopener,noreferrer')}
                             className="px-3 py-2 rounded-xl bg-white text-gray-700 border border-gray-200 text-[10px] font-black uppercase tracking-widest hover:bg-gray-50 transition-colors"
                           >
@@ -3933,16 +3949,27 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                           <span className="text-[10px] uppercase tracking-widest text-emerald-300 font-black">Compartilhamento</span>
                         </div>
                         <div className="p-4">
-                          <p className="text-sm font-black text-white mb-1">www.l7fitness.com.br</p>
-                          <p className="text-xs text-emerald-100/90 mb-2 break-all">{getCampaignOfferUrl(p.id)}</p>
-                          <p className="text-sm text-emerald-100 font-bold leading-snug mb-2">{p.name}</p>
-                          <p className="text-xs text-emerald-100/80 leading-relaxed mb-3 line-clamp-3">
-                            {p.promotionCta || getProductMarketingSummary(p).summary || 'Oferta ativa com frete rápido e atendimento direto no WhatsApp.'}
-                          </p>
-                          <div className="flex flex-wrap gap-2">
-                            {p.promotionLabel && <span className="px-2 py-1 rounded-full bg-white/10 text-[10px] font-black uppercase tracking-widest text-white">{p.promotionLabel}</span>}
-                            {hasProductPromotion(p) && <span className="px-2 py-1 rounded-full bg-brand-orange text-[10px] font-black uppercase tracking-widest text-white">{p.discountPercentage}% OFF</span>}
-                            <span className="px-2 py-1 rounded-full bg-white/10 text-[10px] font-black uppercase tracking-widest text-emerald-200">OG PNG</span>
+                          {/* Balão de mensagem simulado */}
+                          <div className="bg-[#1a4d38] rounded-2xl rounded-tl-sm px-4 py-3 mb-3 text-sm text-white leading-relaxed whitespace-pre-line">
+                            {`Olá! Preparamos uma oferta especial do *${p.name}* pra você 🔥\n\n${p.promotionCta || 'Veja a oferta completa'}:\n\n${getCampaignOfferUrl(p.id)}`}
+                          </div>
+                          {/* Preview do link OG */}
+                          <div className="bg-[#0d2b21] rounded-xl overflow-hidden border border-emerald-900/40">
+                            <div className="h-20 bg-white/5 relative overflow-hidden">
+                              <img src={p.image} className="w-full h-full object-cover opacity-80" referrerPolicy="no-referrer" />
+                              {p.promotionLabel && (
+                                <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-brand-orange text-white text-[9px] font-black uppercase tracking-widest">
+                                  {p.promotionLabel}
+                                </div>
+                              )}
+                            </div>
+                            <div className="p-3">
+                              <p className="text-[10px] text-emerald-400 font-bold mb-0.5">www.l7fitness.com.br</p>
+                              <p className="text-xs text-white font-black leading-snug mb-1 line-clamp-1">{p.name}</p>
+                              <p className="text-[11px] text-emerald-100/70 leading-relaxed line-clamp-2">
+                                {p.promotionCta || getProductMarketingSummary(p).summary || 'Oferta ativa com frete rápido e atendimento direto no WhatsApp.'}
+                              </p>
+                            </div>
                           </div>
                         </div>
                       </div>
