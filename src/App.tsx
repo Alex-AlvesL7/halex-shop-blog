@@ -3061,8 +3061,18 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
 
   const getPublicProductUrl = (productId?: string | null) => `${window.location.origin}/produto/${encodeURIComponent(String(productId || ''))}`;
   const getCampaignOfferUrl = (productId?: string | null) => `${window.location.origin}/oferta/${encodeURIComponent(String(productId || ''))}`;
-  const getProductOgUrl = (productId?: string | null) => `${window.location.origin}/og/product/${encodeURIComponent(String(productId || ''))}.png`;
-  const getProductOgPreviewUrl = (productId?: string | null) => `${window.location.origin}/og/product/${encodeURIComponent(String(productId || ''))}.svg`;
+
+  const handleCopyCampaignLink = async (productId?: string | null) => {
+    const url = getCampaignOfferUrl(productId);
+
+    try {
+      await navigator.clipboard.writeText(url);
+      showProductFeedback('Link da campanha copiado.');
+    } catch (error) {
+      console.error('Falha ao copiar link da campanha:', error);
+      window.prompt('Copie o link da campanha:', url);
+    }
+  };
 
   const handleCopyProductLink = async (productId?: string | null, mode: 'product' | 'campaign' = 'campaign') => {
     const url = mode === 'campaign' ? getCampaignOfferUrl(productId) : getPublicProductUrl(productId);
@@ -3074,10 +3084,6 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
       console.error('Falha ao copiar link da oferta:', error);
       window.prompt(mode === 'campaign' ? 'Copie o link da campanha:' : 'Copie o link do produto:', url);
     }
-  };
-
-  const handleOpenOgPreview = (productId?: string | null) => {
-    window.open(getProductOgPreviewUrl(productId), '_blank', 'noopener,noreferrer');
   };
 
   const productDraftPreview = useMemo(() => getProductMarketingSummary({
@@ -3848,7 +3854,7 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
 
                         <div className="flex flex-wrap gap-2 mt-4">
                           <button
-                            onClick={() => handleCopyProductLink(p.id, 'campaign')}
+                            onClick={() => handleCopyCampaignLink(p.id)}
                             className="px-3 py-2 rounded-xl bg-gray-100 text-gray-700 text-[10px] font-black uppercase tracking-widest hover:bg-gray-200 transition-colors"
                           >
                             Copiar link da campanha
@@ -3875,12 +3881,6 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                             className="px-3 py-2 rounded-xl bg-white text-gray-700 border border-gray-200 text-[10px] font-black uppercase tracking-widest hover:bg-gray-50 transition-colors"
                           >
                             Abrir produto
-                          </button>
-                          <button
-                            onClick={() => handleOpenOgPreview(p.id)}
-                            className="px-3 py-2 rounded-xl bg-brand-black text-white text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-opacity"
-                          >
-                            Abrir preview OG
                           </button>
                         </div>
                       </div>
