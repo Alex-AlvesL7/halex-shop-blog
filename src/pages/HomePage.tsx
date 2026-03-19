@@ -127,6 +127,27 @@ export const HomePage = ({
     }, 250);
   }, []);
 
+  const scrollToQuizResult = useCallback(() => {
+    quizResultRef.current?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    });
+  }, []);
+
+  const handleQuizPrimaryCheckout = useCallback(() => {
+    if (!inlineQuizResult?.primaryProduct) return;
+
+    onAddToCart(inlineQuizResult.primaryProduct);
+    onNavigate('checkout');
+  }, [inlineQuizResult, onAddToCart, onNavigate]);
+
+  const primaryQuizProductPrice = inlineQuizResult?.primaryProduct
+    ? formatPriceBRL(inlineQuizResult.primaryProduct.price)
+    : null;
+
+  const primaryQuizProductLabel =
+    inlineQuizResult?.primaryProduct?.name || 'kit recomendado';
+
   const handleInlineQuizChange = useCallback(
     (field: string, value: string | number) => {
       setInlineQuizForm((prev) => ({ ...prev, [field]: value }));
@@ -836,23 +857,58 @@ export const HomePage = ({
                   )}
 
                   <div className="rounded-[28px] border border-orange-100 bg-orange-50 p-6">
-                    <p className="text-[10px] font-black uppercase tracking-[0.24em] text-brand-orange">
-                      Próximo passo
-                    </p>
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <p className="text-[10px] font-black uppercase tracking-[0.24em] text-brand-orange">
+                        Próximo passo
+                      </p>
+                      {primaryQuizProductPrice && (
+                        <span className="inline-flex items-center rounded-full border border-orange-200 bg-white px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-brand-orange">
+                          Oferta ativa • {primaryQuizProductPrice}
+                        </span>
+                      )}
+                    </div>
                     <p className="mt-3 text-sm leading-7 text-gray-700">
                       {inlineQuizResult.cta}
                     </p>
                     <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                      {['Direção inicial', 'Kit sugerido', 'Atendimento iniciado'].map(
-                        (item) => (
-                          <div
-                            key={item}
-                            className="rounded-2xl border border-orange-100 bg-white px-4 py-3 text-center text-xs font-black uppercase tracking-[0.2em] text-brand-black"
-                          >
-                            {item}
-                          </div>
-                        ),
-                      )}
+                      <button
+                        type="button"
+                        onClick={scrollToQuizResult}
+                        className="rounded-2xl border border-orange-100 bg-white px-4 py-4 text-center transition hover:-translate-y-0.5 hover:border-brand-orange hover:bg-brand-orange hover:text-white"
+                      >
+                        <span className="block text-xs font-black uppercase tracking-[0.2em] text-brand-black transition-colors hover:text-white">
+                          Confirmar meu plano
+                        </span>
+                        <span className="mt-2 block text-[11px] leading-5 text-gray-500 transition-colors hover:text-orange-100">
+                          Releia a estratégia que mais combina com seu perfil antes de decidir.
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => inlineQuizResult.primaryProduct && onProductClick(inlineQuizResult.primaryProduct)}
+                        className="rounded-2xl border border-orange-100 bg-white px-4 py-4 text-center transition hover:-translate-y-0.5 hover:border-brand-orange hover:bg-brand-orange hover:text-white"
+                      >
+                        <span className="block text-xs font-black uppercase tracking-[0.2em] text-brand-black transition-colors hover:text-white">
+                          Ver oferta indicada
+                        </span>
+                        <span className="mt-2 block text-[11px] leading-5 text-gray-500 transition-colors hover:text-orange-100">
+                          Abra {primaryQuizProductLabel} e veja benefícios, uso e composição.
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleQuizPrimaryCheckout}
+                        className="rounded-2xl border border-brand-orange bg-brand-orange px-4 py-4 text-center text-white shadow-[0_18px_40px_rgba(255,99,33,0.22)] transition hover:-translate-y-0.5 hover:bg-orange-600"
+                      >
+                        <span className="block text-xs font-black uppercase tracking-[0.2em]">
+                          Garantir meu kit agora
+                        </span>
+                        <span className="mt-2 block text-[11px] leading-5 text-orange-100">
+                          Entre no checkout com {primaryQuizProductLabel}{primaryQuizProductPrice ? ` por ${primaryQuizProductPrice}` : ''} antes que a oferta mude.
+                        </span>
+                      </button>
                     </div>
                   </div>
                 </motion.div>
