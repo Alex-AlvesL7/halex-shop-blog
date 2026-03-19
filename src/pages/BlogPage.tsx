@@ -25,7 +25,7 @@ export const BlogPage = ({
         onClick={() => onNavigate('affiliate-program')}
         className="inline-flex items-center gap-2 rounded-full bg-brand-orange px-6 py-3 text-sm font-black uppercase tracking-widest text-white transition hover:bg-orange-600"
       >
-        Conhecer programa de afiliados <ChevronRight size={16} />
+        Ganhar dinheiro com a L7 <ChevronRight size={16} />
       </button>
     </div>
 
@@ -36,7 +36,7 @@ export const BlogPage = ({
       badge="Programa de afiliados"
       title="Gostou do conteúdo? Conheça também o programa de afiliados da L7 Fitness."
       description="Se você produz conteúdo, atende clientes ou gosta de indicar bons produtos, pode participar do programa e divulgar a marca com suporte, materiais e link exclusivo."
-      primaryLabel="Conhecer afiliados"
+      primaryLabel="Ganhar dinheiro com a L7"
       secondaryLabel="Explorar loja"
     />
 

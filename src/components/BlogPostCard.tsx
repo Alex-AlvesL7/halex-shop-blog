@@ -64,7 +64,7 @@ export const BlogPostCard: React.FC<{
             }}
             className="mt-3 inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-4 py-2 text-[11px] font-black uppercase tracking-widest text-brand-orange transition hover:bg-brand-orange hover:text-white"
           >
-            Conhecer afiliados <ChevronRight size={14} />
+            Ganhar dinheiro com a L7 <ChevronRight size={14} />
           </button>
         )}
       </div>

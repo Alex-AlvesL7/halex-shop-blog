@@ -1023,7 +1023,7 @@ export const HomePage = ({
           badge="Programa de afiliados"
           title="Ganhe até 50% de comissão indicando produtos L7 Fitness."
           description="Indique os produtos L7 Fitness com seu link exclusivo, acesse materiais prontos e acompanhe sua evolução com apoio da marca."
-          primaryLabel="Conhecer afiliados"
+          primaryLabel="Ganhar dinheiro com a L7"
           secondaryLabel="Explorar loja"
           className="border-orange-300/60"
         />
