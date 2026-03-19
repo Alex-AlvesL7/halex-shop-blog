@@ -286,6 +286,9 @@ const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supaba
 
 if (supabase) {
   console.log(`Supabase integrated successfully using ${supabaseServiceRoleKey ? 'service role' : 'anon key'}.`);
+  if (!supabaseServiceRoleKey) {
+    console.warn('Supabase is running with anon key only. Apply SUPABASE_QUIZ_LEADS.sql or configure SUPABASE_SERVICE_ROLE_KEY for the quiz leads flow.');
+  }
 } else {
   console.warn("Supabase credentials missing. Using local SQLite only.");
 }

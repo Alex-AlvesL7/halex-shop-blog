@@ -439,6 +439,9 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
   const [affiliates, setAffiliates] = useState<any[]>([]);
   const [quizLeads, setQuizLeads] = useState<any[]>([]);
   const [leadsLoading, setLeadsLoading] = useState(false);
+  const [leadDataSource, setLeadDataSource] = useState<'supabase' | 'sqlite' | 'unknown'>('unknown');
+  const [leadFallbackReason, setLeadFallbackReason] = useState<string | null>(null);
+  const [leadLoadError, setLeadLoadError] = useState<string | null>(null);
   const [leadsSearch, setLeadsSearch] = useState('');
   const [leadStatusFilter, setLeadStatusFilter] = useState<'all' | 'no-purchase' | 'paid' | 'pending'>('all');
   const [leadCrmDrafts, setLeadCrmDrafts] = useState<Record<string, LeadCrmDraft>>({});
@@ -455,6 +458,7 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
 
   const fetchQuizLeads = async () => {
     setLeadsLoading(true);
+    setLeadLoadError(null);
     try {
       const response = await fetch('/api/quiz-leads');
       const data = await response.json();
@@ -462,9 +466,14 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
         throw new Error(data.error || 'Falha ao carregar leads');
       }
       setQuizLeads(Array.isArray(data.leads) ? data.leads : []);
+      setLeadDataSource(data.source === 'supabase' || data.source === 'sqlite' ? data.source : 'unknown');
+      setLeadFallbackReason(typeof data.fallbackReason === 'string' ? data.fallbackReason : null);
     } catch (error) {
       console.error('Erro ao carregar leads do quiz:', error);
       setQuizLeads([]);
+      setLeadDataSource('unknown');
+      setLeadFallbackReason(null);
+      setLeadLoadError(error instanceof Error ? error.message : 'Falha ao carregar leads do quiz.');
     } finally {
       setLeadsLoading(false);
     }
@@ -1971,6 +1980,30 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
               </Suspense>
             ) : activeTab === 'leads' ? (
               <div className="space-y-4">
+                {leadLoadError ? (
+                  <div className="rounded-3xl border border-red-100 bg-red-50 px-5 py-4 text-sm text-red-700">
+                    <p className="font-black uppercase tracking-widest text-[10px] mb-2">Falha ao carregar leads</p>
+                    <p>{leadLoadError}</p>
+                  </div>
+                ) : leadDataSource === 'sqlite' ? (
+                  <div className="rounded-3xl border border-amber-100 bg-amber-50 px-5 py-4 text-sm text-amber-800">
+                    <p className="font-black uppercase tracking-widest text-[10px] mb-2">Leads em modo fallback</p>
+                    <p>
+                      Os dados estão vindo do banco local. O painel funciona, mas o Supabase ainda não está pronto para ser a fonte principal.
+                    </p>
+                    {leadFallbackReason && (
+                      <p className="mt-2 text-xs text-amber-700">
+                        Detalhe técnico: {leadFallbackReason}
+                      </p>
+                    )}
+                  </div>
+                ) : leadDataSource === 'supabase' ? (
+                  <div className="rounded-3xl border border-emerald-100 bg-emerald-50 px-5 py-4 text-sm text-emerald-700">
+                    <p className="font-black uppercase tracking-widest text-[10px] mb-2">Leads conectados ao Supabase</p>
+                    <p>Os leads do quiz estão sendo carregados da base principal.</p>
+                  </div>
+                ) : null}
+
                 <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto] gap-3 items-center">
                   <input
                     value={leadsSearch}
@@ -2004,6 +2037,9 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                   <div className="text-center py-12 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
                     <Mail className="mx-auto text-gray-300 mb-4" size={48} />
                     <p className="text-gray-500">Nenhum lead encontrado para esse filtro.</p>
+                    {leadDataSource === 'sqlite' && (
+                      <p className="mt-2 text-xs text-amber-700">No momento a leitura está vindo do banco local.</p>
+                    )}
                   </div>
                 ) : (
                   filteredLeads.map((lead: any) => {
