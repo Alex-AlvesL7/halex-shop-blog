@@ -283,12 +283,21 @@ const getWhatsAppLink = (phone?: string, orderNsu?: string) => {
   return `https://wa.me/${normalized}?text=${message}`;
 };
 
+const getLeadOfferUrl = (lead?: any) => {
+  const productId = lead?.recommendedProduct?.id || lead?.recommendedProductId || lead?.recommended_product_id;
+  if (!productId) return '';
+
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://www.l7fitness.com.br';
+  return `${origin}/campanha/${encodeURIComponent(String(productId))}`;
+};
+
 const getLeadWhatsAppLink = (phone?: string, lead?: any) => {
   const digits = String(phone || '').replace(/\D/g, '');
   if (!digits) return '';
   const normalized = digits.startsWith('55') ? digits : `55${digits}`;
   const productName = lead?.recommendedProduct?.name || lead?.recommendedProductName || 'a recomendação ideal';
-  const message = encodeURIComponent(`Olá, ${lead?.name || 'tudo bem'}! Aqui é da L7 Fitness. Vi seu quiz de ${lead?.goal || 'objetivo fitness'} e separei ${productName} para o seu perfil. Se quiser, posso te explicar como usar e montar um plano inicial.`);
+  const offerUrl = getLeadOfferUrl(lead);
+  const message = encodeURIComponent(`${offerUrl ? `${offerUrl}\n\n` : ''}Olá, ${lead?.name || 'tudo bem'}! Aqui é da L7 Fitness. Vi seu quiz de ${lead?.goal || 'objetivo fitness'} e separei ${productName} para o seu perfil. Se quiser, posso te explicar como usar e montar um plano inicial.`);
   return `https://wa.me/${normalized}?text=${message}`;
 };
 
@@ -297,7 +306,8 @@ const getLeadMonthlyPlanWhatsAppLink = (phone?: string, lead?: any) => {
   if (!digits) return '';
   const normalized = digits.startsWith('55') ? digits : `55${digits}`;
   const productName = lead?.recommendedProduct?.name || lead?.recommendedProductName || 'o produto recomendado';
-  const message = encodeURIComponent(`Olá, ${lead?.name || 'tudo bem'}! Além da recomendação com ${productName}, temos um plano mensal de acompanhamento com ajustes semanais de alimentação, treino e suporte próximo. Se quiser, te explico como funciona e os valores.`);
+  const offerUrl = getLeadOfferUrl(lead);
+  const message = encodeURIComponent(`${offerUrl ? `${offerUrl}\n\n` : ''}Olá, ${lead?.name || 'tudo bem'}! Além da recomendação com ${productName}, temos um plano mensal de acompanhamento com ajustes semanais de alimentação, treino e suporte próximo. Se quiser, te explico como funciona e os valores.`);
   return `https://wa.me/${normalized}?text=${message}`;
 };
 
@@ -342,14 +352,15 @@ const getLeadTemplateWhatsAppLink = (phone?: string, lead?: any, template?: 'fir
   const name = lead?.name || 'tudo bem';
   const goal = lead?.goal || 'seu objetivo';
   const productName = lead?.recommendedProduct?.name || lead?.recommendedProductName || 'o produto recomendado';
+  const offerUrl = getLeadOfferUrl(lead);
   const profileContext = getLeadProfileContext(lead);
   const contextLine = profileContext.length > 0 ? `Considerando seu perfil (${profileContext.join(', ')}), ` : '';
 
   const templates: Record<string, string> = {
-    'first-contact': `Olá, ${name}! Aqui é da L7 Fitness. Vi seu resultado no quiz para ${goal} e separei ${productName} como melhor ponto de partida. ${contextLine}posso te explicar como usar e te orientar no começo.`,
-    'checkout-recovery': `Olá, ${name}! Vi que você chegou perto de concluir sua compra na L7 Fitness. ${contextLine}se quiser, eu posso te ajudar a finalizar ${productName} e tirar qualquer dúvida antes de fechar.`,
-    'follow-up': `Olá, ${name}! Passando para acompanhar sua recomendação da L7 Fitness. ${contextLine}você ainda quer ajuda para escolher a melhor forma de começar com ${productName}?`,
-    'plan-follow-up': `Olá, ${name}! Além do ${productName}, queria te mostrar nosso acompanhamento mensal com alimentação, treino e ajustes semanais. ${contextLine}se fizer sentido para você, te explico como funciona.`
+    'first-contact': `${offerUrl ? `${offerUrl}\n\n` : ''}Olá, ${name}! Aqui é da L7 Fitness. Vi seu resultado no quiz para ${goal} e separei ${productName} como melhor ponto de partida. ${contextLine}posso te explicar como usar e te orientar no começo.`,
+    'checkout-recovery': `${offerUrl ? `${offerUrl}\n\n` : ''}Olá, ${name}! Vi que você chegou perto de concluir sua compra na L7 Fitness. ${contextLine}se quiser, eu posso te ajudar a finalizar ${productName} e tirar qualquer dúvida antes de fechar.`,
+    'follow-up': `${offerUrl ? `${offerUrl}\n\n` : ''}Olá, ${name}! Passando para acompanhar sua recomendação da L7 Fitness. ${contextLine}você ainda quer ajuda para escolher a melhor forma de começar com ${productName}?`,
+    'plan-follow-up': `${offerUrl ? `${offerUrl}\n\n` : ''}Olá, ${name}! Além do ${productName}, queria te mostrar nosso acompanhamento mensal com alimentação, treino e ajustes semanais. ${contextLine}se fizer sentido para você, te explico como funciona.`
   };
 
   return `https://wa.me/${normalized}?text=${encodeURIComponent(templates[template || 'follow-up'])}`;

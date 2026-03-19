@@ -69,9 +69,9 @@ export const HomePage = ({
     email: '',
     phone: '',
     goal: 'emagrecimento',
-    weight: 70,
-    height: 170,
-    age: 30,
+    weight: '',
+    height: '',
+    age: '',
     gender: 'feminino',
     activityLevel: 'moderado',
     restrictions: '',
@@ -163,6 +163,14 @@ export const HomePage = ({
     ) {
       setInlineQuizError(
         'Preencha nome, e-mail e WhatsApp para liberar seu protocolo personalizado.',
+      );
+      scrollToQuizForm();
+      return;
+    }
+
+    if (!String(inlineQuizForm.weight).trim() || !String(inlineQuizForm.height).trim() || !String(inlineQuizForm.age).trim()) {
+      setInlineQuizError(
+        'Preencha peso, altura e idade para a Alexia indicar o kit mais alinhado ao seu perfil.',
       );
       scrollToQuizForm();
       return;
@@ -598,36 +606,45 @@ export const HomePage = ({
                     <option value="moderado">Rotina: atividade moderada</option>
                     <option value="alto">Rotina: alta atividade</option>
                   </select>
-                  <input
-                    type="number"
-                    min="1"
-                    value={inlineQuizForm.weight}
-                    onChange={(event) =>
-                      handleInlineQuizChange('weight', Number(event.target.value))
-                    }
-                    placeholder="Peso atual (kg)"
-                    className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-700 outline-none transition focus:border-brand-orange focus:ring-2 focus:ring-brand-orange/15"
-                  />
-                  <input
-                    type="number"
-                    min="1"
-                    value={inlineQuizForm.height}
-                    onChange={(event) =>
-                      handleInlineQuizChange('height', Number(event.target.value))
-                    }
-                    placeholder="Altura (cm)"
-                    className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-700 outline-none transition focus:border-brand-orange focus:ring-2 focus:ring-brand-orange/15"
-                  />
-                  <input
-                    type="number"
-                    min="1"
-                    value={inlineQuizForm.age}
-                    onChange={(event) =>
-                      handleInlineQuizChange('age', Number(event.target.value))
-                    }
-                    placeholder="Idade"
-                    className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-700 outline-none transition focus:border-brand-orange focus:ring-2 focus:ring-brand-orange/15"
-                  />
+                  <label className="flex flex-col gap-2">
+                    <span className="text-[11px] font-black uppercase tracking-widest text-gray-400">Peso atual</span>
+                    <input
+                      type="number"
+                      min="1"
+                      value={inlineQuizForm.weight}
+                      onChange={(event) =>
+                        handleInlineQuizChange('weight', event.target.value)
+                      }
+                      placeholder="Ex: 70 kg"
+                      className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-700 outline-none transition focus:border-brand-orange focus:ring-2 focus:ring-brand-orange/15"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-2">
+                    <span className="text-[11px] font-black uppercase tracking-widest text-gray-400">Altura</span>
+                    <input
+                      type="number"
+                      min="1"
+                      value={inlineQuizForm.height}
+                      onChange={(event) =>
+                        handleInlineQuizChange('height', event.target.value)
+                      }
+                      placeholder="Ex: 170 cm"
+                      className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-700 outline-none transition focus:border-brand-orange focus:ring-2 focus:ring-brand-orange/15"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-2">
+                    <span className="text-[11px] font-black uppercase tracking-widest text-gray-400">Idade</span>
+                    <input
+                      type="number"
+                      min="1"
+                      value={inlineQuizForm.age}
+                      onChange={(event) =>
+                        handleInlineQuizChange('age', event.target.value)
+                      }
+                      placeholder="Ex: 30 anos"
+                      className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-700 outline-none transition focus:border-brand-orange focus:ring-2 focus:ring-brand-orange/15"
+                    />
+                  </label>
                   <select
                     value={inlineQuizForm.gender}
                     onChange={(event) =>

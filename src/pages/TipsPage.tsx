@@ -20,9 +20,9 @@ export const TipsPage = ({
     email: '',
     phone: '',
     goal: 'emagrecimento',
-    weight: 70,
-    height: 170,
-    age: 30,
+    weight: '',
+    height: '',
+    age: '',
     gender: 'feminino',
     activityLevel: 'moderado',
     restrictions: '',
@@ -44,6 +44,11 @@ export const TipsPage = ({
   const handleGenerate = async () => {
     if (!form.name.trim() || !form.email.trim() || !form.phone.trim()) {
       alert('Preencha nome, e-mail e WhatsApp para receber sua recomendação personalizada.');
+      return;
+    }
+
+    if (!String(form.weight).trim() || !String(form.height).trim() || !String(form.age).trim()) {
+      alert('Preencha peso, altura e idade para receber uma recomendação mais alinhada ao seu perfil.');
       return;
     }
 
@@ -141,18 +146,18 @@ export const TipsPage = ({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-bold uppercase tracking-wider text-gray-400 mb-2">Peso (kg)</label>
-              <input type="number" value={form.weight} onChange={(e) => handleChange('weight', Number(e.target.value))} className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-brand-orange outline-none font-medium" />
+              <input type="number" value={form.weight} onChange={(e) => handleChange('weight', e.target.value)} placeholder="Ex: 70" className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-brand-orange outline-none font-medium" />
             </div>
             <div>
               <label className="block text-sm font-bold uppercase tracking-wider text-gray-400 mb-2">Altura (cm)</label>
-              <input type="number" value={form.height} onChange={(e) => handleChange('height', Number(e.target.value))} className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-brand-orange outline-none font-medium" />
+              <input type="number" value={form.height} onChange={(e) => handleChange('height', e.target.value)} placeholder="Ex: 170" className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-brand-orange outline-none font-medium" />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-bold uppercase tracking-wider text-gray-400 mb-2">Idade</label>
-              <input type="number" value={form.age} onChange={(e) => handleChange('age', Number(e.target.value))} className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-brand-orange outline-none font-medium" />
+              <input type="number" value={form.age} onChange={(e) => handleChange('age', e.target.value)} placeholder="Ex: 30" className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-brand-orange outline-none font-medium" />
             </div>
             <div>
               <label className="block text-sm font-bold uppercase tracking-wider text-gray-400 mb-2">Sexo</label>
