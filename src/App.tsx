@@ -2021,7 +2021,7 @@ const AdminPage = ({ products, posts, orders, onRefresh, onNavigate }: { product
               ))
             ) : activeTab === 'affiliates' ? (
               <Suspense fallback={<LazySectionFallback label="Carregando afiliados..." />}>
-                <AffiliatesManagement affiliates={affiliates} onRefresh={onRefresh} />
+                <AffiliatesManagement affiliates={affiliates} products={products} onRefresh={onRefresh} />
               </Suspense>
             ) : activeTab === 'leads' ? (
               <div className="space-y-4">
