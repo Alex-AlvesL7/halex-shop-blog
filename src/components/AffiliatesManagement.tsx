@@ -8,6 +8,22 @@ export const AffiliatesManagement = ({ affiliates, onRefresh }: { affiliates: an
   const [editData, setEditData] = useState({ name: '', email: '', whatsapp: '', commission_rate: 10 });
   const [payouts, setPayouts] = useState<any[]>([]);
   const [loadingPayouts, setLoadingPayouts] = useState(false);
+  const [pendingAffiliates, setPendingAffiliates] = useState<any[]>([]);
+  const [loadingPending, setLoadingPending] = useState(false);
+
+  const loadPendingAffiliates = async () => {
+    setLoadingPending(true);
+    try {
+      const response = await fetch('/api/admin/affiliates');
+      const data = await response.json();
+      setPendingAffiliates(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Erro ao carregar afiliados pendentes:', error);
+      setPendingAffiliates([]);
+    } finally {
+      setLoadingPending(false);
+    }
+  };
 
   const loadPayouts = async () => {
     setLoadingPayouts(true);
@@ -26,6 +42,12 @@ export const AffiliatesManagement = ({ affiliates, onRefresh }: { affiliates: an
   useEffect(() => {
     if (activeTab === 'payouts') {
       loadPayouts();
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab === 'list') {
+      loadPendingAffiliates();
     }
   }, [activeTab]);
 
@@ -87,6 +109,26 @@ export const AffiliatesManagement = ({ affiliates, onRefresh }: { affiliates: an
 
     loadPayouts();
   };
+
+  const handleModerateAffiliate = async (id: string, status: 'approved' | 'rejected') => {
+    const response = await fetch(`/api/admin/affiliates/${id}/approve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      alert(`Erro ao atualizar afiliado: ${errorData.error || 'falha na aprovação'}`);
+      return;
+    }
+
+    await onRefresh();
+    loadPendingAffiliates();
+  };
+
+  const approvedAffiliates = affiliates.filter((affiliate) => String(affiliate.status || 'approved') === 'approved');
+  const rejectedAffiliates = affiliates.filter((affiliate) => String(affiliate.status || '') === 'rejected');
 
   return (
     <div className="space-y-6">
@@ -184,9 +226,54 @@ export const AffiliatesManagement = ({ affiliates, onRefresh }: { affiliates: an
         </div>
       ) : (
         <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm">
-          <h3 className="text-2xl font-bold mb-6">Afiliados Cadastrados</h3>
-          <div className="space-y-4">
-            {affiliates.map(a => (
+          <div className="flex flex-col gap-8">
+            <div>
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-6">
+                <div>
+                  <h3 className="text-2xl font-bold">Solicitações pendentes</h3>
+                  <p className="text-sm text-gray-500 mt-1">Afiliados novos entram como pendentes até você aprovar ou rejeitar.</p>
+                </div>
+                <button onClick={loadPendingAffiliates} className="px-4 py-2 rounded-xl bg-gray-100 text-gray-700 text-xs font-black uppercase tracking-widest hover:bg-gray-200 transition-colors">
+                  Atualizar pendências
+                </button>
+              </div>
+
+              {loadingPending ? (
+                <div className="rounded-2xl border border-gray-100 bg-gray-50 p-6 text-sm text-gray-500">Carregando solicitações pendentes...</div>
+              ) : pendingAffiliates.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-6 text-sm text-gray-500">Nenhum afiliado pendente no momento.</div>
+              ) : (
+                <div className="space-y-4 mb-8">
+                  {pendingAffiliates.map((affiliate) => (
+                    <div key={affiliate.id} className="rounded-2xl border border-amber-100 bg-amber-50/60 p-5">
+                      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2 mb-2">
+                            <p className="font-bold text-lg text-gray-900">{affiliate.name}</p>
+                            <span className="px-3 py-1 rounded-full bg-amber-100 text-amber-700 text-[10px] font-black uppercase tracking-widest">Pendente</span>
+                          </div>
+                          <p className="text-sm text-gray-500">{affiliate.email} • <span className="font-medium text-gray-700">WhatsApp:</span> {affiliate.whatsapp || '—'} • <span className="font-medium text-gray-700">Ref:</span> {affiliate.ref_code}</p>
+                          <p className="text-sm text-gray-500 mt-2">Comissão inicial: <span className="font-bold text-brand-orange">{affiliate.commission_rate}%</span></p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <button onClick={() => handleModerateAffiliate(affiliate.id, 'approved')} className="px-4 py-3 rounded-xl bg-green-600 text-white text-xs font-black uppercase tracking-widest hover:bg-green-700 transition-colors">
+                            Aprovar afiliado
+                          </button>
+                          <button onClick={() => handleModerateAffiliate(affiliate.id, 'rejected')} className="px-4 py-3 rounded-xl bg-rose-100 text-rose-700 text-xs font-black uppercase tracking-widest hover:bg-rose-200 transition-colors">
+                            Rejeitar
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <h3 className="text-2xl font-bold mb-6">Afiliados aprovados</h3>
+              <div className="space-y-4">
+            {approvedAffiliates.map(a => (
               <div key={a.id} className="flex justify-between items-center p-5 bg-gray-50 rounded-2xl border border-gray-100">
                 {editingId === a.id ? (
                   <div className="flex flex-col gap-3 w-full">
@@ -204,7 +291,10 @@ export const AffiliatesManagement = ({ affiliates, onRefresh }: { affiliates: an
                 ) : (
                   <div className="flex justify-between w-full items-center">
                     <div>
-                      <p className="font-bold text-lg">{a.name}</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-bold text-lg">{a.name}</p>
+                        <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase tracking-widest">Aprovado</span>
+                      </div>
                       <p className="text-sm text-gray-500">{a.email} • <span className="font-medium text-gray-700">WhatsApp:</span> {a.whatsapp} • <span className="font-medium text-gray-700">Ref:</span> {a.ref_code}</p>
                     </div>
                     <div className="flex items-center gap-6">
@@ -217,6 +307,33 @@ export const AffiliatesManagement = ({ affiliates, onRefresh }: { affiliates: an
                 )}
               </div>
             ))}
+              {approvedAffiliates.length === 0 && (
+                <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-6 text-sm text-gray-500">Nenhum afiliado aprovado ainda.</div>
+              )}
+              </div>
+            </div>
+
+            {rejectedAffiliates.length > 0 && (
+              <div>
+                <h3 className="text-2xl font-bold mb-6">Afiliados rejeitados</h3>
+                <div className="space-y-4">
+                  {rejectedAffiliates.map((affiliate) => (
+                    <div key={affiliate.id} className="flex justify-between items-center p-5 bg-rose-50 rounded-2xl border border-rose-100">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-bold text-lg">{affiliate.name}</p>
+                          <span className="px-3 py-1 rounded-full bg-rose-100 text-rose-700 text-[10px] font-black uppercase tracking-widest">Rejeitado</span>
+                        </div>
+                        <p className="text-sm text-gray-500">{affiliate.email} • <span className="font-medium text-gray-700">WhatsApp:</span> {affiliate.whatsapp || '—'} • <span className="font-medium text-gray-700">Ref:</span> {affiliate.ref_code}</p>
+                      </div>
+                      <button onClick={() => handleModerateAffiliate(affiliate.id, 'approved')} className="px-4 py-3 rounded-xl bg-brand-black text-white text-xs font-black uppercase tracking-widest hover:opacity-90 transition-opacity">
+                        Aprovar agora
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
