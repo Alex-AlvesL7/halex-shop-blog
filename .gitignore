@@ -4,5 +4,6 @@ dist/
 coverage/
 .DS_Store
 *.log
+halex.db
 .env*
 !.env.example
