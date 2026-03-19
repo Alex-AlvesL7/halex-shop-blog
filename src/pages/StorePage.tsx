@@ -26,7 +26,7 @@ export const StorePage = ({
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-12">
         <div>
           <h1 className="text-5xl font-black mb-4 uppercase">Nossa Loja</h1>
-          <p className="text-gray-500">Suplementos e acessórios de alta performance.</p>
+          <p className="text-gray-500">Suplementos, kits e acessórios para diferentes objetivos, rotinas e fases da sua jornada.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           {['todos', 'emagrecedores', 'suplementos', 'acessorios', 'vestuario'].map((category) => (
@@ -45,11 +45,11 @@ export const StorePage = ({
         onNavigate={onNavigate}
         variant="inline"
         className="mb-12"
-        badge="Monetize a loja"
-        title="Gostou da vitrine? Agora imagine divulgar esses produtos com seu link exclusivo."
-        description="A loja também virou ponto de captação: quem tiver perfil comercial pode entrar no programa, acessar material de divulgação e transformar tráfego em comissão."
-        primaryLabel="Quero vender como afiliado"
-        secondaryLabel="Continuar comprando"
+        badge="Programa de afiliados"
+        title="Gostou dos produtos? Você também pode indicar a L7 Fitness com seu link exclusivo."
+        description="Entre no programa de afiliados, receba materiais de divulgação e acompanhe seus ganhos conforme suas indicações forem aprovadas."
+        primaryLabel="Quero indicar produtos"
+        secondaryLabel="Seguir na loja"
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">

@@ -3,9 +3,9 @@ import { Product, BlogPost } from './types';
 export const PRODUCTS: Product[] = [
   {
     id: 'l7-ultra-450-kit',
-    name: '1 Kit L7 ULTRA 450mg + Detox',
+    name: 'Kit L7 Ultra 450mg + Detox',
     price: 159.90,
-    description: 'Combo completo para emagrecimento com L7 Ultra 450mg e Detox para resultados rápidos e naturais.',
+    description: 'Kit pensado para apoiar o emagrecimento com mais equilíbrio, unindo L7 Ultra 450mg e Detox na mesma rotina.',
     category: 'emagrecedores',
     image: 'https://picsum.photos/seed/l7ultra-kit/600/600',
     images: ['https://picsum.photos/seed/l7ultra-kit1/600/600'],
@@ -19,9 +19,9 @@ export const PRODUCTS: Product[] = [
   },
   {
     id: 'l7-turbo-500-kit',
-    name: 'Kit L7 TURBO 500mg + Detox',
+    name: 'Kit L7 Turbo 500mg + Detox',
     price: 189.90,
-    description: 'Potencialize sua queima de gordura com o Kit L7 Turbo 500mg e Detox. Energia e saciedade.',
+    description: 'Kit para quem busca mais disposição no dia a dia, com L7 Turbo 500mg e Detox como apoio complementar.',
     category: 'emagrecedores',
     image: 'https://picsum.photos/seed/l7turbo-kit/600/600',
     images: ['https://picsum.photos/seed/l7turbo-kit1/600/600'],
@@ -37,7 +37,7 @@ export const PRODUCTS: Product[] = [
     id: 'l7-ultra-450',
     name: 'L7 Ultra 450mg',
     price: 149.00,
-    description: 'Inibidor de apetite natural com Laranja Moro, L-Carnitina e Psyllium para queima de gordura.',
+    description: 'Produto voltado para saciedade, controle do apetite e mais constância na rotina de emagrecimento.',
     category: 'emagrecedores',
     image: 'https://picsum.photos/seed/l7ultra/600/600',
     stock: 100,
@@ -52,7 +52,7 @@ export const PRODUCTS: Product[] = [
     id: 'l7-nitro-750-kit',
     name: 'Kit L7 Nitro 750mg + Detox Shake',
     price: 199.90,
-    description: 'A fórmula mais potente: L7 Nitro 750mg combinada com Detox Shake para resultados máximos.',
+    description: 'Kit mais intenso para quem quer reforçar saciedade, rotina detox e foco total no processo de emagrecimento.',
     category: 'emagrecedores',
     image: 'https://picsum.photos/seed/l7nitro-kit/600/600',
     stock: 25,
@@ -65,9 +65,9 @@ export const PRODUCTS: Product[] = [
   },
   {
     id: 'l7-nitro-750',
-    name: 'L7 NITRO 750mg',
+    name: 'L7 Nitro 750mg',
     price: 169.00,
-    description: 'Máxima concentração para queima de gordura abdominal e controle total do apetite.',
+    description: 'Versão concentrada para quem busca mais intensidade no controle do apetite e na rotina de definição.',
     category: 'emagrecedores',
     image: 'https://picsum.photos/seed/l7nitro/600/600',
     stock: 60,
@@ -80,9 +80,9 @@ export const PRODUCTS: Product[] = [
   },
   {
     id: 'l7-turbo-500',
-    name: 'L7 TURBO 500mg',
+    name: 'L7 Turbo 500mg',
     price: 159.00,
-    description: 'Equilíbrio perfeito entre energia e queima calórica para o seu dia a dia.',
+    description: 'Produto indicado para quem quer mais energia, ritmo e apoio ao gasto calórico no dia a dia.',
     category: 'emagrecedores',
     image: 'https://picsum.photos/seed/l7turbo/600/600',
     stock: 80,
@@ -95,9 +95,9 @@ export const PRODUCTS: Product[] = [
   },
   {
     id: 'l7-nitro-750-full',
-    name: '1 Kit L7 NITRO 750mg + Detox + Colágeno',
+    name: 'Kit L7 Nitro 750mg + Detox + Colágeno',
     price: 239.00,
-    description: 'O combo definitivo: Emagrecimento potente, detoxificação e cuidado com a pele e articulações.',
+    description: 'Kit completo com foco em emagrecimento, suporte detox e cuidado extra com pele e articulações.',
     category: 'emagrecedores',
     image: 'https://picsum.photos/seed/l7nitro-full/600/600',
     stock: 15,
@@ -110,9 +110,9 @@ export const PRODUCTS: Product[] = [
   },
   {
     id: 'l7-turbo-500-full',
-    name: '1 Kit L7 TURBO 500mg + Detox + Colágeno',
+    name: 'Kit L7 Turbo 500mg + Detox + Colágeno',
     price: 229.00,
-    description: 'Emagreça com saúde e mantenha a firmeza da pele com este kit completo de L7 Turbo e Colágeno.',
+    description: 'Kit completo para quem quer emagrecer com energia, rotina detox e cuidado complementar com colágeno.',
     category: 'emagrecedores',
     image: 'https://picsum.photos/seed/l7turbo-full/600/600',
     stock: 20,
@@ -128,8 +128,8 @@ export const PRODUCTS: Product[] = [
 export const POSTS: BlogPost[] = [
   {
     id: '1',
-    title: 'Por que o L7 Ultra virou um dos emagrecedores mais comentados da rotina feminina',
-    excerpt: 'Entenda como saciedade, constância alimentar e estratégia certa fazem o L7 Ultra ganhar espaço entre quem quer secar com mais controle.',
+    title: 'L7 Ultra 450mg: mais constância para quem quer emagrecer com controle',
+    excerpt: 'Veja como saciedade, organização alimentar e rotina consistente tornam o L7 Ultra um apoio procurado por quem busca leveza no processo.',
     content: `Emagrecer não depende só de força de vontade. Na prática, a maior dificuldade da maioria das pessoas está em manter consistência por semanas sem cair em fome exagerada, ansiedade e desistência rápida.
 
 É exatamente por isso que produtos com foco em saciedade e suporte à rotina ganharam tanto espaço. O L7 Ultra entrou nesse cenário como uma opção procurada por quem quer controlar melhor o apetite, organizar a alimentação e reduzir os excessos do dia a dia.
@@ -176,8 +176,8 @@ O L7 Ultra chama atenção porque se encaixa em uma necessidade real do mercado:
   },
   {
     id: '2',
-    title: 'Treino em casa com L7 Turbo: como aumentar intensidade mesmo com rotina corrida',
-    excerpt: 'Veja como organizar sessões curtas, manter consistência e usar o L7 Turbo como apoio para mais energia e ritmo no dia a dia.',
+    title: 'L7 Turbo 500mg + treino em casa: mais ritmo para a rotina corrida',
+    excerpt: 'Aprenda a montar sessões curtas, manter regularidade e usar o L7 Turbo como apoio para treinar com mais disposição no dia a dia.',
     content: `Muita gente adia o treino porque não consegue ir para academia todos os dias. Mas a verdade é que um plano simples, bem executado e repetido com constância já pode gerar evolução real.
 
 Quando a meta é secar, ganhar condicionamento e se sentir mais disposto, treinar em casa pode funcionar muito bem. O ponto principal é estruturar sessões objetivas, com progressão e regularidade.
@@ -227,8 +227,8 @@ Treino em casa funciona quando existe método e disciplina. O L7 Turbo pode ser 
   },
   {
     id: '3',
-    title: 'Dieta flexível com L7 Nitro: quando liberdade alimentar encontra disciplina',
-    excerpt: 'Entenda por que a dieta flexível pode melhorar a adesão e como o L7 Nitro entra como suporte para quem quer controle e intensidade no processo.',
+    title: 'L7 Nitro 750mg e dieta flexível: liberdade com foco no resultado',
+    excerpt: 'Entenda como a dieta flexível pode ficar mais fácil de sustentar e onde o L7 Nitro entra como apoio para manter controle e intensidade.',
     content: `A dieta flexível ficou popular porque resolve um problema comum: pessoas que abandonam o plano alimentar quando sentem que tudo ficou rígido demais.
 
 Ao trabalhar com metas e organização, em vez de proibição absoluta, ela tende a gerar mais aderência. E aderência é um dos fatores mais importantes quando o assunto é emagrecimento.
@@ -267,8 +267,8 @@ Dieta flexível funciona quando existe estrutura. O L7 Nitro pode ser um suporte
   },
   {
     id: '4',
-    title: 'Como faturar com suplementos sendo afiliado da L7 Fitness',
-    excerpt: 'Descubra por que o mercado de afiliados combina com o nicho fitness e como transformar conteúdo, atendimento e audiência em comissão recorrente.',
+    title: 'Programa de afiliados L7 Fitness: como indicar produtos e gerar renda online',
+    excerpt: 'Descubra como divulgar a marca, usar seu link exclusivo e transformar conteúdo ou atendimento em uma nova fonte de renda com suporte da L7.',
     content: `Nem todo mundo quer vender estoque, lidar com logística ou montar operação própria. Por isso o modelo de afiliados cresceu tanto dentro do fitness: ele permite monetizar audiência, relacionamento e indicação sem assumir toda a estrutura de uma loja.
 
 ## Por que o nicho de suplementos converte bem

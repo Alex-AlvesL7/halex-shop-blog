@@ -141,8 +141,8 @@ const Footer = () => (
             HALEX<span className="text-brand-orange">SHOP</span>
           </h2>
           <p className="text-gray-400 max-w-md mb-8">
-            Sua jornada para a melhor versão começa aqui. Suplementação de elite, 
-            estratégias de treino e nutrição baseadas em ciência.
+            Suplementos, conteúdo e orientação para ajudar você a escolher com
+            mais clareza e evoluir com consistência.
           </p>
           <div className="flex gap-4">
             <a href="#" className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-brand-orange transition-colors">
@@ -220,7 +220,7 @@ const BlogPostDetailsPage: React.FC<{ post: BlogPost, onBack: () => void, onNavi
             </div>
             <div>
               <p className="text-sm font-bold">{post.author}</p>
-              <p className="text-xs text-gray-400">Especialista Halex</p>
+              <p className="text-xs text-gray-400">Equipe L7 Fitness</p>
             </div>
           </div>
         </div>
@@ -244,8 +244,8 @@ const BlogPostDetailsPage: React.FC<{ post: BlogPost, onBack: () => void, onNavi
           onNavigate={onNavigate}
           variant="inline"
           badge="Ganhe indicando"
-          title="Gostou deste conteúdo? Você também pode monetizar artigos, rede social ou atendimento com o programa de afiliados."
-          description="Abrimos uma página dedicada explicando por que ser afiliado, como funciona o faturamento, quais materiais você recebe e como começar do jeito certo."
+          title="Gostou deste conteúdo? Você também pode indicar a L7 Fitness com seu link de afiliado."
+          description="Veja como funciona o programa, conheça os materiais de apoio e entenda como começar de forma simples e organizada."
           primaryLabel="Quero conhecer"
           secondaryLabel="Ver loja"
         />
@@ -1475,10 +1475,10 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                     value={newPost.category}
                     onChange={e => setNewPost({...newPost, category: e.target.value as any})}
                   >
-                    <option value="alimentacao">Alimentação</option>
+                    <option value="alimentacao">Nutrição</option>
                     <option value="treino">Treino</option>
-                    <option value="dieta">Dieta</option>
-                    <option value="negocios">Negócios</option>
+                    <option value="dieta">Estratégia alimentar</option>
+                    <option value="negocios">Afiliados</option>
                   </select>
                   <div className="grid grid-cols-2 gap-4">
                     <input 

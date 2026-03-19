@@ -5,6 +5,13 @@ import { Product } from '../types';
 import { useAuth } from '../contexts/authContext';
 import { formatPriceBRL, hasProductPromotion } from '../utils/productContent';
 
+const categoryLabels: Record<string, string> = {
+  emagrecedores: 'Emagrecedores',
+  suplementos: 'Suplementos',
+  acessorios: 'Acessórios',
+  vestuario: 'Vestuário',
+};
+
 export const ProductCard: React.FC<{
   product: Product;
   onAddToCart: (product: Product) => void;
@@ -40,7 +47,7 @@ export const ProductCard: React.FC<{
         />
         <div className="absolute top-3 left-3 flex flex-col gap-2">
           <span className="bg-white/90 backdrop-blur-sm px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider text-brand-black">
-            {product.category}
+            {categoryLabels[String(product.category || '').toLowerCase()] || product.category || 'Produto'}
           </span>
           {product.promotionLabel && (
             <span className="bg-brand-orange text-white px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider shadow-sm">

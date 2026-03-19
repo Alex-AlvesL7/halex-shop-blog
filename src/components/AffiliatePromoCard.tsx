@@ -17,25 +17,25 @@ const highlights = [
   {
     icon: BadgePercent,
     title: 'Comissão real',
-    description: 'Programa com comissão inicial de 10% por venda aprovada.',
+    description: 'Comece com 10% por venda aprovada e evolua conforme seu volume crescer.',
   },
   {
     icon: Megaphone,
     title: 'Materiais prontos',
-    description: 'Criativos, argumentos e links para começar mais rápido.',
+    description: 'Receba criativos, argumentos e links para divulgar com mais facilidade.',
   },
   {
     icon: Wallet,
     title: 'Escala de ganhos',
-    description: 'Quanto mais divulgar, maior o volume de faturamento possível.',
+    description: 'Quanto mais você indicar, maior pode ser o potencial de ganhos.',
   },
 ];
 
 export const AffiliatePromoCard: React.FC<AffiliatePromoCardProps> = ({
   onNavigate,
   badge = 'Programa de afiliados',
-  title = 'Transforme audiência, conteúdo e indicação em vendas para a L7 Fitness.',
-  description = 'Capte leads nas páginas do site, divulgue com seu link exclusivo e acompanhe a evolução do seu faturamento com apoio do nosso time.',
+  title = 'Indique produtos L7 Fitness e acompanhe seus ganhos com apoio da marca.',
+  description = 'Divulgue com seu link exclusivo, use materiais prontos e acompanhe a evolução das suas indicações com mais clareza.',
   primaryLabel = 'Quero ser afiliado',
   secondaryLabel = 'Ver produtos da loja',
   variant = 'full',

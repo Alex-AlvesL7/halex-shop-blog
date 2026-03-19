@@ -28,22 +28,22 @@ const benefits = [
   {
     icon: BadgePercent,
     title: 'Comissão inicial de 10%',
-    description: 'Cada venda aprovada gera comissão e pode crescer conforme volume, campanha e performance do afiliado.',
+    description: 'Cada venda aprovada gera comissão, com possibilidade de evolução conforme constância e desempenho.',
   },
   {
     icon: Megaphone,
     title: 'Materiais para divulgação',
-    description: 'Você recebe apoio com argumentos, posicionamento, ideias de conteúdo, chamadas e links prontos para compartilhar.',
+    description: 'Você recebe materiais, ideias de conteúdo, argumentos e links prontos para divulgar com mais segurança.',
   },
   {
     icon: Clock3,
     title: 'Entrada rápida no programa',
-    description: 'Depois do cadastro, o time analisa seu perfil e libera o acesso para começar a divulgar com mais segurança.',
+    description: 'Depois do cadastro, seu perfil é analisado para que você comece com uma estrutura organizada e suporte inicial.',
   },
   {
     icon: Wallet,
     title: 'Escala de faturamento',
-    description: 'Com rotina de conteúdo e tráfego orgânico ou pago, o programa pode virar uma nova frente de receita.',
+    description: 'Com divulgação consistente, o programa pode se tornar uma frente recorrente de ganhos.',
   },
 ];
 
@@ -58,11 +58,11 @@ const steps = [
   },
   {
     title: '3. Compartilhe seus links',
-    description: 'Use o link da home, da loja e das ofertas para captar leads nas páginas, no blog e nas redes sociais.',
+    description: 'Use os links da home, da loja e das ofertas para divulgar em redes sociais, conteúdo, grupos e atendimento direto.',
   },
   {
     title: '4. Acompanhe pedidos e ganhos',
-    description: 'No painel do afiliado você acompanha cliques convertidos, pedidos, comissões e solicitações de saque.',
+    description: 'No painel do afiliado você acompanha pedidos aprovados, comissões, valores disponíveis e solicitações de saque.',
   },
 ];
 
@@ -76,8 +76,8 @@ const faq = [
     answer: 'Não. O foco do programa é indicação com link rastreável. Comprar pode ajudar na autoridade, mas não é obrigatório para entrar.',
   },
   {
-    question: 'Como funciona o faturamento?',
-    answer: 'Cada pedido aprovado vinculado ao seu código gera comissão. O valor final do mês depende de quantidade de vendas, ticket médio e taxa de conversão do seu tráfego.',
+    question: 'Como funcionam os ganhos?',
+    answer: 'Cada pedido aprovado vinculado ao seu código gera comissão. O valor final do mês depende da quantidade de vendas, do ticket médio e da consistência da sua divulgação.',
   },
   {
     question: 'Recebo suporte para divulgar?',
@@ -94,19 +94,19 @@ export const AffiliateLanding: React.FC<AffiliateLandingProps> = ({ onNavigate }
         label: 'Início consistente',
         sales: 10,
         ticket: 159.9,
-        summary: 'Para quem quer validar o canal e aprender a converter com constância.',
+        summary: 'Para quem está começando e quer validar as primeiras indicações com regularidade.',
       },
       {
         label: 'Operação em crescimento',
         sales: 30,
         ticket: 189.9,
-        summary: 'Indicado para afiliado com rotina de postagens, blog ou listas de transmissão.',
+        summary: 'Indicado para quem já mantém rotina de conteúdo, atendimento ou listas de transmissão.',
       },
       {
         label: 'Escala forte',
         sales: 60,
         ticket: 199.9,
-        summary: 'Perfil de quem já tem audiência, bom volume de leads e campanhas recorrentes.',
+        summary: 'Cenário para quem já tem base ativa, campanhas recorrentes e volume maior de indicações.',
       },
     ].map((scenario) => ({
       ...scenario,
@@ -123,14 +123,14 @@ export const AffiliateLanding: React.FC<AffiliateLandingProps> = ({ onNavigate }
           <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
             <div className="space-y-6">
               <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.3em] text-orange-200">
-                <Crown size={14} className="text-brand-orange" /> Programa de afiliados L7 Fitness
+                <Crown size={14} className="text-brand-orange" /> Programa oficial de afiliados
               </span>
               <div className="space-y-4">
                 <h1 className="text-4xl font-black uppercase leading-tight sm:text-5xl lg:text-6xl">
-                  Uma página feita para captar afiliados e explicar como transformar indicação em faturamento.
+                  Tudo o que você precisa para começar como afiliado da L7 Fitness.
                 </h1>
                 <p className="max-w-3xl text-lg leading-8 text-gray-300">
-                  Aqui o visitante entende por que vale a pena ser afiliado, como o programa funciona, qual é o potencial de ganhos e quais passos precisa seguir para entrar com segurança.
+                  Entenda como o programa funciona, quais são os ganhos iniciais, que suporte você recebe e quais passos seguir para divulgar a marca com segurança.
                 </p>
               </div>
 
@@ -139,29 +139,29 @@ export const AffiliateLanding: React.FC<AffiliateLandingProps> = ({ onNavigate }
                   onClick={() => setShowForm(true)}
                   className="inline-flex items-center gap-2 rounded-full bg-brand-orange px-7 py-3 text-sm font-black uppercase tracking-widest text-white transition hover:bg-orange-600"
                 >
-                  Quero me cadastrar <ArrowRight size={16} />
+                  Solicitar cadastro <ArrowRight size={16} />
                 </button>
                 <button
                   onClick={() => onNavigate?.('store')}
                   className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-7 py-3 text-sm font-black uppercase tracking-widest text-white transition hover:border-brand-orange hover:text-brand-orange"
                 >
-                  Ver loja
+                  Explorar loja
                 </button>
                 <button
                   onClick={() => onNavigate?.('blog')}
                   className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-7 py-3 text-sm font-black uppercase tracking-widest text-white transition hover:border-brand-orange hover:text-brand-orange"
                 >
-                  Ver blog
+                  Ler conteúdos
                 </button>
               </div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="rounded-[28px] border border-white/10 bg-white/5 p-6 backdrop-blur-sm sm:col-span-2">
-                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-orange-200">Posicionamento</p>
-                <h2 className="mt-3 text-2xl font-black uppercase">Você divulga. O site vende. O sistema rastreia.</h2>
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-orange-200">Como o programa funciona</p>
+                <h2 className="mt-3 text-2xl font-black uppercase">Você indica. A L7 apresenta. O sistema registra.</h2>
                 <p className="mt-3 text-sm leading-7 text-gray-300">
-                  A proposta é simples: levar visitantes para páginas preparadas para converter, capturar o código do afiliado e atribuir a venda quando o pedido for aprovado.
+                  A proposta é simples: você divulga com seu link exclusivo, a pessoa acessa a página indicada e a comissão é atribuída quando a venda é aprovada.
                 </p>
               </div>
               <div className="rounded-[28px] border border-white/10 bg-white/5 p-6 backdrop-blur-sm">
@@ -196,20 +196,20 @@ export const AffiliateLanding: React.FC<AffiliateLandingProps> = ({ onNavigate }
           <div className="rounded-[36px] border border-gray-100 bg-gray-50 p-8">
             <div className="max-w-xl space-y-4">
               <span className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-[10px] font-black uppercase tracking-[0.3em] text-brand-orange border border-orange-100">
-                <Rocket size={14} /> Por que entrar agora
+                <Rocket size={14} /> Por que participar
               </span>
               <h2 className="text-3xl font-black uppercase text-brand-black">Por que ser afiliado da L7 Fitness?</h2>
               <p className="text-base leading-8 text-gray-600">
-                Porque a operação já pode usar a estrutura do site para converter: home, loja, blog, campanhas e checkout registram a referência do afiliado. Isso reduz atrito, melhora rastreio e cria uma jornada clara para o visitante comprar.
+                Porque você já encontra uma estrutura pronta para divulgar: home, loja, blog, campanhas e checkout ajudam a direcionar a pessoa até a compra com mais clareza.
               </p>
             </div>
 
             <div className="mt-8 space-y-4">
               {[
-                'Você monetiza audiência, conteúdo, grupos, listas e indicações pessoais.',
-                'Pode trabalhar com tráfego orgânico, blog, redes sociais, WhatsApp ou atendimento direto.',
-                'Tem apoio com discurso comercial e páginas preparadas para conversão.',
-                'Consegue acompanhar performance no painel e visualizar potencial de escala.',
+                'Você pode indicar produtos para contatos, clientes, audiência e comunidades do seu nicho.',
+                'Pode divulgar por redes sociais, blog, WhatsApp, grupos ou atendimento direto.',
+                'Conta com páginas prontas, materiais de apoio e comunicação mais objetiva.',
+                'Consegue acompanhar pedidos, comissões e evolução do seu desempenho no painel.',
               ].map((item) => (
                 <div key={item} className="flex items-start gap-3 rounded-2xl bg-white p-4 border border-gray-100">
                   <CheckCircle2 size={18} className="text-brand-orange mt-1 shrink-0" />
@@ -246,7 +246,7 @@ export const AffiliateLanding: React.FC<AffiliateLandingProps> = ({ onNavigate }
         <section className="rounded-[40px] border border-gray-100 bg-brand-black p-8 sm:p-10 text-white shadow-2xl">
           <div className="max-w-3xl space-y-4 mb-10">
             <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.3em] text-orange-200 border border-white/10">
-              <BarChart3 size={14} className="text-brand-orange" /> Simulação de faturamento
+              <BarChart3 size={14} className="text-brand-orange" /> Simulação de ganhos
             </span>
             <h2 className="text-3xl font-black uppercase">Quanto dá para faturar como afiliado?</h2>
             <p className="text-base leading-8 text-gray-300">
@@ -292,10 +292,10 @@ export const AffiliateLanding: React.FC<AffiliateLandingProps> = ({ onNavigate }
             <div className="space-y-4">
               {[
                 'Link rastreável da home e da loja para divulgar em qualquer canal.',
-                'Páginas com argumento comercial, produtos e ofertas já preparadas.',
+                'Páginas com produtos, ofertas e explicações já prontas para compartilhar.',
                 'Painel com pedidos, ganhos, comissões pendentes e valores disponíveis.',
                 'Solicitação de saque e acompanhamento do histórico financeiro.',
-                'Apoio para posicionamento, criativos e chamadas de conversão.',
+                'Apoio com posicionamento, criativos e sugestões de divulgação.',
               ].map((item) => (
                 <div key={item} className="flex items-start gap-3 border-b border-gray-100 pb-4 last:border-b-0 last:pb-0">
                   <ShieldCheck size={18} className="mt-1 shrink-0 text-brand-orange" />
@@ -308,7 +308,7 @@ export const AffiliateLanding: React.FC<AffiliateLandingProps> = ({ onNavigate }
           <div className="rounded-[36px] border border-gray-100 bg-gray-50 p-8">
             <div className="space-y-3 mb-6">
               <span className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-[10px] font-black uppercase tracking-[0.3em] text-brand-orange border border-orange-100">
-                <CheckCircle2 size={14} /> Perfil ideal
+                <CheckCircle2 size={14} /> Perfil recomendado
               </span>
               <h2 className="text-3xl font-black uppercase text-brand-black">Quem tende a performar melhor</h2>
             </div>
@@ -358,7 +358,7 @@ export const AffiliateLanding: React.FC<AffiliateLandingProps> = ({ onNavigate }
               </span>
               <h2 className="text-3xl font-black uppercase">Se fizer sentido para seu perfil, a melhor hora de entrar é agora.</h2>
               <p className="text-base leading-8 text-gray-300">
-                Cadastre-se para análise e comece com uma estrutura já pronta para captar leads, apresentar produtos e acompanhar o crescimento das suas comissões.
+                Cadastre-se para análise e comece com uma estrutura já pronta para divulgar produtos, acompanhar pedidos e evoluir suas comissões com mais organização.
               </p>
             </div>
 
@@ -366,7 +366,7 @@ export const AffiliateLanding: React.FC<AffiliateLandingProps> = ({ onNavigate }
               onClick={() => setShowForm(true)}
               className="inline-flex items-center justify-center gap-2 rounded-full bg-brand-orange px-7 py-4 text-sm font-black uppercase tracking-widest text-white transition hover:bg-orange-600"
             >
-              Solicitar entrada <ArrowRight size={16} />
+              Quero entrar no programa <ArrowRight size={16} />
             </button>
           </div>
         </section>

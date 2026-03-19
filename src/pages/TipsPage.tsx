@@ -105,8 +105,8 @@ export const TipsPage = ({
   return (
     <div className="pt-32 pb-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="text-center mb-16">
-        <h1 className="text-5xl font-black mb-4 uppercase">Quiz AI de Recomendação</h1>
-        <p className="text-gray-500 text-lg">Capte leads e recomende um produto da loja com base no perfil real do cliente.</p>
+        <h1 className="text-5xl font-black mb-4 uppercase">Análise Inteligente L7</h1>
+        <p className="text-gray-500 text-lg">Receba uma recomendação mais alinhada ao seu perfil, objetivo e rotina.</p>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-[380px_minmax(0,1fr)] gap-8 xl:gap-12 items-start">
@@ -179,31 +179,31 @@ export const TipsPage = ({
           </div>
 
           <button onClick={handleGenerate} disabled={loading} className="w-full btn-primary py-4 text-lg disabled:opacity-50">
-            {loading ? 'Analisando...' : 'Gerar Minha Recomendação'}
+            {loading ? 'Analisando seu perfil...' : 'Receber minha recomendação'}
           </button>
 
-          {leadSaved && <div className="text-xs text-green-600 font-bold bg-green-50 border border-green-100 rounded-2xl px-4 py-3">Lead salvo com sucesso para acompanhamento comercial.</div>}
+          {leadSaved && <div className="text-xs text-green-600 font-bold bg-green-50 border border-green-100 rounded-2xl px-4 py-3">Seus dados foram recebidos com sucesso. Sua recomendação já está disponível.</div>}
         </div>
 
         <div className="space-y-6 min-w-0">
           {result ? (
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
               <div className="bg-brand-black p-6 rounded-3xl text-white">
-                <p className="text-[10px] uppercase tracking-widest text-brand-orange font-bold mb-3">Diagnóstico comercial</p>
+                <p className="text-[10px] uppercase tracking-widest text-brand-orange font-bold mb-3">Sua recomendação inicial</p>
                 <h3 className="text-2xl font-black mb-3">{result.primaryProduct?.name || 'Produto recomendado'}</h3>
                 <p className="text-gray-300 text-sm leading-relaxed">{result.summary}</p>
                 <p className="text-brand-orange text-sm font-bold mt-4">{result.leadHook}</p>
               </div>
 
               <div className="bg-orange-50 p-6 rounded-3xl border border-orange-100">
-                <h3 className="font-bold text-brand-orange uppercase text-xs tracking-widest mb-4">Dicas de Alimentação</h3>
+                <h3 className="font-bold text-brand-orange uppercase text-xs tracking-widest mb-4">Ajustes de alimentação</h3>
                 <ul className="space-y-3">
                   {result.dietTips.map((tip: string, i: number) => <li key={i} className="text-sm text-gray-700 flex gap-2"><span className="text-brand-orange font-bold">•</span> {tip}</li>)}
                 </ul>
               </div>
 
               <div className="bg-gray-900 p-6 rounded-3xl text-white">
-                <h3 className="font-bold text-gray-500 uppercase text-xs tracking-widest mb-4">Dicas de Treino</h3>
+                <h3 className="font-bold text-gray-500 uppercase text-xs tracking-widest mb-4">Direção de treino</h3>
                 <ul className="space-y-3">
                   {result.trainingTips.map((tip: string, i: number) => <li key={i} className="text-sm text-gray-300 flex gap-2"><span className="text-brand-orange font-bold">•</span> {tip}</li>)}
                 </ul>
@@ -211,28 +211,28 @@ export const TipsPage = ({
 
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                 <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
-                  <h3 className="font-bold text-gray-400 uppercase text-xs tracking-widest mb-4">Cardápio base sugerido</h3>
+                  <h3 className="font-bold text-gray-400 uppercase text-xs tracking-widest mb-4">Sugestão de cardápio base</h3>
                   <ul className="space-y-3">{result.mealPlan.map((item: string, i: number) => <li key={i} className="text-sm text-gray-700 flex gap-2"><span className="text-brand-orange font-bold">•</span> {item}</li>)}</ul>
                 </div>
                 <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
-                  <h3 className="font-bold text-gray-400 uppercase text-xs tracking-widest mb-4">Treino ideal para começar</h3>
+                  <h3 className="font-bold text-gray-400 uppercase text-xs tracking-widest mb-4">Sugestão de treino inicial</h3>
                   <ul className="space-y-3">{result.workoutPlan.map((item: string, i: number) => <li key={i} className="text-sm text-gray-700 flex gap-2"><span className="text-brand-orange font-bold">•</span> {item}</li>)}</ul>
                 </div>
               </div>
 
               <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
-                <h3 className="font-bold text-gray-400 uppercase text-xs tracking-widest mb-4">Rotina semanal sugerida</h3>
+                <h3 className="font-bold text-gray-400 uppercase text-xs tracking-widest mb-4">Sugestão de rotina semanal</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">{result.weeklyRoutine.map((item: string, i: number) => <div key={i} className="rounded-2xl bg-gray-50 border border-gray-100 px-4 py-3 text-sm text-gray-700 leading-relaxed">{item}</div>)}</div>
               </div>
 
               <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm space-y-4">
-                <h3 className="font-bold text-gray-400 uppercase text-xs tracking-widest">Por que essa recomendação faz sentido</h3>
+                <h3 className="font-bold text-gray-400 uppercase text-xs tracking-widest">Por que esta sugestão combina com você</h3>
                 <ul className="space-y-3">{result.whyItMatches.map((item: string, i: number) => <li key={i} className="text-sm text-gray-700 flex gap-2"><span className="text-brand-orange font-bold">•</span> {item}</li>)}</ul>
               </div>
 
               {result.primaryProduct && (
                 <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
-                  <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-3">Produto principal recomendado</p>
+                  <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-3">Produto mais indicado para você</p>
                   <div className="flex flex-col sm:flex-row gap-4 items-start">
                     <img src={result.primaryProduct.image} alt={result.primaryProduct.name} className="w-full sm:w-28 h-48 sm:h-28 rounded-2xl object-cover bg-gray-50" referrerPolicy="no-referrer" />
                     <div className="flex-1 min-w-0">
@@ -244,8 +244,8 @@ export const TipsPage = ({
                       {hasProductPromotion(result.primaryProduct) && <div className="flex items-center gap-2 mb-1"><span className="text-xs text-gray-400 line-through">{formatPriceBRL(result.primaryProduct.compareAtPrice)}</span><span className="px-2 py-1 rounded-full bg-brand-black text-white text-[10px] font-black uppercase tracking-widest">-{result.primaryProduct.discountPercentage}%</span></div>}
                       <p className="text-2xl font-black text-brand-orange mb-4">{formatPriceBRL(result.primaryProduct.price)}</p>
                       <div className="flex flex-col sm:flex-row flex-wrap gap-3">
-                        <button onClick={() => onProductClick(result.primaryProduct)} className="btn-secondary text-sm w-full sm:w-auto">Ver produto</button>
-                        <button onClick={() => onAddToCart(result.primaryProduct)} className="btn-primary text-sm w-full sm:w-auto">Adicionar ao carrinho</button>
+                        <button onClick={() => onProductClick(result.primaryProduct)} className="btn-secondary text-sm w-full sm:w-auto">Ver detalhes</button>
+                        <button onClick={() => onAddToCart(result.primaryProduct)} className="btn-primary text-sm w-full sm:w-auto">Comprar agora</button>
                       </div>
                     </div>
                   </div>
@@ -254,7 +254,7 @@ export const TipsPage = ({
 
               {result.secondaryProduct && (
                 <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
-                  <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-3">Produto complementar</p>
+                  <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-3">Complemento opcional</p>
                   <div className="flex flex-col sm:flex-row gap-4 items-start">
                     <img src={result.secondaryProduct.image} alt={result.secondaryProduct.name} className="w-full sm:w-24 h-44 sm:h-24 rounded-2xl object-cover bg-gray-50" referrerPolicy="no-referrer" />
                     <div className="flex-1 min-w-0">
@@ -265,32 +265,32 @@ export const TipsPage = ({
                       {result.secondaryProduct.promotionLabel && <span className="inline-flex mb-2 px-3 py-1 rounded-full bg-orange-50 text-brand-orange text-[10px] font-black uppercase tracking-widest border border-orange-100">{result.secondaryProduct.promotionLabel}</span>}
                       {hasProductPromotion(result.secondaryProduct) && <div className="flex items-center gap-2 mb-1"><span className="text-xs text-gray-400 line-through">{formatPriceBRL(result.secondaryProduct.compareAtPrice)}</span><span className="px-2 py-1 rounded-full bg-brand-black text-white text-[10px] font-black uppercase tracking-widest">-{result.secondaryProduct.discountPercentage}%</span></div>}
                       <p className="text-lg font-black text-brand-orange mb-3">{formatPriceBRL(result.secondaryProduct.price)}</p>
-                      <button onClick={() => onAddToCart(result.secondaryProduct)} className="btn-primary text-sm w-full sm:w-auto">Adicionar complementar</button>
+                      <button onClick={() => onAddToCart(result.secondaryProduct)} className="btn-primary text-sm w-full sm:w-auto">Incluir no pedido</button>
                     </div>
                   </div>
                 </div>
               )}
 
               <div className="bg-orange-50 p-6 rounded-3xl border border-orange-100">
-                <h3 className="font-bold text-brand-orange uppercase text-xs tracking-widest mb-4">Fechamento comercial</h3>
+                <h3 className="font-bold text-brand-orange uppercase text-xs tracking-widest mb-4">Próximo passo</h3>
                 <p className="text-sm text-gray-700 leading-relaxed mb-4">{result.cta}</p>
-                {result.primaryProduct && <button onClick={() => onAddToCart(result.primaryProduct)} className="btn-primary w-full py-4 text-base">Quero começar agora</button>}
+                {result.primaryProduct && <button onClick={() => onAddToCart(result.primaryProduct)} className="btn-primary w-full py-4 text-base">Escolher este produto</button>}
               </div>
 
               <div className="bg-brand-black p-6 rounded-3xl text-white border border-white/5">
-                <p className="text-[10px] uppercase tracking-widest text-brand-orange font-bold mb-3">Oferta premium</p>
+                <p className="text-[10px] uppercase tracking-widest text-brand-orange font-bold mb-3">Acompanhamento premium</p>
                 <h3 className="text-2xl font-black mb-3">Plano mensal de acompanhamento</h3>
                 <p className="text-sm text-gray-300 leading-relaxed mb-3">{result.monthlyPlanOffer}</p>
                 <p className="text-sm text-gray-400 leading-relaxed mb-5">{result.monthlyPlanPitch}</p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">{['Ajustes semanais', 'Direcionamento alimentar', 'Suporte e rotina de treino'].map((item) => <div key={item} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-gray-200">{item}</div>)}</div>
-                <a href={getMonthlyPlanWhatsAppLink(form.phone, result)} target="_blank" rel="noreferrer" className="btn-primary w-full py-4 text-base text-center inline-flex items-center justify-center">Quero saber do plano mensal</a>
+                <a href={getMonthlyPlanWhatsAppLink(form.phone, result)} target="_blank" rel="noreferrer" className="btn-primary w-full py-4 text-base text-center inline-flex items-center justify-center">Falar sobre o plano mensal</a>
               </div>
             </motion.div>
           ) : (
             <div className="h-full flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-gray-100 rounded-3xl">
               <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4"><Search className="text-gray-300" /></div>
               <p className="text-gray-400 text-sm mb-2">Preencha seus dados para receber uma recomendação de produto da loja com apoio da IA.</p>
-              <p className="text-xs text-gray-300">Esse fluxo também já captura o lead para acompanhamento comercial.</p>
+              <p className="text-xs text-gray-300">Quanto mais completo o perfil, mais precisa tende a ser a recomendação inicial.</p>
             </div>
           )}
         </div>

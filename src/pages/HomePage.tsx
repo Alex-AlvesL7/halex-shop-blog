@@ -259,8 +259,8 @@ export const HomePage = ({
   ];
 
   const aiProofItems = [
-    `${reviewVolume}+ avaliações ajudam a destacar os produtos com mais confiança`,
-    `${products.length}+ opções na loja para encaixar no seu objetivo`,
+    `${reviewVolume}+ avaliações ajudam você a escolher com mais confiança`,
+    `${products.length}+ opções para diferentes objetivos e rotinas`,
     'Leitura inicial em cerca de 1 minuto com peso, altura e meta',
   ];
 
@@ -283,7 +283,7 @@ export const HomePage = ({
               transition={{ duration: 0.7 }}
             >
               <span className="inline-flex items-center gap-2 rounded-full border border-brand-orange/20 bg-brand-orange/10 px-4 py-2 text-[11px] font-black uppercase tracking-[0.28em] text-brand-orange">
-                <Flame size={14} /> L7 Fitness Performance Store
+                <Flame size={14} /> Curadoria L7 Fitness
               </span>
 
               <h1 className="mt-6 text-5xl font-black uppercase leading-[0.92] text-white sm:text-6xl lg:text-7xl">
@@ -292,9 +292,9 @@ export const HomePage = ({
               </h1>
 
               <p className="mt-6 max-w-xl text-lg leading-relaxed text-gray-300">
-                Descubra o suplemento ideal para seu momento com ajuda da
-                Alexia, análise de peso e medidas e ofertas pensadas para
-                acelerar seu emagrecimento com mais segurança.
+                Descubra os produtos mais alinhados ao seu momento com apoio da
+                Alexia, leitura inicial do seu perfil e ofertas pensadas para
+                tornar sua jornada de emagrecimento mais clara e segura.
               </p>
 
               <div className="mt-6 inline-flex rounded-full border border-brand-orange/20 bg-brand-orange/10 px-4 py-2 text-xs font-black uppercase tracking-[0.24em] text-brand-orange">
@@ -306,13 +306,13 @@ export const HomePage = ({
                   onClick={scrollToQuizForm}
                   className="btn-primary inline-flex items-center gap-2 shadow-[0_20px_40px_rgba(255,99,33,0.24)]"
                 >
-                  Descobrir meu protocolo <ChevronRight size={18} />
+                  Começar minha análise <ChevronRight size={18} />
                 </button>
                 <button
                   onClick={() => onNavigate('store')}
                   className="rounded-full border border-white/15 bg-white/5 px-6 py-3 text-sm font-black uppercase tracking-widest text-white transition hover:border-brand-orange hover:text-brand-orange"
                 >
-                  Ver produtos
+                  Explorar loja
                 </button>
               </div>
 
@@ -428,7 +428,7 @@ export const HomePage = ({
                             {currentProduct.name}
                           </h2>
                           <p className="mt-2 line-clamp-2 text-sm leading-6 text-gray-300">
-                            {currentProduct.description}
+                            {getProductMarketingSummary(currentProduct).summary || currentProduct.description}
                           </p>
                         </div>
 
@@ -457,14 +457,14 @@ export const HomePage = ({
                           onClick={() => onProductClick(currentProduct)}
                           className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-xs font-black uppercase tracking-widest text-brand-black transition hover:bg-brand-orange hover:text-white"
                         >
-                          Ver oferta <ArrowUpRight size={14} />
+                          Ver detalhes <ArrowUpRight size={14} />
                         </button>
                         {currentProduct.stock > 0 && (
                           <button
                             onClick={() => onAddToCart(currentProduct)}
                             className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/8 px-5 py-2.5 text-xs font-black uppercase tracking-widest text-white transition hover:border-brand-orange hover:text-brand-orange"
                           >
-                            Adicionar ao carrinho <ChevronRight size={14} />
+                            Comprar agora <ChevronRight size={14} />
                           </button>
                         )}
 
@@ -505,13 +505,13 @@ export const HomePage = ({
             >
               <div className="rounded-[24px] border border-white/10 bg-white/5 p-5">
                 <p className="text-[10px] font-black uppercase tracking-[0.26em] text-brand-orange">
-                  Alexia responde aqui
+                  Análise Alexia
                 </p>
                 <h3 className="mt-3 text-2xl font-black uppercase leading-tight">
                   Descobrir meu protocolo em 1 minuto.
                 </h3>
                 <p className="mt-3 text-sm leading-7 text-gray-300">
-                  Lead capturado aqui, resposta na coluna ao lado e caminho direto para o produto recomendado.
+                  Conte para a Alexia seu objetivo, rotina e medidas para receber uma indicação inicial mais alinhada ao que você precisa agora.
                 </p>
               </div>
 
@@ -519,10 +519,10 @@ export const HomePage = ({
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-[0.24em] text-brand-orange">
-                      Mini formulário da Alexia
+                      Seu perfil em 1 minuto
                     </p>
                     <h4 className="mt-2 text-lg font-black uppercase leading-tight">
-                      Preencha e veja seu protocolo sem sair da home
+                      Preencha e veja sua recomendação sem sair da home
                     </h4>
                   </div>
                   <ArrowUpRight size={18} className="shrink-0 text-brand-orange" />
@@ -636,7 +636,7 @@ export const HomePage = ({
 
                 {inlineLeadSaved && (
                   <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
-                    Lead capturado com sucesso. Seu resultado já está liberado abaixo.
+                    Recebemos seus dados com sucesso. Seu resultado já está liberado abaixo.
                   </div>
                 )}
 
@@ -646,12 +646,12 @@ export const HomePage = ({
                   className="mt-5 w-full rounded-2xl bg-brand-black px-4 py-4 text-center text-sm font-black uppercase tracking-widest text-white transition hover:bg-brand-orange disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {inlineQuizLoading
-                    ? 'Gerando seu protocolo...'
-                    : 'Descobrir meu protocolo em 1 minuto'}
+                    ? 'Montando sua análise...'
+                    : 'Receber minha análise agora'}
                 </button>
 
                 <p className="mt-4 text-xs leading-6 text-gray-500">
-                  Esse fluxo junta CTR, captura de lead e resposta da Alexia na mesma seção para reduzir atrito.
+                  Uma orientação inicial rápida para ajudar você a tomar a próxima decisão com mais confiança.
                 </p>
               </div>
 
@@ -659,7 +659,7 @@ export const HomePage = ({
                 {[
                   `${reviewVolume}+ avaliações reais da loja`,
                   `${products.length}+ produtos para encaixar no objetivo`,
-                  'Resultado e CTA aparecem sem mudar de página',
+                  'Resultado e sugestão aparecem sem mudar de página',
                 ].map((item) => (
                   <div
                     key={item}
@@ -675,7 +675,7 @@ export const HomePage = ({
               {!inlineQuizResult ? (
                 <div className="rounded-[32px] border border-orange-100 bg-[linear-gradient(135deg,#fffaf5_0%,#ffffff_55%,#fff4eb_100%)] p-6 shadow-[0_20px_50px_rgba(15,23,42,0.08)] sm:p-8">
                   <p className="text-[11px] font-black uppercase tracking-[0.28em] text-brand-orange">
-                    Alexia L7 auxilia
+                    Análise guiada
                   </p>
                   <h2 className="mt-3 text-3xl font-black uppercase leading-tight text-brand-black sm:text-4xl">
                     Descubra seu protocolo em 1 minuto.
@@ -684,22 +684,23 @@ export const HomePage = ({
                     Peso, altura e objetivo para indicar o kit mais alinhado.
                   </p>
                   <p className="mt-4 max-w-2xl text-base leading-8 text-gray-600 sm:text-lg">
-                    A visitante preenche os dados principais, vira lead na hora e a
-                    L7 responde com a recomendação inicial sem tirar ninguém da
-                    home. O foco aqui é reduzir dúvida e aumentar clique no produto certo.
+                    Você preenche os dados principais e a L7 mostra uma
+                    recomendação inicial sem tirar você da home. Assim, fica
+                    mais fácil entender por onde começar e escolher o produto
+                    ou kit mais alinhado ao seu momento.
                   </p>
 
                   <div className="mt-6 grid gap-3 sm:grid-cols-3">
                     <div className="rounded-[22px] border border-orange-100 bg-orange-50 px-4 py-4">
                       <p className="text-[10px] font-black uppercase tracking-[0.24em] text-brand-orange">Promessa</p>
-                      <p className="mt-2 text-sm font-semibold leading-6 text-brand-black">Descubra seu protocolo ideal antes de escolher qualquer kit.</p>
+                      <p className="mt-2 text-sm font-semibold leading-6 text-brand-black">Entenda por onde começar antes de escolher seu kit.</p>
                     </div>
                     <div className="rounded-[22px] border border-orange-100 bg-white px-4 py-4">
-                      <p className="text-[10px] font-black uppercase tracking-[0.24em] text-brand-orange">Tempo</p>
-                      <p className="mt-2 text-sm font-semibold leading-6 text-brand-black">Resposta rápida em cerca de 1 minuto, sem tirar a pessoa da página.</p>
+                      <p className="text-[10px] font-black uppercase tracking-[0.24em] text-brand-orange">Resposta rápida</p>
+                      <p className="mt-2 text-sm font-semibold leading-6 text-brand-black">Resposta rápida em cerca de 1 minuto, sem interromper sua navegação.</p>
                     </div>
                     <div className="rounded-[22px] border border-orange-100 bg-white px-4 py-4">
-                      <p className="text-[10px] font-black uppercase tracking-[0.24em] text-brand-orange">Foco</p>
+                      <p className="text-[10px] font-black uppercase tracking-[0.24em] text-brand-orange">Critério da análise</p>
                       <p className="mt-2 text-sm font-semibold leading-6 text-brand-black">Peso, altura, rotina e meta para recomendar com mais precisão.</p>
                     </div>
                   </div>
@@ -709,8 +710,9 @@ export const HomePage = ({
                       Área de resposta da Alexia
                     </p>
                     <p className="mt-3 text-sm leading-7 text-gray-600">
-                      Assim que a visitante enviar o formulário, este lado recebe o
-                      protocolo, a justificativa da recomendação e o CTA comercial.
+                      Depois do envio, este espaço mostra seu protocolo, a
+                      lógica da recomendação e os próximos passos para avançar
+                      com mais segurança.
                     </p>
                   </div>
 
@@ -719,13 +721,13 @@ export const HomePage = ({
                       onClick={scrollToQuizForm}
                       className="btn-primary inline-flex items-center gap-2"
                     >
-                      Descobrir meu protocolo em 1 minuto <ChevronRight size={18} />
+                      Fazer minha análise agora <ChevronRight size={18} />
                     </button>
                     <button
                       onClick={() => onNavigate('store')}
                       className="rounded-full border border-brand-orange/20 bg-orange-50 px-6 py-3 text-sm font-black uppercase tracking-widest text-brand-orange transition hover:bg-brand-orange hover:text-white"
                     >
-                      Ver produtos para emagrecimento
+                      Ver opções da loja
                     </button>
                   </div>
                 </div>
@@ -738,7 +740,7 @@ export const HomePage = ({
                 >
                   <div className="rounded-[30px] border border-brand-black/5 bg-[linear-gradient(135deg,#111111_0%,#1d1d1d_100%)] p-6 text-white shadow-[0_25px_70px_rgba(15,23,42,0.16)] sm:p-7">
                     <p className="text-[10px] font-black uppercase tracking-[0.28em] text-brand-orange">
-                      A Alexia responde
+                        Sua recomendação inicial
                     </p>
                     <h3 className="mt-3 text-3xl font-black uppercase leading-tight">
                       {inlineQuizResult.primaryProduct?.name || 'Produto recomendado'}
@@ -759,7 +761,7 @@ export const HomePage = ({
 
                     <div className="mt-6 rounded-[24px] border border-brand-orange/20 bg-brand-orange/10 px-5 py-5">
                       <p className="text-[10px] font-black uppercase tracking-[0.24em] text-brand-orange">
-                        Gancho comercial
+                        Mensagem da Alexia
                       </p>
                       <p className="mt-2 text-base font-semibold leading-7 text-white">
                         {inlineQuizResult.leadHook}
@@ -794,13 +796,13 @@ export const HomePage = ({
                               onClick={() => onProductClick(inlineQuizResult.primaryProduct)}
                               className="rounded-full border border-brand-orange/20 bg-orange-50 px-5 py-3 text-sm font-black uppercase tracking-widest text-brand-orange transition hover:bg-brand-orange hover:text-white"
                             >
-                              Ver oferta
+                              Ver produto
                             </button>
                             <button
                               onClick={() => onAddToCart(inlineQuizResult.primaryProduct)}
                               className="btn-primary"
                             >
-                              Quero começar agora
+                              Comprar agora
                             </button>
                           </div>
                         </div>
@@ -827,7 +829,7 @@ export const HomePage = ({
                           onClick={() => onAddToCart(inlineQuizResult.secondaryProduct)}
                           className="rounded-full border border-brand-orange/20 bg-white px-5 py-3 text-xs font-black uppercase tracking-widest text-brand-orange transition hover:bg-brand-orange hover:text-white"
                         >
-                          Adicionar complementar
+                          Incluir no pedido
                         </button>
                       </div>
                     </div>
@@ -835,13 +837,13 @@ export const HomePage = ({
 
                   <div className="rounded-[28px] border border-orange-100 bg-orange-50 p-6">
                     <p className="text-[10px] font-black uppercase tracking-[0.24em] text-brand-orange">
-                      Fechamento comercial
+                      Próximo passo
                     </p>
                     <p className="mt-3 text-sm leading-7 text-gray-700">
                       {inlineQuizResult.cta}
                     </p>
                     <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                      {['Direção inicial', 'Oferta alinhada', 'Lead capturado'].map(
+                      {['Direção inicial', 'Kit sugerido', 'Atendimento iniciado'].map(
                         (item) => (
                           <div
                             key={item}
@@ -868,18 +870,18 @@ export const HomePage = ({
               Conteúdo e dicas
             </p>
             <h2 className="mt-2 text-4xl font-black uppercase text-brand-black sm:text-5xl">
-              Treino, dieta e nutrição na prática.
+              Treino, nutrição e estratégia na prática.
             </h2>
             <p className="mt-3 max-w-xl text-base leading-7 text-gray-600">
-              Artigos escritos para quem quer resultados reais — sem enrolação e
-              com embasamento para cada escolha.
+              Conteúdos para ajudar você a entender melhor treino, alimentação,
+              suplementação e escolhas mais seguras para a sua rotina.
             </p>
           </div>
           <button
             onClick={() => onNavigate('blog')}
             className="inline-flex items-center gap-2 self-start rounded-full bg-brand-black px-6 py-3 text-sm font-black uppercase tracking-widest text-white transition hover:bg-brand-orange"
           >
-            Acessar blog <ChevronRight size={16} />
+            Ler conteúdos <ChevronRight size={16} />
           </button>
         </div>
 
@@ -898,7 +900,7 @@ export const HomePage = ({
                 </div>
                 <div className="p-8 sm:p-10">
                   <p className="text-[11px] font-black uppercase tracking-[0.3em] text-brand-orange">
-                    Post em destaque
+                    Leitura em destaque
                   </p>
                   <h3 className="mt-4 text-2xl font-black uppercase leading-tight sm:text-3xl">
                     {heroPost.title}
@@ -910,7 +912,7 @@ export const HomePage = ({
                     onClick={() => onPostClick(heroPost)}
                     className="mt-8 inline-flex items-center gap-2 rounded-full bg-brand-orange px-6 py-3 text-sm font-black uppercase tracking-widest text-white transition hover:bg-orange-600"
                   >
-                    Ler artigo <ArrowUpRight size={16} />
+                    Ler matéria <ArrowUpRight size={16} />
                   </button>
                 </div>
               </>
@@ -947,9 +949,9 @@ export const HomePage = ({
           onNavigate={onNavigate}
           badge="Programa de afiliados"
           title="Ganhe até 50% de comissão indicando produtos L7 Fitness."
-          description="Depois de educar e converter a audiência com conteúdo e ofertas, a home também convida criadores, parceiros e social sellers para monetizar com a marca."
-          primaryLabel="Conhecer programa"
-          secondaryLabel="Ver produtos"
+          description="Indique os produtos L7 Fitness com seu link exclusivo, acesse materiais prontos e acompanhe sua evolução com apoio da marca."
+          primaryLabel="Conhecer afiliados"
+          secondaryLabel="Explorar loja"
           className="border-orange-300/60"
         />
       </section>
@@ -959,21 +961,21 @@ export const HomePage = ({
         <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-[11px] font-black uppercase tracking-[0.28em] text-brand-orange">
-              Produtos em destaque
+                Seleção da loja
             </p>
             <h2 className="mt-2 text-4xl font-black uppercase text-brand-black sm:text-5xl">
               Os mais vendidos da loja.
             </h2>
             <p className="mt-3 max-w-xl text-base leading-7 text-gray-600">
-              Depois da análise e do conteúdo, aqui ficam os produtos com maior
-              potencial de clique e conversão.
+              Conheça os produtos mais procurados da loja e encontre opções
+              para começar com mais clareza, praticidade e confiança.
             </p>
           </div>
           <button
             onClick={() => onNavigate('store')}
             className="inline-flex items-center gap-2 self-start rounded-full border border-brand-orange/20 bg-orange-50 px-6 py-3 text-sm font-black uppercase tracking-widest text-brand-orange transition hover:bg-brand-orange hover:text-white"
           >
-            Ver catálogo completo <ChevronRight size={16} />
+            Explorar catálogo <ChevronRight size={16} />
           </button>
         </div>
 
@@ -995,15 +997,15 @@ export const HomePage = ({
           <div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-center">
             <div className="max-w-2xl">
               <p className="text-[11px] font-black uppercase tracking-[0.3em] text-brand-orange">
-                Comece agora
+                Seu próximo passo
               </p>
               <h2 className="mt-3 text-3xl font-black uppercase text-brand-black sm:text-4xl">
-                O próximo passo pode ser sua análise com a Alexia.
+                Seu próximo passo pode começar com a Alexia.
               </h2>
               <p className="mt-4 text-base leading-8 text-gray-600">
                 Se quiser uma orientação mais certeira antes de comprar,
-                comece pela Alexia. Se já estiver pronta, avance para a
-                loja e escolha seu kit ideal.
+                comece pela análise da Alexia. Se já souber o que procura,
+                siga para a loja e escolha o produto ideal para sua rotina.
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
@@ -1011,13 +1013,13 @@ export const HomePage = ({
                 onClick={scrollToQuizForm}
                 className="btn-primary whitespace-nowrap"
               >
-                Falar com a Alexia
+                Fazer análise com a Alexia
               </button>
               <button
                 onClick={() => onNavigate('store')}
                 className="rounded-full border border-brand-orange/20 bg-white px-6 py-3 text-sm font-black uppercase tracking-widest text-brand-orange transition hover:bg-brand-orange hover:text-white"
               >
-                Ir para a loja
+                Explorar produtos
               </button>
             </div>
           </div>

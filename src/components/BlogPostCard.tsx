@@ -4,6 +4,13 @@ import { motion } from 'motion/react';
 import { BlogPost } from '../types';
 import { useAuth } from '../contexts/authContext';
 
+const blogCategoryLabels: Record<BlogPost['category'], string> = {
+  alimentacao: 'Nutrição',
+  treino: 'Treino',
+  dieta: 'Estratégia alimentar',
+  negocios: 'Afiliados',
+};
+
 export const BlogPostCard: React.FC<{
   post: BlogPost;
   onClick: (post: BlogPost) => void;
@@ -41,7 +48,7 @@ export const BlogPostCard: React.FC<{
 
       <div className="space-y-2">
         <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest text-brand-orange">
-          <span>{post.category}</span>
+          <span>{blogCategoryLabels[post.category] || post.category}</span>
           <span className="w-1 h-1 bg-gray-300 rounded-full" />
           <span className="text-gray-400">{post.readTime}</span>
         </div>
@@ -57,7 +64,7 @@ export const BlogPostCard: React.FC<{
             }}
             className="mt-3 inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-4 py-2 text-[11px] font-black uppercase tracking-widest text-brand-orange transition hover:bg-brand-orange hover:text-white"
           >
-            Faturar como afiliado <ChevronRight size={14} />
+            Conhecer afiliados <ChevronRight size={14} />
           </button>
         )}
       </div>
