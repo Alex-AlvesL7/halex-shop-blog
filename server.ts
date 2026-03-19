@@ -2607,17 +2607,44 @@ app.post("/api/checkout", async (req, res) => {
 
   app.post("/api/affiliates", async (req, res) => {
     const { name, email, whatsapp, ref_code, commission_rate } = req.body;
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    const normalizedRefCode = String(ref_code || '').trim().toUpperCase().replace(/\s+/g, '');
     
     // Basic anti-spam: check if email already exists
     if (!supabase) return res.status(500).json({ error: "Supabase not configured" });
-    const { data: existing } = await supabase.from('affiliates').select('*').eq('email', email).single();
-    if (existing) return res.status(400).json({ error: "Email já cadastrado" });
+    const { data: existingEmailAffiliate, error: emailLookupError } = await supabase
+      .from('affiliates')
+      .select('id, email')
+      .ilike('email', normalizedEmail)
+      .maybeSingle();
+
+    if (emailLookupError) {
+      return res.status(400).json({ error: emailLookupError.message });
+    }
+
+    if (existingEmailAffiliate) {
+      return res.status(400).json({ error: "Este e-mail já está cadastrado no programa de afiliados." });
+    }
+
+    const { data: existingRefAffiliate, error: refLookupError } = await supabase
+      .from('affiliates')
+      .select('id, ref_code')
+      .eq('ref_code', normalizedRefCode)
+      .maybeSingle();
+
+    if (refLookupError) {
+      return res.status(400).json({ error: refLookupError.message });
+    }
+
+    if (existingRefAffiliate) {
+      return res.status(400).json({ error: "Este código de afiliado já está em uso. Escolha outro código de referência." });
+    }
 
     const affiliateData: any = { 
       id: crypto.randomUUID(),
       name, 
-      email, 
-      ref_code, 
+      email: normalizedEmail,
+      ref_code: normalizedRefCode,
       commission_rate: Number(commission_rate) || 10,
       status: 'pending'
     };
@@ -2625,7 +2652,15 @@ app.post("/api/checkout", async (req, res) => {
     if (whatsapp) affiliateData.whatsapp = whatsapp;
     
     const { error } = await supabase.from('affiliates').insert([affiliateData]);
-    if (error) return res.status(400).json({ error: error.message });
+    if (error) {
+      if (error.message.includes('affiliates_ref_code_key')) {
+        return res.status(400).json({ error: 'Este código de afiliado já está em uso. Escolha outro código de referência.' });
+      }
+      if (error.message.includes('affiliates_email_key')) {
+        return res.status(400).json({ error: 'Este e-mail já está cadastrado no programa de afiliados.' });
+      }
+      return res.status(400).json({ error: error.message });
+    }
     
     // Send email to admin
     try {
