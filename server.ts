@@ -998,6 +998,7 @@ const normalizeQuizLeadRecord = (lead: any) => {
     nextFollowUpAt: parsedMetadata?.crm?.nextFollowUpAt || null,
     monthlyPlanInterest: parsedMetadata?.crm?.monthlyPlanInterest || 'unknown',
     planOfferedAt: parsedMetadata?.crm?.planOfferedAt || null,
+    purchaseStatusOverride: parsedMetadata?.crm?.purchaseStatusOverride || 'auto',
     history,
   };
 
@@ -2043,15 +2044,17 @@ Retorne APENAS JSON no schema pedido.`,
 
   app.put("/api/quiz-leads/:id/crm", async (req, res) => {
     const { id } = req.params;
-    const { crmStatus, internalNote, lastContactAt, nextFollowUpAt, monthlyPlanInterest, planOfferedAt, historyEntry } = req.body || {};
+    const { crmStatus, internalNote, lastContactAt, nextFollowUpAt, monthlyPlanInterest, planOfferedAt, purchaseStatusOverride, historyEntry } = req.body || {};
     const allowedStatuses = ['new', 'contacted', 'interested', 'won', 'lost'];
     const allowedMonthlyPlanInterest = ['unknown', 'interested', 'not_interested', 'closed'];
+    const allowedPurchaseStatusOverrides = ['auto', 'no-purchase', 'pending', 'paid'];
     const normalizedStatus = allowedStatuses.includes(String(crmStatus)) ? String(crmStatus) : 'new';
     const normalizedNote = String(internalNote || '').trim();
     const normalizedLastContactAt = String(lastContactAt || '').trim() || null;
     const normalizedNextFollowUpAt = String(nextFollowUpAt || '').trim() || null;
     const normalizedMonthlyPlanInterest = allowedMonthlyPlanInterest.includes(String(monthlyPlanInterest)) ? String(monthlyPlanInterest) : 'unknown';
     const normalizedPlanOfferedAt = String(planOfferedAt || '').trim() || null;
+    const normalizedPurchaseStatusOverride = allowedPurchaseStatusOverrides.includes(String(purchaseStatusOverride)) ? String(purchaseStatusOverride) : 'auto';
     const normalizedHistoryEntry = normalizeLeadHistoryEntry(historyEntry);
 
     try {
@@ -2079,6 +2082,7 @@ Retorne APENAS JSON no schema pedido.`,
           nextFollowUpAt: normalizedNextFollowUpAt,
           monthlyPlanInterest: normalizedMonthlyPlanInterest,
           planOfferedAt: normalizedPlanOfferedAt,
+          purchaseStatusOverride: normalizedPurchaseStatusOverride,
           history: [
             ...((Array.isArray(parsedMetadata?.crm?.history)
               ? parsedMetadata.crm.history.map((entry: any) => normalizeLeadHistoryEntry(entry)).filter(Boolean)

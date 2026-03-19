@@ -262,6 +262,7 @@ interface LeadCrmDraft {
   nextFollowUpAt: string;
   monthlyPlanInterest: string;
   planOfferedAt: string;
+  purchaseStatusOverride: string;
 }
 
 interface LeadHistoryEntry {
@@ -304,6 +305,8 @@ const normalizeLeadText = (value?: string | null) => String(value || '')
   .normalize('NFD')
   .replace(/[\u0300-\u036f]/g, '')
   .toLowerCase();
+
+const normalizePhoneDigits = (value?: string | null) => String(value || '').replace(/\D/g, '');
 
 const getLeadProfileContext = (lead?: any) => {
   const goal = normalizeLeadText(lead?.goal);
@@ -426,7 +429,7 @@ const getTrackingLink = (trackingCode?: string, trackingUrl?: string) => {
   return `https://melhorrastreio.com.br/rastreio/${encodeURIComponent(trackingCode)}`;
 };
 
-const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[], posts: BlogPost[], orders: any[], onRefresh: () => void }) => {
+const AdminPage = ({ products, posts, orders, onRefresh, onNavigate }: { products: Product[], posts: BlogPost[], orders: any[], onRefresh: () => void, onNavigate: (page: string, options?: any) => void }) => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'posts' | 'orders' | 'affiliates' | 'categories' | 'leads'>('dashboard');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -599,39 +602,67 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
 
   const COLORS = ['#FF6321', '#141414', '#10B981', '#6366F1', '#F59E0B'];
 
-  const leadOrderSummaryByEmail = useMemo(() => {
-    const summary = new Map<string, { hasPaid: boolean; hasPending: boolean; orderCount: number }>();
-
-    orders.forEach((order: any) => {
-      const email = String(order.customer_email || order.customer?.email || '').trim().toLowerCase();
-      if (!email) return;
-
-      const current = summary.get(email) || { hasPaid: false, hasPending: false, orderCount: 0 };
-      current.orderCount += 1;
-      if (order.status === 'paid') current.hasPaid = true;
-      if (order.status === 'pending') current.hasPending = true;
-      summary.set(email, current);
-    });
-
-    return summary;
-  }, [orders]);
-
   const leadsWithStatus = useMemo(() => {
     return quizLeads.map((lead: any) => {
       const email = String(lead.email || '').trim().toLowerCase();
-      const orderSummary = leadOrderSummaryByEmail.get(email) || { hasPaid: false, hasPending: false, orderCount: 0 };
+      const phone = normalizePhoneDigits(lead.phone);
+      const leadCreatedAt = new Date(lead.created_at || 0).getTime();
+      const relatedOrders = orders.filter((order: any) => {
+        const orderEmail = String(order.customer_email || order.customer?.email || '').trim().toLowerCase();
+        const orderPhone = normalizePhoneDigits(order.customer?.phone);
+        const matchesEmail = !!email && orderEmail === email;
+        const matchesPhone = !!phone && orderPhone === phone;
+        if (!matchesEmail && !matchesPhone) return false;
+
+        const orderCreatedAt = new Date(order.created_at || 0).getTime();
+        if (!leadCreatedAt || Number.isNaN(leadCreatedAt) || !orderCreatedAt || Number.isNaN(orderCreatedAt)) {
+          return true;
+        }
+
+        return orderCreatedAt >= leadCreatedAt;
+      });
+
+      const orderSummary = relatedOrders.reduce(
+        (acc, order: any) => {
+          acc.orderCount += 1;
+          if (order.status === 'paid') acc.hasPaid = true;
+          if (order.status === 'pending') acc.hasPending = true;
+          return acc;
+        },
+        { hasPaid: false, hasPending: false, orderCount: 0 },
+      );
       const recommendedProduct = products.find((product) => product.id === lead.recommendedProductId) || null;
-      const status = orderSummary.hasPaid ? 'paid' : orderSummary.hasPending ? 'pending' : 'no-purchase';
+      const automaticStatus = orderSummary.hasPaid ? 'paid' : orderSummary.hasPending ? 'pending' : 'no-purchase';
+      const purchaseStatusOverride = String(lead.crm?.purchaseStatusOverride || 'auto');
+      const status = purchaseStatusOverride !== 'auto' ? purchaseStatusOverride : automaticStatus;
+      const linkedOrders = [...relatedOrders].sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+      const paidOrdersTotal = linkedOrders
+        .filter((order: any) => order.status === 'paid')
+        .reduce((sum: number, order: any) => sum + Number(order.total || 0), 0);
+      const purchasedProductIds = Array.from(new Set(
+        linkedOrders.flatMap((order: any) => Array.isArray(order.items) ? order.items.map((item: any) => String(item.id || '')) : []).filter(Boolean),
+      ));
+      const suggestedProducts = products
+        .filter((product) => !purchasedProductIds.includes(product.id))
+        .filter((product) => !recommendedProduct || product.id !== recommendedProduct.id)
+        .filter((product) => (recommendedProduct?.category ? product.category === recommendedProduct.category : true))
+        .slice(0, 3);
 
       return {
         ...lead,
         recommendedProduct,
         recommendedProductName: recommendedProduct?.name || lead?.metadata?.primaryProductName || 'Produto recomendado',
         purchaseStatus: status,
+        automaticPurchaseStatus: automaticStatus,
+        purchaseStatusOverride,
         orderCount: orderSummary.orderCount,
+        linkedOrders,
+        paidOrdersTotal,
+        lastOrderAt: linkedOrders[0]?.created_at || null,
+        suggestedProducts,
       };
     });
-  }, [quizLeads, leadOrderSummaryByEmail, products]);
+  }, [quizLeads, orders, products]);
 
   useEffect(() => {
     setLeadCrmDrafts(prev => {
@@ -644,6 +675,7 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
           nextFollowUpAt: prev[lead.id]?.nextFollowUpAt || (lead.crm?.nextFollowUpAt ? String(lead.crm.nextFollowUpAt).slice(0, 10) : ''),
           monthlyPlanInterest: prev[lead.id]?.monthlyPlanInterest || lead.crm?.monthlyPlanInterest || 'unknown',
           planOfferedAt: prev[lead.id]?.planOfferedAt || lead.crm?.planOfferedAt || '',
+          purchaseStatusOverride: prev[lead.id]?.purchaseStatusOverride || lead.crm?.purchaseStatusOverride || 'auto',
         };
       });
       return next;
@@ -706,13 +738,14 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
         nextFollowUpAt: prev[leadId]?.nextFollowUpAt || '',
         monthlyPlanInterest: prev[leadId]?.monthlyPlanInterest || 'unknown',
         planOfferedAt: prev[leadId]?.planOfferedAt || '',
+        purchaseStatusOverride: prev[leadId]?.purchaseStatusOverride || 'auto',
         ...patch,
       }
     }));
   };
 
   const handleSaveLeadCrm = async (leadId: string, override?: Partial<LeadCrmDraft>, historyEntry?: LeadHistoryEntry) => {
-    const base = leadCrmDrafts[leadId] || { status: 'new', internalNote: '', lastContactAt: '', nextFollowUpAt: '', monthlyPlanInterest: 'unknown', planOfferedAt: '' };
+    const base = leadCrmDrafts[leadId] || { status: 'new', internalNote: '', lastContactAt: '', nextFollowUpAt: '', monthlyPlanInterest: 'unknown', planOfferedAt: '', purchaseStatusOverride: 'auto' };
     const draft = { ...base, ...(override || {}) };
 
     if (override) {
@@ -731,6 +764,7 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
           nextFollowUpAt: draft.nextFollowUpAt || null,
           monthlyPlanInterest: draft.monthlyPlanInterest,
           planOfferedAt: draft.planOfferedAt || null,
+          purchaseStatusOverride: draft.purchaseStatusOverride,
           historyEntry: historyEntry || null,
         })
       });
@@ -2044,7 +2078,7 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                 ) : (
                   filteredLeads.map((lead: any) => {
                     const whatsappLink = getLeadWhatsAppLink(lead.phone, lead);
-                    const crmDraft = leadCrmDrafts[lead.id] || { status: lead.crm?.status || 'new', internalNote: lead.crm?.internalNote || '', lastContactAt: lead.crm?.lastContactAt || '', nextFollowUpAt: lead.crm?.nextFollowUpAt ? String(lead.crm.nextFollowUpAt).slice(0, 10) : '', monthlyPlanInterest: lead.crm?.monthlyPlanInterest || 'unknown', planOfferedAt: lead.crm?.planOfferedAt || '' };
+                    const crmDraft = leadCrmDrafts[lead.id] || { status: lead.crm?.status || 'new', internalNote: lead.crm?.internalNote || '', lastContactAt: lead.crm?.lastContactAt || '', nextFollowUpAt: lead.crm?.nextFollowUpAt ? String(lead.crm.nextFollowUpAt).slice(0, 10) : '', monthlyPlanInterest: lead.crm?.monthlyPlanInterest || 'unknown', planOfferedAt: lead.crm?.planOfferedAt || '', purchaseStatusOverride: lead.crm?.purchaseStatusOverride || 'auto' };
                     const statusClasses = lead.purchaseStatus === 'paid'
                       ? 'bg-emerald-100 text-emerald-600'
                       : lead.purchaseStatus === 'pending'
@@ -2065,6 +2099,7 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                     const leadHistory = Array.isArray(lead.crm?.history)
                       ? [...lead.crm.history].sort((a: LeadHistoryEntry, b: LeadHistoryEntry) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
                       : [];
+                    const latestPaidOrder = lead.linkedOrders.find((order: any) => order.status === 'paid') || null;
 
                     return (
                       <div key={lead.id} className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-all">
@@ -2116,6 +2151,105 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                               <p className="text-xs text-brand-orange leading-relaxed mt-3 font-medium">Plano mensal: {lead.metadata.monthly_plan_offer}</p>
                             )}
                             <p className="text-xs text-gray-400 mt-3">Oferta enviada: {formatLeadDate(crmDraft.planOfferedAt || lead.crm?.planOfferedAt)}</p>
+                            <p className="text-xs text-gray-400 mt-1">Status automático: {lead.automaticPurchaseStatus === 'paid' ? 'Pago' : lead.automaticPurchaseStatus === 'pending' ? 'Checkout iniciado' : 'Sem compra'}{crmDraft.purchaseStatusOverride !== 'auto' ? ' • ajuste manual ativo' : ''}</p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.2fr)_0.8fr] gap-4 mb-4">
+                          <div className="rounded-2xl border border-gray-100 bg-white p-4">
+                            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                              <div>
+                                <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold">Histórico de compras</p>
+                                <p className="text-sm text-gray-500 mt-1">Veja tudo que o lead já iniciou ou comprou para orientar a próxima oferta.</p>
+                              </div>
+                              <div className="flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-widest">
+                                <span className="rounded-full bg-gray-100 px-3 py-1 text-gray-600">{lead.orderCount} pedidos</span>
+                                <span className="rounded-full bg-emerald-50 px-3 py-1 text-emerald-700">{formatPriceBRL(lead.paidOrdersTotal || 0)} pagos</span>
+                              </div>
+                            </div>
+
+                            {lead.linkedOrders.length === 0 ? (
+                              <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-5 text-sm text-gray-500">
+                                Este lead ainda não tem compra vinculada após a recomendação atual.
+                              </div>
+                            ) : (
+                              <div className="space-y-3">
+                                {lead.linkedOrders.slice(0, 4).map((order: any) => (
+                                  <div key={order.id} className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-4">
+                                    <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3 mb-3">
+                                      <div>
+                                        <div className="flex flex-wrap items-center gap-2">
+                                          <span className="text-sm font-black text-brand-black">{order.order_nsu || order.id}</span>
+                                          <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${order.status === 'paid' ? 'bg-emerald-100 text-emerald-600' : 'bg-orange-100 text-orange-600'}`}>
+                                            {order.status === 'paid' ? 'Pago' : 'Checkout iniciado'}
+                                          </span>
+                                          <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${fulfillmentBadgeClasses[order.fulfillment?.status || 'aguardando-envio'] || fulfillmentBadgeClasses['aguardando-envio']}`}>
+                                            {fulfillmentLabels[order.fulfillment?.status || 'aguardando-envio'] || 'Aguardando envio'}
+                                          </span>
+                                        </div>
+                                        <p className="mt-1 text-xs text-gray-400">{formatLeadDate(order.created_at)}</p>
+                                      </div>
+                                      <div className="text-left lg:text-right">
+                                        <p className="text-lg font-black text-brand-orange">{formatPriceBRL(Number(order.total || 0))}</p>
+                                        <p className="text-xs text-gray-400">{Array.isArray(order.items) ? order.items.length : 0} item(ns)</p>
+                                      </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                      {(order.items || []).map((item: any, index: number) => (
+                                        <div key={`${order.id}-${item.id || index}`} className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 border border-gray-100">
+                                          <div className="min-w-0">
+                                            <p className="text-sm font-bold text-gray-800 truncate">{item.name || 'Produto'}</p>
+                                            <p className="text-xs text-gray-400">Qtd: {item.quantity || 1}</p>
+                                          </div>
+                                          <p className="text-sm font-black text-gray-700">{formatPriceBRL(Number(item.price || 0) * Number(item.quantity || 1))}</p>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                            <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-3">Próximas ofertas</p>
+                            <div className="space-y-3">
+                              <div className="rounded-2xl bg-white border border-gray-100 px-4 py-3">
+                                <p className="text-xs text-gray-400 uppercase tracking-widest font-bold">Última compra paga</p>
+                                <p className="mt-2 text-sm font-bold text-gray-800">{latestPaidOrder ? (latestPaidOrder.items?.map((item: any) => item.name).join(', ') || 'Pedido pago') : 'Ainda sem pedido pago'}</p>
+                                <p className="mt-1 text-xs text-gray-500">{latestPaidOrder ? formatLeadDate(latestPaidOrder.created_at) : 'Sem histórico pago até agora'}</p>
+                              </div>
+
+                              <div className="rounded-2xl bg-white border border-gray-100 px-4 py-3">
+                                <p className="text-xs text-gray-400 uppercase tracking-widest font-bold">Upsell sugerido</p>
+                                {lead.suggestedProducts.length > 0 ? (
+                                  <div className="mt-2 space-y-2">
+                                    {lead.suggestedProducts.map((product: Product) => (
+                                      <button
+                                        key={product.id}
+                                        onClick={() => onNavigate('product-details', { productId: product.id })}
+                                        className="w-full rounded-xl border border-orange-100 bg-orange-50 px-3 py-3 text-left transition hover:border-brand-orange hover:bg-white"
+                                      >
+                                        <p className="text-sm font-bold text-brand-black">{product.name}</p>
+                                        <p className="text-xs text-gray-500 mt-1">{formatPriceBRL(product.price)}</p>
+                                      </button>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="mt-2 text-sm text-gray-500">Sem sugestão complementar no mesmo grupo por enquanto.</p>
+                                )}
+                              </div>
+
+                              <div className="rounded-2xl bg-brand-black px-4 py-4 text-white">
+                                <p className="text-[10px] uppercase tracking-widest text-brand-orange font-bold">Oportunidade comercial</p>
+                                <p className="mt-2 text-sm leading-6 text-gray-300">
+                                  {lead.orderCount > 0
+                                    ? 'Use o histórico de compras para oferecer complemento, acompanhamento ou conteúdo premium com mais precisão.'
+                                    : 'Como ainda não houve compra, vale insistir no produto recomendado, no acompanhamento ou em uma oferta de entrada.'}
+                                </p>
+                              </div>
+                            </div>
                           </div>
                         </div>
 
@@ -2145,6 +2279,26 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                               <p><span className="font-bold text-gray-700">Último contato:</span> {formatLeadDate(crmDraft.lastContactAt || lead.crm?.lastContactAt)}</p>
                               <p><span className="font-bold text-gray-700">Próximo follow-up:</span> {crmDraft.nextFollowUpAt ? new Date(`${crmDraft.nextFollowUpAt}T12:00:00`).toLocaleDateString('pt-BR') : '—'}</p>
                               <p><span className="font-bold text-gray-700">Plano mensal:</span> {crmDraft.monthlyPlanInterest === 'interested' ? 'Interessado' : crmDraft.monthlyPlanInterest === 'not_interested' ? 'Sem interesse' : crmDraft.monthlyPlanInterest === 'closed' ? 'Fechado' : 'Não mapeado'}</p>
+                            </div>
+                          </div>
+
+                          <div className="mb-4">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2 block">Status da compra</span>
+                            <div className="flex flex-wrap gap-2">
+                              {[
+                                ['auto', 'Automático'],
+                                ['no-purchase', 'Sem compra'],
+                                ['pending', 'Checkout iniciado'],
+                                ['paid', 'Pago'],
+                              ].map(([value, label]) => (
+                                <button
+                                  key={value}
+                                  onClick={() => updateLeadDraft(lead.id, { purchaseStatusOverride: value })}
+                                  className={`px-3 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${crmDraft.purchaseStatusOverride === value ? 'bg-brand-black text-white' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-100'}`}
+                                >
+                                  {label}
+                                </button>
+                              ))}
                             </div>
                           </div>
 
@@ -2398,8 +2552,8 @@ const AdminPage = ({ products, posts, orders, onRefresh }: { products: Product[]
                             </button>
                           )}
                           {lead.recommendedProduct && (
-                            <button onClick={() => handleEditProduct(lead.recommendedProduct)} className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-100 text-gray-700 text-xs font-bold uppercase tracking-widest hover:bg-gray-200 transition-colors">
-                              <Edit size={14} /> Ver produto recomendado
+                            <button onClick={() => onNavigate('product-details', { productId: lead.recommendedProduct.id })} className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-100 text-gray-700 text-xs font-bold uppercase tracking-widest hover:bg-gray-200 transition-colors">
+                              <Edit size={14} /> Abrir produto recomendado
                             </button>
                           )}
                         </div>
@@ -3426,7 +3580,7 @@ function MainApp() {
           {currentPage === 'admin' && (
             <motion.div key="admin" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               {user?.email === 'alexdjmp3@gmail.com' ? (
-                <AdminPage products={products} posts={posts} orders={orders} onRefresh={fetchData} />
+                <AdminPage products={products} posts={posts} orders={orders} onRefresh={fetchData} onNavigate={navigateTo} />
               ) : (
                 <div className="flex flex-col items-center justify-center min-h-[60vh] p-8 text-center">
                   <X size={64} className="text-red-500 mb-4" />
