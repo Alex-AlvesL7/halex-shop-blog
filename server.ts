@@ -293,6 +293,14 @@ if (supabase) {
   console.warn("Supabase credentials missing. Using local SQLite only.");
 }
 
+if (!process.env.RESEND_API_KEY) {
+  console.warn('RESEND_API_KEY is missing. Affiliate/admin confirmation emails will not be sent.');
+}
+
+if (!process.env.EMAIL_FROM) {
+  console.warn('EMAIL_FROM is not configured. Configure a verified sender domain for reliable email delivery.');
+}
+
 const app = express();
 const PORT = 3000;
 

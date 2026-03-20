@@ -32,6 +32,9 @@ O projeto **está funcionando** e pronto para desenvolvimento!
      VITE_SUPABASE_URL=sua-url-aqui
      VITE_SUPABASE_ANON_KEY=sua-chave-aqui
      GEMINI_API_KEY=sua-api-key-aqui
+   RESEND_API_KEY=sua-chave-resend-aqui
+   EMAIL_FROM=noreply@mail.seudominio.com.br
+   EMAIL_USER=admin@seudominio.com.br
      ```
 
 3. **Rodar em desenvolvimento**:
@@ -160,6 +163,17 @@ Opções:
 Reccomendação: Stripe ou Mercado Pago para Brasil
 ```
 
+### 4️⃣ Configurar envio de e-mail (Resend)
+```
+1. Criar conta em https://resend.com
+2. Gerar a chave RESEND_API_KEY
+3. Validar o domínio/remetente usado em EMAIL_FROM
+4. Definir EMAIL_USER para receber alertas administrativos
+5. Adicionar tudo no deploy e no .env.local
+```
+
+Sem essas variáveis, o afiliado pode ser salvo normalmente no Supabase, mas o e-mail de confirmação não será entregue.
+
 ---
 
 ## 📁 Estrutura do Projeto
@@ -208,7 +222,7 @@ Reccomendação: Stripe ou Mercado Pago para Brasil
    - [ ] Deploy em staging (Vercel)
    - [ ] Testes completos
    - [ ] Integração com domínio real
-   - [ ] Setup de email
+   - [ ] Setup de email (Resend + domínio validado)
 
 ---
 
