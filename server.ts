@@ -2662,11 +2662,25 @@ app.post("/api/checkout", async (req, res) => {
       return res.status(400).json({ error: error.message });
     }
     
-    // Send email to admin
+    // Send email notifications
     try {
-      await enviarEmail(process.env.EMAIL_USER || 'admin@l7fitness.com.br', "Novo Afiliado Pendente", `Novo afiliado: ${name} (${email}) aguardando aprovação.`);
+      await enviarEmail(
+        process.env.EMAIL_USER || 'admin@l7fitness.com.br',
+        "Novo Afiliado Pendente",
+        `Novo afiliado aguardando aprovação.<br/><br/><strong>Nome:</strong> ${name}<br/><strong>E-mail:</strong> ${normalizedEmail}<br/><strong>WhatsApp:</strong> ${whatsapp || '—'}<br/><strong>Ref:</strong> ${normalizedRefCode}`,
+      );
     } catch (e) {
       console.error("Email error:", e);
+    }
+
+    try {
+      await enviarEmail(
+        normalizedEmail,
+        'Recebemos sua solicitação de afiliação',
+        `Olá ${name},<br/><br/>Recebemos sua solicitação para o programa de afiliados da L7 Fitness.<br/>Seu cadastro foi registrado com sucesso e agora está em análise.<br/><br/><strong>Código solicitado:</strong> ${normalizedRefCode}<br/><br/>Assim que houver aprovação ou necessidade de ajuste, você será avisado por e-mail.`,
+      );
+    } catch (e) {
+      console.error('Affiliate confirmation email error:', e);
     }
     
     res.json({ success: true });

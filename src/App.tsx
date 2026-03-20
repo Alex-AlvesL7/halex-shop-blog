@@ -466,9 +466,30 @@ const AdminPage = ({ products, posts, orders, onRefresh, onNavigate }: { product
   const [productAIMode, setProductAIMode] = useState<'equilibrado' | 'conversao' | 'premium'>('equilibrado');
   const [productAdSuggestions, setProductAdSuggestions] = useState<{ headline: string; primaryText: string; description: string } | null>(null);
 
+  const fetchAffiliates = async () => {
+    try {
+      const response = await fetch('/api/affiliates');
+      const data = await response.json();
+      setAffiliates(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Erro ao carregar afiliados:', error);
+      setAffiliates([]);
+    }
+  };
+
   useEffect(() => {
-    fetch('/api/affiliates').then(res => res.json()).then(setAffiliates);
+    fetchAffiliates();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === 'affiliates') {
+      fetchAffiliates();
+    }
+  }, [activeTab]);
+
+  const handleAffiliatesRefresh = async () => {
+    await Promise.allSettled([Promise.resolve(onRefresh()), fetchAffiliates()]);
+  };
 
   const fetchQuizLeads = async () => {
     setLeadsLoading(true);
@@ -1161,7 +1182,7 @@ const AdminPage = ({ products, posts, orders, onRefresh, onNavigate }: { product
         )}
         {activeTab === 'affiliates' && (
           <button 
-            onClick={onRefresh}
+            onClick={handleAffiliatesRefresh}
             className="btn-secondary border border-gray-200 flex items-center gap-2"
           >
             <Upload size={20} className="rotate-180" /> Atualizar
@@ -2021,7 +2042,7 @@ const AdminPage = ({ products, posts, orders, onRefresh, onNavigate }: { product
               ))
             ) : activeTab === 'affiliates' ? (
               <Suspense fallback={<LazySectionFallback label="Carregando afiliados..." />}>
-                <AffiliatesManagement affiliates={affiliates} products={products} onRefresh={onRefresh} />
+                <AffiliatesManagement affiliates={affiliates} products={products} onRefresh={handleAffiliatesRefresh} />
               </Suspense>
             ) : activeTab === 'leads' ? (
               <div className="space-y-4">
