@@ -1,4 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { Auth } from '@supabase/auth-ui-react';
+import { supabase } from '../services/supabaseClient';
+import { useAuth } from '../contexts/authContext';
 import { BadgePercent, CheckCircle2, Clock3, Copy, DollarSign, Link2, Package, ShoppingBag, TrendingUp, Users, Wallet, CalendarDays } from 'lucide-react';
 
 const formatPrice = (value: number) => new Intl.NumberFormat('pt-BR', {
@@ -65,7 +68,9 @@ const isWithinPeriod = (value: string | undefined, period: '7d' | '30d' | '90d' 
   return date >= threshold;
 };
 
+
 export const AffiliateDashboard = ({ refCode }: { refCode: string }) => {
+  const { user } = useAuth();
   const [affiliate, setAffiliate] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
@@ -76,6 +81,19 @@ export const AffiliateDashboard = ({ refCode }: { refCode: string }) => {
   const [requestNote, setRequestNote] = useState('');
   const [isSubmittingPayout, setIsSubmittingPayout] = useState(false);
   const [payoutFeedback, setPayoutFeedback] = useState<string | null>(null);
+
+  // Se não estiver autenticado, mostra tela de login do Supabase
+  if (!user) {
+    return (
+      <div className="pt-32 pb-24 max-w-lg mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="rounded-3xl bg-white border border-gray-100 shadow-lg p-8 text-center">
+          <h2 className="text-2xl font-black mb-4 text-brand-black">Acesso ao Painel do Afiliado</h2>
+          <p className="mb-6 text-gray-500">Faça login para acessar seu painel de afiliado.</p>
+          <Auth supabaseClient={supabase} appearance={{ theme: 'default' }} providers={[]} />
+        </div>
+      </div>
+    );
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -247,8 +265,19 @@ export const AffiliateDashboard = ({ refCode }: { refCode: string }) => {
     'Foque nos produtos com mais conversão para aumentar seu ticket.',
   ], []);
 
+
   if (loading) return <div className="p-12 text-center">Carregando painel do afiliado...</div>;
   if (!affiliate) return <div className="p-12 text-center text-red-500">Afiliado não encontrado.</div>;
+
+  // Protege o painel: só o próprio afiliado (por e-mail) pode acessar
+  if (affiliate?.email && user?.email && affiliate.email !== user.email) {
+    return (
+      <div className="p-12 text-center text-red-500">
+        Você não tem permissão para acessar este painel de afiliado.<br />
+        Faça login com o e-mail cadastrado do afiliado.
+      </div>
+    );
+  }
 
   return (
     <div className="pt-32 pb-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
