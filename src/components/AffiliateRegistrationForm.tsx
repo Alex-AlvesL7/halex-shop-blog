@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
+import { useAuth } from '../contexts/authContext';
 import { CheckCircle2, LoaderCircle, X } from 'lucide-react';
 
 export const AffiliateRegistrationForm = ({ onClose }: { onClose: () => void }) => {
-  const [formData, setFormData] = useState({ name: '', email: '', whatsapp: '', ref_code: '', spam_check: '' });
+  const { user } = useAuth();
+  const [formData, setFormData] = useState({ name: '', cpf: '', whatsapp: '', cep: '', spam_check: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [status, setStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
@@ -24,7 +26,7 @@ export const AffiliateRegistrationForm = ({ onClose }: { onClose: () => void }) 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
-          ref_code: formData.ref_code.trim().toUpperCase().replace(/\s+/g, ''),
+          email: user?.email,
           commission_rate: 10,
         })
       });
@@ -36,7 +38,7 @@ export const AffiliateRegistrationForm = ({ onClose }: { onClose: () => void }) 
       }
 
       setStatus({ type: 'success', message: 'Solicitação enviada com sucesso. Aguarde a aprovação por e-mail.' });
-      setFormData({ name: '', email: '', whatsapp: '', ref_code: '', spam_check: '' });
+      setFormData({ name: '', cpf: '', whatsapp: '', cep: '', spam_check: '' });
       window.setTimeout(() => onClose(), 1600);
     } catch (error) {
       setStatus({ type: 'error', message: 'Falha de conexão. Tente novamente em instantes.' });
@@ -66,12 +68,11 @@ export const AffiliateRegistrationForm = ({ onClose }: { onClose: () => void }) 
             onChange={e => setFormData({ ...formData, name: e.target.value })}
           />
           <input
-            type="email"
-            placeholder="Seu melhor e-mail"
+            placeholder="CPF"
             className="w-full p-4 bg-gray-50 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-200"
             required
-            value={formData.email}
-            onChange={e => setFormData({ ...formData, email: e.target.value })}
+            value={formData.cpf}
+            onChange={e => setFormData({ ...formData, cpf: e.target.value })}
           />
           <input
             placeholder="WhatsApp com DDD"
@@ -80,16 +81,13 @@ export const AffiliateRegistrationForm = ({ onClose }: { onClose: () => void }) 
             value={formData.whatsapp}
             onChange={e => setFormData({ ...formData, whatsapp: e.target.value })}
           />
-          <div className="space-y-2">
-            <input
-              placeholder="Código de referência (ex: SEUNOME)"
-              className="w-full p-4 bg-gray-50 rounded-2xl border border-gray-200 uppercase focus:outline-none focus:ring-2 focus:ring-orange-200"
-              required
-              value={formData.ref_code}
-              onChange={e => setFormData({ ...formData, ref_code: e.target.value.toUpperCase().replace(/\s+/g, '') })}
-            />
-            <p className="text-xs text-gray-500">Esse código será usado nos seus links e no rastreamento das vendas.</p>
-          </div>
+          <input
+            placeholder="CEP"
+            className="w-full p-4 bg-gray-50 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-200"
+            required
+            value={formData.cep}
+            onChange={e => setFormData({ ...formData, cep: e.target.value })}
+          />
           <input
             placeholder="Quanto é 2 + 3?"
             className="w-full p-4 bg-gray-50 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-200"

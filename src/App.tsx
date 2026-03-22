@@ -2918,8 +2918,30 @@ const AuthModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }
         {supabase ? (
           <form onSubmit={handleAuth} className="space-y-4">
             {error && (
-              <div className="p-3 bg-red-50 text-red-500 text-xs font-bold rounded-xl">
-                {error}
+              <div className="p-3 bg-red-50 text-red-500 text-xs font-bold rounded-xl flex flex-col gap-2 items-center">
+                <span>{error}</span>
+                {error.toLowerCase().includes('not confirmed') && (
+                  <button
+                    type="button"
+                    className="text-xs text-brand-orange underline font-bold mt-1"
+                    onClick={async () => {
+                      if (!email) return;
+                      setLoading(true);
+                      setError(null);
+                      try {
+                        const { error } = await supabase.auth.resend({ type: 'signup', email });
+                        if (error) throw error;
+                        alert('E-mail de confirmação reenviado! Verifique sua caixa de entrada.');
+                      } catch (err: any) {
+                        setError('Não foi possível reenviar o e-mail. Tente novamente.');
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                  >
+                    Reenviar e-mail de confirmação
+                  </button>
+                )}
               </div>
             )}
             <div>
