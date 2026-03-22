@@ -2919,7 +2919,13 @@ const AuthModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }
           <form onSubmit={handleAuth} className="space-y-4">
             {error && (
               <div className="p-3 bg-red-50 text-red-500 text-xs font-bold rounded-xl flex flex-col gap-2 items-center">
-                <span>{error}</span>
+                <span>
+                  {error.toLowerCase().includes('not confirmed') && 'E-mail não confirmado. Verifique sua caixa de entrada ou reenvie a confirmação.'}
+                  {error.toLowerCase().includes('email rate limit exceeded') && 'Limite de tentativas atingido. Aguarde alguns minutos antes de tentar novamente.'}
+                  {error.toLowerCase().includes('invalid login credentials') && 'E-mail ou senha inválidos.'}
+                  {error.toLowerCase().includes('user already registered') && 'Este e-mail já está cadastrado.'}
+                  {!['not confirmed','email rate limit exceeded','invalid login credentials','user already registered'].some(k=>error.toLowerCase().includes(k)) && error}
+                </span>
                 {error.toLowerCase().includes('not confirmed') && (
                   <button
                     type="button"
