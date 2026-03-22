@@ -267,7 +267,22 @@ export const AffiliateDashboard = ({ refCode }: { refCode: string }) => {
 
 
   if (loading) return <div className="p-12 text-center">Carregando painel do afiliado...</div>;
-  if (!affiliate) return <div className="p-12 text-center text-red-500">Afiliado não encontrado.</div>;
+
+  if (!affiliate) {
+    return (
+      <div className="p-12 text-center text-amber-500 flex flex-col items-center gap-6">
+        <div>
+          <div className="text-4xl mb-2">⚠️</div>
+          <div>Você ainda não é afiliado.</div>
+          <div className="text-gray-500 text-base mt-2 mb-4">Complete seu cadastro para acessar o painel de afiliado e gerar seus links de divulgação.</div>
+        </div>
+        <a href="/" onClick={e => { e.preventDefault(); window.dispatchEvent(new CustomEvent('openAffiliateRegistration')); }}
+          className="btn-primary px-8 py-3 rounded-full text-white font-bold bg-brand-orange hover:bg-orange-600 transition-colors">
+          Quero ser afiliado
+        </a>
+      </div>
+    );
+  }
 
   // Protege o painel: só o próprio afiliado (por e-mail) pode acessar
   if (affiliate?.email && user?.email && affiliate.email !== user.email) {
@@ -275,6 +290,16 @@ export const AffiliateDashboard = ({ refCode }: { refCode: string }) => {
       <div className="p-12 text-center text-red-500">
         Você não tem permissão para acessar este painel de afiliado.<br />
         Faça login com o e-mail cadastrado do afiliado.
+      </div>
+    );
+  }
+
+  // Se o afiliado não estiver aprovado, mostra aviso e não exibe links
+  if (affiliate.status !== 'approved') {
+    return (
+      <div className="p-12 text-center text-amber-500">
+        Seu cadastro de afiliado está aguardando aprovação.<br />
+        Assim que for aprovado, seu painel e links de divulgação ficarão disponíveis.
       </div>
     );
   }

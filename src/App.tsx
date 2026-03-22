@@ -1,4 +1,5 @@
 import React, { Suspense, lazy, useState, useEffect, useMemo, useRef } from 'react';
+import { useApprovedAffiliate } from './hooks/useApprovedAffiliate';
 import { ShoppingBag, Menu, X, User, Search, ChevronRight, Instagram, Facebook, Youtube, Plus, Trash2, LayoutDashboard, Package, FileText, Edit, Upload, CheckCircle, TrendingUp, DollarSign, Users, BarChart3, Heart, LogOut, Tag, Phone, Mail, MapPin } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
@@ -2977,6 +2978,7 @@ const ProfileModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => voi
   const [products, setProducts] = useState<Product[]>([]);
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [userOrders, setUserOrders] = useState<any[]>([]);
+  const { affiliate, loading: loadingAffiliate } = useApprovedAffiliate(user?.email);
 
   useEffect(() => {
     if (isOpen) {
@@ -3020,6 +3022,15 @@ const ProfileModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => voi
             <button onClick={logout} className="text-brand-orange text-xs font-bold uppercase tracking-widest mt-2 flex items-center gap-1 hover:underline">
               <LogOut size={12} /> Sair da Conta
             </button>
+            {affiliate && (
+              <a
+                href={`/afiliado/${affiliate.ref_code}`}
+                className="mt-3 inline-block btn-primary px-6 py-2 rounded-full text-xs font-bold uppercase tracking-widest bg-brand-orange text-white hover:bg-orange-600 transition-colors"
+                style={{ textDecoration: 'none' }}
+              >
+                Acessar meu painel de afiliado
+              </a>
+            )}
           </div>
         </div>
 
