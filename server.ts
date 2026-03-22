@@ -2138,26 +2138,56 @@ Retorne APENAS JSON no schema pedido.`,
   });
 
   app.get("/api/admin/affiliates", async (req, res) => {
-    const affiliates = db.prepare("SELECT * FROM affiliates WHERE status = 'pending'").all();
-    res.json(affiliates);
+      try {
+        if (supabase) {
+          const { data, error } = await supabase.from('affiliates').select('*').eq('status', 'pending');
+          if (error) throw error;
+          return res.json(data || []);
+        }
+
+        if (db) {
+          const affiliates = db.prepare("SELECT * FROM affiliates WHERE status = 'pending'").all();
+          return res.json(affiliates);
+        }
+
+        return res.json([]);
+      } catch (error) {
+        console.error("Error in GET /api/admin/affiliates:", error);
+        return res.status(500).json({ error: "Failed to fetch pending affiliates", details: error instanceof Error ? error.message : String(error) });
+      }
   });
 
   app.post("/api/admin/affiliates/:id/approve", async (req, res) => {
     const { id } = req.params;
     const { status } = req.body; // 'approved' or 'rejected'
-    db.prepare("UPDATE affiliates SET status = ? WHERE id = ?").run(status, id);
-    
-    // Send email to affiliate
-    const affiliate = db.prepare("SELECT * FROM affiliates WHERE id = ?").get(id);
-    if (affiliate) {
       try {
-        await enviarEmail(affiliate.email, `Sua afiliação foi ${status === 'approved' ? 'aprovada' : 'rejeitada'}`, `Olá ${affiliate.name}, sua solicitação de afiliação foi ${status}.`);
-      } catch (e) {
-        console.error("Email error:", e);
+        let affiliate: any = null;
+
+        if (supabase) {
+          const { error } = await supabase.from('affiliates').update({ status }).eq('id', id);
+          if (error) throw error;
+
+          const { data, error: affiliateError } = await supabase.from('affiliates').select('*').eq('id', id).single();
+          if (affiliateError) throw affiliateError;
+          affiliate = data;
+        } else if (db) {
+          db.prepare("UPDATE affiliates SET status = ? WHERE id = ?").run(status, id);
+          affiliate = db.prepare("SELECT * FROM affiliates WHERE id = ?").get(id);
       }
-    }
-    
-    res.json({ success: true });
+
+        if (affiliate) {
+          try {
+            await enviarEmail(affiliate.email, `Sua afiliação foi ${status === 'approved' ? 'aprovada' : 'rejeitada'}`, `Olá ${affiliate.name}, sua solicitação de afiliação foi ${status}.`);
+          } catch (e) {
+            console.error("Email error:", e);
+          }
+        }
+
+        return res.json({ success: true });
+      } catch (error) {
+        console.error("Error in POST /api/admin/affiliates/:id/approve:", error);
+        return res.status(500).json({ error: "Failed to update affiliate status", details: error instanceof Error ? error.message : String(error) });
+      }
   });
 
   app.delete("/api/posts/:id", async (req, res) => {
@@ -2692,40 +2722,6 @@ app.post("/api/checkout", async (req, res) => {
     }
     
     res.json({ success: true });
-  });
-
-  app.get("/api/admin/affiliates", async (req, res) => {
-    if (!supabase) return res.status(500).json({ error: "Supabase not configured" });
-    const { data, error } = await supabase.from('affiliates').select('*').eq('status', 'pending');
-    if (error) return res.status(400).json({ error: error.message });
-    res.json(data);
-  });
-
-  app.post("/api/admin/affiliates/:id/approve", async (req, res) => {
-    const { id } = req.params;
-    const { status } = req.body; // 'approved' or 'rejected'
-    if (!supabase) return res.status(500).json({ error: "Supabase not configured" });
-    
-    try {
-      const { error } = await supabase.from('affiliates').update({ status }).eq('id', id);
-      if (error) throw error;
-      
-      // Send email to affiliate
-      const { data: affiliate } = await supabase.from('affiliates').select('*').eq('id', id).single();
-      if (affiliate) {
-        try {
-          await enviarEmail(affiliate.email, `Sua afiliação foi ${status === 'approved' ? 'aprovada' : 'rejeitada'}`, `Olá ${affiliate.name}, sua solicitação de afiliação foi ${status}.`);
-        } catch (e: any) {
-          console.error("Falha ao enviar e-mail de notificação de afiliado:", e.message);
-          // Não travamos a resposta se apenas o e-mail falhar, mas avisamos no log
-        }
-      }
-      
-      res.json({ success: true });
-    } catch (error: any) {
-      console.error("Erro ao aprovar afiliado:", error);
-      res.status(500).json({ error: "Erro ao processar aprovação", details: error.message || String(error) });
-    }
   });
 
   app.patch("/api/affiliates/:id", async (req, res) => {
