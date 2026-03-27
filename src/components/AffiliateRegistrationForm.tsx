@@ -1,10 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { useAuth } from '../contexts/authContext';
+import { supabase } from '../services/supabaseClient';
 import { CheckCircle2, LoaderCircle, X } from 'lucide-react';
 
 export const AffiliateRegistrationForm = ({ onClose }: { onClose: () => void }) => {
   const { user } = useAuth();
-  const [formData, setFormData] = useState({ name: '', whatsapp: '', spam_check: '' });
+  const [formData, setFormData] = useState({ name: '', whatsapp: '', email: user?.email || '', password: '', spam_check: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [status, setStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
@@ -20,6 +21,7 @@ export const AffiliateRegistrationForm = ({ onClose }: { onClose: () => void }) 
   }, [formData.name]);
 
   const normalizedWhatsapp = String(formData.whatsapp || '').replace(/\D/g, '').slice(0, 11);
+  const normalizedEmail = String(user?.email || formData.email || '').trim().toLowerCase();
 
   const buildFriendlyError = (message?: string) => {
     const normalized = String(message || '').toLowerCase();
@@ -27,7 +29,13 @@ export const AffiliateRegistrationForm = ({ onClose }: { onClose: () => void }) 
       return 'Já existe um código parecido em uso, mas não se preocupe: você pode tentar novamente e o sistema vai gerar outro automaticamente.';
     }
     if (normalized.includes('e-mail já está cadastrado') || normalized.includes('e-mail ja esta cadastrado')) {
-      return 'Este e-mail já possui cadastro no programa de afiliados. Faça login com ele para acompanhar seu acesso.';
+      return 'Este e-mail já possui cadastro no programa de afiliados. Entre com essa conta para acompanhar seu acesso ao painel.';
+    }
+    if (normalized.includes('user already registered')) {
+      return 'Este e-mail já possui uma conta. Faça login com ele antes de solicitar participação no programa.';
+    }
+    if (normalized.includes('password should be at least')) {
+      return 'A senha precisa ter pelo menos 6 caracteres.';
     }
     return message || 'Não foi possível enviar sua solicitação agora.';
   };
@@ -36,8 +44,13 @@ export const AffiliateRegistrationForm = ({ onClose }: { onClose: () => void }) 
     e.preventDefault();
     setStatus(null);
 
-    if (!user?.email) {
-      setStatus({ type: 'error', message: 'Faça login com seu e-mail antes de solicitar participação no programa.' });
+    if (!normalizedEmail) {
+      setStatus({ type: 'error', message: 'Informe seu e-mail para criar sua conta e receber a aprovação do programa.' });
+      return;
+    }
+
+    if (!user && String(formData.password || '').trim().length < 6) {
+      setStatus({ type: 'error', message: 'Crie uma senha com pelo menos 6 caracteres para acessar seu painel depois.' });
       return;
     }
 
@@ -55,13 +68,30 @@ export const AffiliateRegistrationForm = ({ onClose }: { onClose: () => void }) 
     setIsSubmitting(true);
 
     try {
+      if (!user) {
+        if (!supabase) {
+          setStatus({ type: 'error', message: 'Autenticação indisponível no momento. Tente novamente em instantes.' });
+          return;
+        }
+
+        const { error: authError } = await supabase.auth.signUp({
+          email: normalizedEmail,
+          password: formData.password,
+        });
+
+        if (authError) {
+          setStatus({ type: 'error', message: buildFriendlyError(authError.message) });
+          return;
+        }
+      }
+
       const response = await fetch('/api/affiliates', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: formData.name.trim(),
           whatsapp: normalizedWhatsapp,
-          email: user?.email,
+          email: normalizedEmail,
           commission_rate: 10,
         })
       });
@@ -72,8 +102,13 @@ export const AffiliateRegistrationForm = ({ onClose }: { onClose: () => void }) 
         return;
       }
 
-      setStatus({ type: 'success', message: 'Solicitação enviada com sucesso. Seu cadastro entrou em análise e o retorno será enviado para seu e-mail.' });
-      setFormData({ name: '', whatsapp: '', spam_check: '' });
+      setStatus({
+        type: 'success',
+        message: user
+          ? 'Solicitação enviada com sucesso. Seu cadastro entrou em análise e o retorno será enviado para seu e-mail.'
+          : 'Conta criada e solicitação enviada com sucesso. Agora confirme seu e-mail e depois entre no painel com a senha que você acabou de criar.'
+      });
+      setFormData({ name: '', whatsapp: '', email: user?.email || '', password: '', spam_check: '' });
       window.setTimeout(() => onClose(), 1600);
     } catch (error) {
       setStatus({ type: 'error', message: 'Falha de conexão. Tente novamente em instantes.' });
@@ -96,11 +131,40 @@ export const AffiliateRegistrationForm = ({ onClose }: { onClose: () => void }) 
 
         <div className="mb-5 rounded-2xl border border-orange-100 bg-orange-50/70 px-4 py-3">
           <p className="text-[10px] font-black uppercase tracking-[0.25em] text-brand-orange mb-1">E-mail da conta</p>
-          <p className="text-sm font-semibold text-gray-700 break-all">{user?.email || 'Faça login para continuar'}</p>
-          <p className="text-xs text-gray-500 mt-2">A aprovação e os avisos do programa serão enviados para esse e-mail.</p>
+          <p className="text-sm font-semibold text-gray-700 break-all">{normalizedEmail || 'Informe abaixo para criar sua conta'}</p>
+          <p className="text-xs text-gray-500 mt-2">A aprovação, os avisos do programa e o acesso ao painel ficarão vinculados a esse e-mail.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {!user && (
+            <>
+              <label className="block">
+                <span className="mb-2 block text-[11px] font-black uppercase tracking-[0.2em] text-gray-500">E-mail de acesso</span>
+                <input
+                  type="email"
+                  placeholder="seu@email.com"
+                  className="w-full p-4 bg-gray-50 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-200"
+                  required
+                  value={formData.email}
+                  onChange={e => setFormData({ ...formData, email: e.target.value })}
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-2 block text-[11px] font-black uppercase tracking-[0.2em] text-gray-500">Crie sua senha</span>
+                <input
+                  type="password"
+                  placeholder="Mínimo de 6 caracteres"
+                  className="w-full p-4 bg-gray-50 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-200"
+                  required
+                  value={formData.password}
+                  onChange={e => setFormData({ ...formData, password: e.target.value })}
+                />
+                <p className="mt-2 text-xs text-gray-500">Você vai usar essa senha para entrar no painel do afiliado depois da aprovação.</p>
+              </label>
+            </>
+          )}
+
           <label className="block">
             <span className="mb-2 block text-[11px] font-black uppercase tracking-[0.2em] text-gray-500">Nome completo</span>
             <input

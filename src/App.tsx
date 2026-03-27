@@ -43,7 +43,7 @@ const Navbar = ({ cartCount, onCartClick, onNavigate }: { cartCount: number, onC
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user, logout } = useAuth();
-  const { affiliate } = useApprovedAffiliate(user?.email);
+  const { affiliate, loading: loadingAffiliate } = useApprovedAffiliate(user?.email);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
@@ -127,16 +127,35 @@ const Navbar = ({ cartCount, onCartClick, onNavigate }: { cartCount: number, onC
                     </div>
 
                     <div className="pt-4 space-y-3">
+                      {loadingAffiliate && (
+                        <div className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-center text-[11px] font-black uppercase tracking-widest text-gray-500">
+                          Verificando afiliação...
+                        </div>
+                      )}
+
                       {affiliate && (
                         <button
                           onClick={() => {
                             setIsProfileOpen(false);
                             onNavigate('affiliate-dashboard', { affiliateRef: affiliate.ref_code });
                           }}
-                          className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-brand-orange px-4 py-3 text-xs font-black uppercase tracking-widest text-white hover:bg-orange-600 transition-colors"
+                          className={`w-full inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-xs font-black uppercase tracking-widest transition-colors ${affiliate.status === 'approved' ? 'bg-brand-orange text-white hover:bg-orange-600' : 'bg-amber-100 text-amber-800 hover:bg-amber-200'}`}
                         >
                           <LayoutDashboard size={16} />
-                          Acessar meu painel de afiliado
+                          {affiliate.status === 'approved' ? 'Acessar meu painel de afiliado' : 'Minha afiliação está em análise'}
+                        </button>
+                      )}
+
+                      {!loadingAffiliate && !affiliate && (
+                        <button
+                          onClick={() => {
+                            setIsProfileOpen(false);
+                            onNavigate('affiliate-program');
+                          }}
+                          className="w-full inline-flex items-center justify-center gap-2 rounded-2xl border border-brand-orange/20 bg-orange-50 px-4 py-3 text-xs font-black uppercase tracking-widest text-brand-orange hover:bg-orange-100 transition-colors"
+                        >
+                          <LayoutDashboard size={16} />
+                          Quero entrar no programa de afiliados
                         </button>
                       )}
 

@@ -9,12 +9,14 @@ export function useApprovedAffiliate(email: string | null | undefined) {
       setAffiliate(null);
       return;
     }
+
+    const normalizedEmail = String(email || '').trim().toLowerCase();
     setLoading(true);
     fetch(`/api/affiliates`)
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
-          const found = data.find((a: any) => a.email === email && a.status === 'approved');
+          const found = data.find((a: any) => String(a.email || '').trim().toLowerCase() === normalizedEmail);
           setAffiliate(found || null);
         } else {
           setAffiliate(null);
