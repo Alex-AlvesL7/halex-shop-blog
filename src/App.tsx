@@ -39,17 +39,41 @@ const LazySectionFallback = ({ label = 'Carregando...' }: { label?: string }) =>
 );
 
 // --- Components ---
-const Navbar = ({ cartCount, onCartClick, onNavigate }: { cartCount: number, onCartClick: () => void, onNavigate: (page: string) => void }) => {
+const Navbar = ({ cartCount, onCartClick, onNavigate }: { cartCount: number, onCartClick: () => void, onNavigate: (page: string, options?: { affiliateRef?: string | null }) => void }) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user, logout } = useAuth();
+  const { affiliate } = useApprovedAffiliate(user?.email);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!profileMenuRef.current?.contains(event.target as Node)) {
+        setIsProfileOpen(false);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsProfileOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
   }, []);
 
   return (
@@ -74,13 +98,63 @@ const Navbar = ({ cartCount, onCartClick, onNavigate }: { cartCount: number, onC
             <button className="p-2 text-gray-600 hover:text-brand-orange transition-colors hidden sm:block">
               <Search size={20} />
             </button>
-            <button 
-              onClick={() => user ? setIsProfileOpen(true) : setIsAuthOpen(true)} 
-              className="p-2 text-gray-600 hover:text-brand-orange transition-colors flex items-center gap-2"
-            >
-              <User size={20} />
-              {user && <span className="text-[10px] font-bold hidden sm:inline">{user.email.split('@')[0]}</span>}
-            </button>
+            <div ref={profileMenuRef} className="relative">
+              <button 
+                onClick={() => user ? setIsProfileOpen((current) => !current) : setIsAuthOpen(true)} 
+                className="p-2 text-gray-600 hover:text-brand-orange transition-colors flex items-center gap-2"
+              >
+                <User size={20} />
+                {user && <span className="text-[10px] font-bold hidden sm:inline">{user.email.split('@')[0]}</span>}
+              </button>
+
+              <AnimatePresence>
+                {user && isProfileOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                    transition={{ duration: 0.16 }}
+                    className="absolute right-0 top-full mt-3 w-[320px] rounded-[28px] border border-gray-100 bg-white p-5 shadow-[0_20px_60px_rgba(15,23,42,0.16)]"
+                  >
+                    <div className="flex items-center gap-4 pb-4 border-b border-gray-100">
+                      <div className="w-14 h-14 bg-brand-orange rounded-2xl flex items-center justify-center text-white text-2xl font-black">
+                        {user.email[0].toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="text-lg font-black text-brand-black truncate">{user.email.split('@')[0]}</h3>
+                        <p className="text-sm text-gray-500 truncate">{user.email}</p>
+                      </div>
+                    </div>
+
+                    <div className="pt-4 space-y-3">
+                      {affiliate && (
+                        <button
+                          onClick={() => {
+                            setIsProfileOpen(false);
+                            onNavigate('affiliate-dashboard', { affiliateRef: affiliate.ref_code });
+                          }}
+                          className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-brand-orange px-4 py-3 text-xs font-black uppercase tracking-widest text-white hover:bg-orange-600 transition-colors"
+                        >
+                          <LayoutDashboard size={16} />
+                          Acessar meu painel de afiliado
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => {
+                          setIsProfileOpen(false);
+                          logout();
+                        }}
+                        className="w-full inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 px-4 py-3 text-xs font-black uppercase tracking-widest text-gray-600 hover:border-red-200 hover:text-red-500 transition-colors"
+                      >
+                        <LogOut size={16} />
+                        Sair da conta
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
             <button onClick={onCartClick} className="relative p-2 text-gray-600 hover:text-brand-orange transition-colors">
               <ShoppingBag size={20} />
               {cartCount > 0 && (
@@ -92,11 +166,6 @@ const Navbar = ({ cartCount, onCartClick, onNavigate }: { cartCount: number, onC
             {user?.email === 'alexdjmp3@gmail.com' && (
               <button onClick={() => onNavigate('admin')} className="p-2 text-gray-600 hover:text-brand-orange transition-colors hidden sm:block" title="Painel Admin">
                 <LayoutDashboard size={20} />
-              </button>
-            )}
-            {user && (
-              <button onClick={logout} className="p-2 text-gray-600 hover:text-red-500 transition-colors hidden sm:block" title="Sair">
-                <LogOut size={20} />
               </button>
             )}
             <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="md:hidden p-2 text-gray-600">
@@ -128,7 +197,6 @@ const Navbar = ({ cartCount, onCartClick, onNavigate }: { cartCount: number, onC
       </nav>
 
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
-      <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} />
     </>
   );
 };
