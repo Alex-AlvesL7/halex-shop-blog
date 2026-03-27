@@ -2381,6 +2381,31 @@ app.post("/api/checkout", async (req, res) => {
       },
     };
 
+    // Salvar/atualizar cliente na tabela customers do Supabase
+    if (supabase && normalizedCustomer.email) {
+      try {
+        const customerPayload = {
+          name: normalizedCustomer.name,
+          email: normalizedCustomer.email,
+          phone: normalizedCustomer.phone,
+          document: normalizedCustomer.document,
+          address: [
+            normalizedCustomer.address.street,
+            normalizedCustomer.address.number,
+            normalizedCustomer.address.complement,
+            normalizedCustomer.address.neighborhood
+          ].filter(Boolean).join(', '),
+          city: normalizedCustomer.address.city,
+          state: normalizedCustomer.address.state,
+          zip_code: normalizedCustomer.address.cep,
+          updated_at: new Date().toISOString(),
+        };
+        await supabase.from('customers').upsert([customerPayload], { onConflict: 'email' });
+      } catch (customerError) {
+        console.error('Supabase customer upsert failed:', customerError);
+      }
+    }
+
     const storedItems = [
       ...itemsWithFrete,
       {
@@ -2405,7 +2430,7 @@ app.post("/api/checkout", async (req, res) => {
       const p = Number(item?.price) || 0;
       return sum + (p * q);
     }, 0);
-    
+
     // Look up affiliate by ref_code
     let affiliateId = null;
     if (affiliate_id) {
@@ -2421,13 +2446,13 @@ app.post("/api/checkout", async (req, res) => {
         console.warn("Error looking up affiliate, continuing without it:", affError);
       }
     }
-    
+
     // For L7Fitness, we only need the handle (InfiniteTag)
     const rawHandle = process.env.INFINITEPAY_HANDLE || "l7fitness";
     const handle = rawHandle.replace('$', '').trim();
     const appUrl = resolveAppUrl(req);
     const orderNsu = String("L7-" + Date.now());
-    
+
     // Save order to DB (SQLite + Supabase)
     const orderData = {
       id: "ord_" + Date.now(),

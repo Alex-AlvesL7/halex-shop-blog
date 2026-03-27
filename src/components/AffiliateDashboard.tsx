@@ -2,7 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Auth } from '@supabase/auth-ui-react';
 import { supabase } from '../services/supabaseClient';
 import { useAuth } from '../contexts/authContext';
-import { BadgePercent, CheckCircle2, Clock3, Copy, DollarSign, Link2, Package, ShoppingBag, TrendingUp, Users, Wallet, CalendarDays } from 'lucide-react';
+import { PRODUCTS } from '../data';
+import { BadgePercent, CheckCircle2, Clock3, Copy, DollarSign, Link2, Package, ShoppingBag, TrendingUp, Users, Wallet, CalendarDays, ExternalLink } from 'lucide-react';
 
 const formatPrice = (value: number) => new Intl.NumberFormat('pt-BR', {
   style: 'currency',
@@ -89,7 +90,7 @@ export const AffiliateDashboard = ({ refCode }: { refCode: string }) => {
         <div className="rounded-3xl bg-white border border-gray-100 shadow-lg p-8 text-center">
           <h2 className="text-2xl font-black mb-4 text-brand-black">Acesso ao Painel do Afiliado</h2>
           <p className="mb-6 text-gray-500">Faça login para acessar seu painel de afiliado.</p>
-          <Auth supabaseClient={supabase} appearance={{ theme: 'default' }} providers={[]} />
+          <Auth supabaseClient={supabase} appearance={{}} providers={[]} />
         </div>
       </div>
     );
@@ -388,6 +389,51 @@ export const AffiliateDashboard = ({ refCode }: { refCode: string }) => {
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-[32px] border border-gray-100 shadow-sm p-5 lg:p-6 mb-6">
+        <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black mb-2">Arsenal completo</p>
+        <h2 className="text-2xl font-black uppercase text-brand-black mb-6">Produtos para divulgar</h2>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {PRODUCTS.map((product) => {
+            const productLink = `${window.location.origin}/loja/${product.id}?ref=${affiliate?.ref_code || refCode}`;
+            
+            return (
+              <div key={product.id} className="rounded-3xl overflow-hidden border border-gray-100 bg-white hover:shadow-lg transition-shadow">
+                <div className="relative overflow-hidden bg-gray-100 aspect-square">
+                  <img 
+                    src={product.image} 
+                    alt={product.name}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                </div>
+                
+                <div className="p-4">
+                  <p className="text-sm font-black text-brand-black leading-snug mb-2 line-clamp-2">{product.name}</p>
+                  <p className="text-lg font-black text-brand-orange mb-3">{formatPrice(product.price)}</p>
+                  
+                  <button 
+                    onClick={() => copyText(productLink, 'Link do produto')}
+                    className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-brand-black text-white text-xs font-black uppercase tracking-widest hover:bg-black/90 transition-colors"
+                  >
+                    <Copy size={14} /> Copiar link
+                  </button>
+
+                  <a
+                    href={productLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-gray-200 text-brand-black text-xs font-black uppercase tracking-widest hover:bg-gray-50 transition-colors mt-2"
+                  >
+                    <ExternalLink size={14} /> Ver produto
+                  </a>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
