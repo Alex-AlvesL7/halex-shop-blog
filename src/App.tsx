@@ -3665,7 +3665,7 @@ function MainApp() {
           {currentPage === 'affiliate-dashboard' && selectedAffiliateRef && (
             <motion.div key="affiliate" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <Suspense fallback={<div className="pt-32 pb-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"><LazySectionFallback label="Carregando painel do afiliado..." /></div>}>
-                <AffiliateDashboard refCode={selectedAffiliateRef} />
+                <AffiliateDashboard refCode={selectedAffiliateRef} products={products} />
               </Suspense>
             </motion.div>
           )}

@@ -2,8 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Auth } from '@supabase/auth-ui-react';
 import { supabase } from '../services/supabaseClient';
 import { useAuth } from '../contexts/authContext';
-import { PRODUCTS } from '../data';
-import { BadgePercent, CheckCircle2, Clock3, Copy, DollarSign, Link2, Package, ShoppingBag, TrendingUp, Users, Wallet, CalendarDays, ExternalLink } from 'lucide-react';
+import { Product } from '../types';
+import { BadgePercent, CheckCircle2, Clock3, Copy, DollarSign, Link2, Package, ShoppingBag, TrendingUp, Users, Wallet, CalendarDays } from 'lucide-react';
 
 const formatPrice = (value: number) => new Intl.NumberFormat('pt-BR', {
   style: 'currency',
@@ -70,11 +70,12 @@ const isWithinPeriod = (value: string | undefined, period: '7d' | '30d' | '90d' 
 };
 
 
-export const AffiliateDashboard = ({ refCode }: { refCode: string }) => {
+export const AffiliateDashboard = ({ refCode, products = [] }: { refCode: string; products?: Product[] }) => {
   const { user } = useAuth();
   const [affiliate, setAffiliate] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
+  const [copiedProductId, setCopiedProductId] = useState<string | null>(null);
   const [period, setPeriod] = useState<'7d' | '30d' | '90d' | 'all'>('30d');
   const [pixKey, setPixKey] = useState('');
   const [pixKeyType, setPixKeyType] = useState('cpf');
@@ -134,6 +135,20 @@ export const AffiliateDashboard = ({ refCode }: { refCode: string }) => {
       window.setTimeout(() => setCopyFeedback((current) => current === `${label} copiado.` ? null : current), 2200);
     } catch {
       window.prompt(`Copie ${label.toLowerCase()}:`, text);
+    }
+  };
+
+  const handleCopyProductLink = async (productId: string, link: string) => {
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopyFeedback('Link do produto copiado.');
+      setCopiedProductId(productId);
+      window.setTimeout(() => {
+        setCopyFeedback((current) => current === 'Link do produto copiado.' ? null : current);
+        setCopiedProductId((current) => current === productId ? null : current);
+      }, 2200);
+    } catch {
+      window.prompt('Copie o link do produto:', link);
     }
   };
 
@@ -394,48 +409,39 @@ export const AffiliateDashboard = ({ refCode }: { refCode: string }) => {
 
       <div className="bg-white rounded-[32px] border border-gray-100 shadow-sm p-5 lg:p-6 mb-6">
         <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black mb-2">Arsenal completo</p>
-        <h2 className="text-2xl font-black uppercase text-brand-black mb-6">Produtos para divulgar</h2>
+        <h2 className="text-2xl font-black uppercase text-brand-black mb-6">Links dos produtos</h2>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {PRODUCTS.map((product) => {
-            const affiliateRef = encodeURIComponent(String(affiliate?.ref_code || refCode || ''));
-            const productLink = `${window.location.origin}/produto/${encodeURIComponent(product.id)}?ref=${affiliateRef}`;
-            
-            return (
-              <div key={product.id} className="rounded-3xl overflow-hidden border border-gray-100 bg-white hover:shadow-lg transition-shadow">
-                <div className="relative overflow-hidden bg-gray-100 aspect-square">
-                  <img 
-                    src={product.image} 
-                    alt={product.name}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                  />
-                </div>
-                
-                <div className="p-4">
-                  <p className="text-sm font-black text-brand-black leading-snug mb-2 line-clamp-2">{product.name}</p>
-                  <p className="text-lg font-black text-brand-orange mb-3">{formatPrice(product.price)}</p>
-                  
-                  <button 
-                    onClick={() => copyText(productLink, 'Link do produto')}
-                    className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-brand-black text-white text-xs font-black uppercase tracking-widest hover:bg-black/90 transition-colors"
-                  >
-                    <Copy size={14} /> Copiar link
-                  </button>
+        {products.length === 0 ? (
+          <div className="rounded-3xl bg-gray-50 border border-gray-100 p-6 text-sm text-gray-500">
+            Ainda não há produtos publicados para divulgação. Assim que um novo produto for cadastrado na loja, ele aparecerá aqui automaticamente.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {products.map((product) => {
+              const affiliateRef = encodeURIComponent(String(affiliate?.ref_code || refCode || ''));
+              const productLink = `${window.location.origin}/produto/${encodeURIComponent(product.id)}?ref=${affiliateRef}`;
+              
+              return (
+                <div key={product.id} className="rounded-3xl border border-gray-100 bg-gray-50 p-4 lg:p-5">
+                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-black text-brand-black uppercase tracking-wide mb-2">{product.name}</p>
+                      <p className="text-xs text-gray-500 break-all leading-relaxed">{productLink}</p>
+                    </div>
 
-                  <a
-                    href={productLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-gray-200 text-brand-black text-xs font-black uppercase tracking-widest hover:bg-gray-50 transition-colors mt-2"
-                  >
-                    <ExternalLink size={14} /> Ver produto
-                  </a>
+                    <button 
+                      onClick={() => handleCopyProductLink(product.id, productLink)}
+                      className={`inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-colors lg:min-w-[150px] ${copiedProductId === product.id ? 'bg-emerald-600 text-white hover:bg-emerald-600' : 'bg-brand-black text-white hover:bg-black/90'}`}
+                    >
+                      {copiedProductId === product.id ? <CheckCircle2 size={14} /> : <Copy size={14} />}
+                      {copiedProductId === product.id ? 'Copiado!' : 'Copiar link'}
+                    </button>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div className="bg-white rounded-[32px] border border-gray-100 shadow-sm p-5 lg:p-6 mb-6">
