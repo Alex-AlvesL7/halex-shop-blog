@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowUpRight, BarChart3, Copy, Edit2, Link2, Package, Plus, Save, TrendingUp, UserPlus, Users, Wallet, X } from 'lucide-react';
+import { BarChart3, Edit2, Plus, Save, TrendingUp, UserPlus, Users, Wallet, X } from 'lucide-react';
 import { Product } from '../types';
 
 type AffiliateInsight = {
@@ -11,6 +11,7 @@ type AffiliateInsight = {
   stats?: {
     grossSales?: number;
     paidCommission?: number;
+    pendingCommission?: number;
     totalOrders?: number;
     averageTicket?: number;
     availableToWithdraw?: number;
@@ -31,7 +32,6 @@ export const AffiliatesManagement = ({ affiliates, products, onRefresh }: { affi
   const [loadingPending, setLoadingPending] = useState(false);
   const [affiliateInsights, setAffiliateInsights] = useState<Record<string, AffiliateInsight>>({});
   const [loadingInsights, setLoadingInsights] = useState(false);
-  const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
 
   const loadPendingAffiliates = async () => {
     setLoadingPending(true);
@@ -76,11 +76,6 @@ export const AffiliatesManagement = ({ affiliates, products, onRefresh }: { affi
   const approvedAffiliates = affiliates.filter((affiliate) => String(affiliate.status || 'approved') === 'approved');
   const rejectedAffiliates = affiliates.filter((affiliate) => String(affiliate.status || '') === 'rejected');
 
-  const featuredProducts = useMemo(() => {
-    const promoted = products.filter((product) => Number(product.compareAtPrice || 0) > Number(product.price || 0));
-    return [...promoted, ...products.filter((product) => !promoted.some((item) => item.id === product.id))].slice(0, 3);
-  }, [products]);
-
   const loadAffiliateInsights = async () => {
     if (approvedAffiliates.length === 0) {
       setAffiliateInsights({});
@@ -119,21 +114,6 @@ export const AffiliatesManagement = ({ affiliates, products, onRefresh }: { affi
       loadAffiliateInsights();
     }
   }, [activeTab, affiliates, products]);
-
-  const copyText = async (text: string, label: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopyFeedback(`${label} copiado.`);
-      window.setTimeout(() => setCopyFeedback((current) => current === `${label} copiado.` ? null : current), 2200);
-    } catch {
-      window.prompt(`Copie ${label.toLowerCase()}:`, text);
-    }
-  };
-
-  const buildAffiliateCampaignLink = (refCode: string, productId: string) => {
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://www.l7fitness.com.br';
-    return `${origin}/campanha/${encodeURIComponent(productId)}?ref=${encodeURIComponent(refCode)}`;
-  };
 
   const affiliateControlSummary = useMemo(() => {
     return approvedAffiliates.reduce(
@@ -386,12 +366,6 @@ export const AffiliatesManagement = ({ affiliates, products, onRefresh }: { affi
                 </div>
               </div>
 
-              {copyFeedback && (
-                <div className="mb-6 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
-                  {copyFeedback}
-                </div>
-              )}
-
               <div className="space-y-4">
             {approvedAffiliates.map(a => (
               <div key={a.id} className="p-5 bg-gray-50 rounded-2xl border border-gray-100">
@@ -454,12 +428,12 @@ export const AffiliatesManagement = ({ affiliates, products, onRefresh }: { affi
                               </div>
                             </div>
 
-                            <div className="grid grid-cols-1 xl:grid-cols-[1.15fr_0.85fr] gap-4">
+                            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                               <div className="rounded-2xl bg-white border border-gray-100 p-4">
                                 <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                                   <div>
-                                    <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black">Central de links</p>
-                                    <p className="text-sm text-gray-500 mt-1">Links prontos para home, loja e campanhas de produto.</p>
+                                    <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black">Resumo operacional</p>
+                                    <p className="text-sm text-gray-500 mt-1">Visão do que já foi vendido, aprovado e ainda está pendente.</p>
                                   </div>
                                   <button onClick={loadAffiliateInsights} className="px-3 py-2 rounded-xl bg-gray-100 text-gray-700 text-[10px] font-black uppercase tracking-widest hover:bg-gray-200 transition-colors">
                                     {loadingInsights ? 'Atualizando...' : 'Atualizar dados'}
@@ -468,61 +442,28 @@ export const AffiliatesManagement = ({ affiliates, products, onRefresh }: { affi
 
                                 <div className="space-y-3">
                                   <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
-                                    <div className="flex items-center justify-between gap-3 mb-2">
-                                      <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-gray-500"><Link2 size={14} /> Link principal</div>
-                                      <button onClick={() => copyText(insight?.shareLinks?.home || `${window.location.origin}/?ref=${encodeURIComponent(a.ref_code)}`, `Link principal de ${a.name}`)} className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white text-brand-black text-[10px] font-black uppercase tracking-widest border border-gray-200 hover:border-brand-orange">
-                                        <Copy size={12} /> Copiar
-                                      </button>
-                                    </div>
-                                    <p className="text-sm text-gray-600 break-all">{insight?.shareLinks?.home || `${window.location.origin}/?ref=${encodeURIComponent(a.ref_code)}`}</p>
+                                    <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black mb-2">Pedidos aprovados</p>
+                                    <p className="text-lg font-black text-brand-black">{Number(insight?.stats?.approvedOrders || 0)}</p>
                                   </div>
-
                                   <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
-                                    <div className="flex items-center justify-between gap-3 mb-2">
-                                      <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-gray-500"><Package size={14} /> Link da loja</div>
-                                      <button onClick={() => copyText(insight?.shareLinks?.store || `${window.location.origin}/loja?ref=${encodeURIComponent(a.ref_code)}`, `Link da loja de ${a.name}`)} className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white text-brand-black text-[10px] font-black uppercase tracking-widest border border-gray-200 hover:border-brand-orange">
-                                        <Copy size={12} /> Copiar
-                                      </button>
-                                    </div>
-                                    <p className="text-sm text-gray-600 break-all">{insight?.shareLinks?.store || `${window.location.origin}/loja?ref=${encodeURIComponent(a.ref_code)}`}</p>
+                                    <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black mb-2">Pedidos pendentes</p>
+                                    <p className="text-lg font-black text-brand-black">{Number(insight?.stats?.pendingOrders || 0)}</p>
+                                  </div>
+                                  <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
+                                    <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black mb-2">Comissão pendente</p>
+                                    <p className="text-lg font-black text-brand-black">R$ {Number(insight?.stats?.pendingCommission || 0).toFixed(2)}</p>
                                   </div>
                                 </div>
                               </div>
 
-                              <div className="rounded-2xl bg-white border border-gray-100 p-4">
-                                <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black mb-3">Campanhas rápidas</p>
-                                <div className="space-y-3">
-                                  {featuredProducts.map((product) => {
-                                    const campaignLink = buildAffiliateCampaignLink(a.ref_code, product.id);
-                                    return (
-                                      <div key={`${a.id}-${product.id}`} className="rounded-2xl border border-orange-100 bg-orange-50 px-4 py-3">
-                                        <div className="flex items-start justify-between gap-3">
-                                          <div className="min-w-0">
-                                            <p className="text-sm font-bold text-brand-black line-clamp-2">{product.name}</p>
-                                            <p className="text-xs text-gray-500 mt-1 line-clamp-2">{campaignLink}</p>
-                                          </div>
-                                          <button onClick={() => copyText(campaignLink, `Campanha de ${product.name}`)} className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white text-brand-black text-[10px] font-black uppercase tracking-widest border border-orange-200 hover:border-brand-orange">
-                                            <Copy size={12} />
-                                          </button>
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
+                              <div className="rounded-2xl bg-brand-black px-5 py-4 text-white">
+                                <p className="text-[10px] uppercase tracking-widest text-brand-orange font-black mb-2">Leitura rápida</p>
+                                <div className="space-y-3 text-sm text-gray-300">
+                                  <p>{loadingInsights ? 'Atualizando visão financeira do afiliado...' : `Vendas totais: R$ ${Number(insight?.stats?.grossSales || 0).toFixed(2)}`}</p>
+                                  <p>{`Comissão aprovada: R$ ${Number(insight?.stats?.paidCommission || 0).toFixed(2)}`}</p>
+                                  <p>{`Disponível para saque: R$ ${Number(insight?.stats?.availableToWithdraw || 0).toFixed(2)}`}</p>
+                                  <p>{`Ticket médio: R$ ${Number(insight?.stats?.averageTicket || 0).toFixed(2)}`}</p>
                                 </div>
-                              </div>
-                            </div>
-
-                            <div className="rounded-2xl bg-brand-black px-5 py-4 text-white">
-                              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                                <div>
-                                  <p className="text-[10px] uppercase tracking-widest text-brand-orange font-black mb-2">Leitura rápida</p>
-                                  <p className="text-sm text-gray-300">{loadingInsights ? 'Atualizando visão de vendas do afiliado...' : `Pedidos: ${Number(insight?.stats?.approvedOrders || 0)} pagos • ${Number(insight?.stats?.pendingOrders || 0)} pendentes. Use os links acima para divulgar campanhas específicas com mais controle.`}</p>
-                                </div>
-                                {insight?.shareLinks?.store && (
-                                  <a href={insight.shareLinks.store} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-3 text-xs font-black uppercase tracking-widest text-white hover:border-brand-orange hover:text-brand-orange transition-colors">
-                                    Abrir link da loja <ArrowUpRight size={14} />
-                                  </a>
-                                )}
                               </div>
                             </div>
                           </>
