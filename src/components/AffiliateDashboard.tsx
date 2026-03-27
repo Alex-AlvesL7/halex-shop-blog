@@ -398,7 +398,8 @@ export const AffiliateDashboard = ({ refCode }: { refCode: string }) => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {PRODUCTS.map((product) => {
-            const productLink = `${window.location.origin}/loja/${product.id}?ref=${affiliate?.ref_code || refCode}`;
+            const affiliateRef = encodeURIComponent(String(affiliate?.ref_code || refCode || ''));
+            const productLink = `${window.location.origin}/produto/${encodeURIComponent(product.id)}?ref=${affiliateRef}`;
             
             return (
               <div key={product.id} className="rounded-3xl overflow-hidden border border-gray-100 bg-white hover:shadow-lg transition-shadow">
