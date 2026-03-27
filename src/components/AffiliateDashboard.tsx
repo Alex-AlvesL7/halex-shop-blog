@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Auth } from '@supabase/auth-ui-react';
 import { supabase } from '../services/supabaseClient';
 import { useAuth } from '../contexts/authContext';
@@ -76,6 +76,7 @@ export const AffiliateDashboard = ({ refCode, products = [] }: { refCode: string
   const [loading, setLoading] = useState(true);
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
   const [copiedProductId, setCopiedProductId] = useState<string | null>(null);
+  const [saleFeedback, setSaleFeedback] = useState<string | null>(null);
   const [period, setPeriod] = useState<'7d' | '30d' | '90d' | 'all'>('30d');
   const [pixKey, setPixKey] = useState('');
   const [pixKeyType, setPixKeyType] = useState('cpf');
@@ -83,6 +84,7 @@ export const AffiliateDashboard = ({ refCode, products = [] }: { refCode: string
   const [requestNote, setRequestNote] = useState('');
   const [isSubmittingPayout, setIsSubmittingPayout] = useState(false);
   const [payoutFeedback, setPayoutFeedback] = useState<string | null>(null);
+  const lastPaidOrdersRef = useRef<number | null>(null);
 
   // Se não estiver autenticado, mostra tela de login do Supabase
   if (!user) {
@@ -100,26 +102,46 @@ export const AffiliateDashboard = ({ refCode, products = [] }: { refCode: string
   useEffect(() => {
     let cancelled = false;
 
-    fetch(`/api/affiliates/${refCode}`)
-      .then(async (res) => {
+    const loadDashboard = async (notifyNewSale = false) => {
+      try {
+        const res = await fetch(`/api/affiliates/${encodeURIComponent(refCode)}`);
         if (!res.ok) throw new Error('Falha ao carregar painel');
-        return res.json();
-      })
-      .then((data) => {
-        if (!cancelled) {
-          setAffiliate(data);
-          setLoading(false);
+        const data = await res.json();
+
+        if (cancelled) return;
+
+        const paidOrdersCount = Number(data?.stats?.approvedOrders) || 0;
+        if (lastPaidOrdersRef.current == null) {
+          lastPaidOrdersRef.current = paidOrdersCount;
+        } else if (notifyNewSale && paidOrdersCount > lastPaidOrdersRef.current) {
+          const diff = paidOrdersCount - lastPaidOrdersRef.current;
+          setSaleFeedback(diff > 1 ? `Parabéns! Você fez mais ${diff} vendas aprovadas.` : 'Parabéns! Você fez mais uma venda aprovada.');
+          window.setTimeout(() => {
+            setSaleFeedback((current) => current && current.startsWith('Parabéns!') ? null : current);
+          }, 6000);
+          lastPaidOrdersRef.current = paidOrdersCount;
+        } else {
+          lastPaidOrdersRef.current = paidOrdersCount;
         }
-      })
-      .catch(() => {
+
+        setAffiliate(data);
+        setLoading(false);
+      } catch {
         if (!cancelled) {
           setAffiliate(null);
           setLoading(false);
         }
-      });
+      }
+    };
+
+    loadDashboard(false);
+    const intervalId = window.setInterval(() => {
+      loadDashboard(true);
+    }, 15000);
 
     return () => {
       cancelled = true;
+      window.clearInterval(intervalId);
     };
   }, [refCode]);
 
@@ -267,6 +289,7 @@ export const AffiliateDashboard = ({ refCode, products = [] }: { refCode: string
 
       const refreshed = await fetch(`/api/affiliates/${encodeURIComponent(refCode)}`);
       const refreshedData = await refreshed.json();
+      lastPaidOrdersRef.current = Number(refreshedData?.stats?.approvedOrders) || 0;
       setAffiliate(refreshedData);
     } catch (error: any) {
       setPayoutFeedback(error?.message || 'Falha ao solicitar saque.');
@@ -345,6 +368,12 @@ export const AffiliateDashboard = ({ refCode, products = [] }: { refCode: string
             {copyFeedback && (
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-emerald-500/10 text-emerald-300 text-sm font-bold mb-6 border border-emerald-400/20">
                 <CheckCircle2 size={16} /> {copyFeedback}
+              </div>
+            )}
+
+            {saleFeedback && (
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-brand-orange/10 text-orange-200 text-sm font-bold mb-6 border border-brand-orange/30">
+                <BadgePercent size={16} /> {saleFeedback}
               </div>
             )}
 

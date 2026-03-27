@@ -1229,6 +1229,29 @@ const getOrderByNsu = async (orderNsu: string) => {
   return null;
 };
 
+const getAffiliateById = async (affiliateId?: string | null) => {
+  if (!affiliateId) return null;
+
+  if (supabase) {
+    try {
+      const { data, error } = await supabase.from('affiliates').select('*').eq('id', affiliateId).single();
+      if (!error && data) return data;
+    } catch (error) {
+      console.warn('Supabase getAffiliateById failed:', error);
+    }
+  }
+
+  if (db) {
+    try {
+      return db.prepare('SELECT * FROM affiliates WHERE id = ?').get(affiliateId) || null;
+    } catch (error) {
+      console.warn('SQLite getAffiliateById failed:', error);
+    }
+  }
+
+  return null;
+};
+
 const extractInfinitePayOrderNsu = (data: any): string | null => {
   const candidates = [
     data?.order_nsu,
@@ -1271,6 +1294,54 @@ const extractInfinitePayStatus = (data: any): string => {
 const isInfinitePayPaidStatus = (status: string) => {
   const normalized = String(status || '').toLowerCase();
   return ['paid', 'approved', 'completed', 'success', 'succeeded', 'invoice.paid', 'payment.approved', 'payment.paid'].includes(normalized);
+};
+
+const normalizeAffiliateRefBase = (value?: string | null) => {
+  const normalized = String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '')
+    .toUpperCase();
+
+  return normalized.slice(0, 10) || 'L7AFILIADO';
+};
+
+const generateAffiliateRefCode = async (preferred?: string | null, name?: string | null) => {
+  const base = normalizeAffiliateRefBase(preferred || name);
+
+  for (let attempt = 0; attempt < 25; attempt += 1) {
+    const suffix = attempt === 0
+      ? '10'
+      : String(Math.floor(100 + Math.random() * 900));
+    const candidate = `${base}${suffix}`;
+
+    let exists = false;
+
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('affiliates')
+        .select('id, ref_code')
+        .eq('ref_code', candidate)
+        .maybeSingle();
+
+      if (error && !String(error.message || '').toLowerCase().includes('multiple')) {
+        throw error;
+      }
+
+      exists = !!data;
+    }
+
+    if (!exists && db) {
+      const record = db.prepare("SELECT id FROM affiliates WHERE ref_code = ?").get(candidate);
+      exists = !!record;
+    }
+
+    if (!exists) {
+      return candidate;
+    }
+  }
+
+  return `${base}${Date.now().toString().slice(-4)}`;
 };
 
 app.get("/api/health", async (req, res) => {
@@ -2608,6 +2679,7 @@ app.post("/api/checkout", async (req, res) => {
       if (status === 'paid' && previousStatus !== 'paid') {
         const updatedOrder = (await getOrderByNsu(orderNsu)) || { ...previousOrder, status: 'paid' };
         const orderNotificationEmail = process.env.ORDER_NOTIFICATION_EMAIL || process.env.EMAIL_USER || 'contato@mail.l7fitness.com.br';
+        const relatedAffiliate = await getAffiliateById(updatedOrder?.affiliate_id || previousOrder?.affiliate_id || null);
 
         try {
           await enviarEmail(
@@ -2636,6 +2708,18 @@ app.post("/api/checkout", async (req, res) => {
             );
           } catch (emailError) {
             console.warn('Falha ao enviar confirmação de pagamento para cliente:', emailError);
+          }
+        }
+
+        if (relatedAffiliate?.email) {
+          try {
+            await enviarEmail(
+              relatedAffiliate.email,
+              `Parabéns! Nova venda aprovada ${orderNsu}`,
+              `Olá ${relatedAffiliate.name || 'afiliado'},<br/><br/>Parabéns! Seu link gerou mais uma venda aprovada.<br/><br/><strong>Pedido:</strong> ${orderNsu}<br/><strong>Comissão estimada:</strong> ${formatBRL((Number(updatedOrder?.total) || 0) * ((Number(relatedAffiliate.commission_rate) || 0) / 100))}<br/><br/>Seu painel será atualizado automaticamente com essa venda.`
+            );
+          } catch (emailError) {
+            console.warn('Falha ao enviar aviso de nova venda para afiliado:', emailError);
           }
         }
       }
@@ -2671,7 +2755,8 @@ app.post("/api/checkout", async (req, res) => {
   app.post("/api/affiliates", async (req, res) => {
     const { name, email, whatsapp, ref_code, commission_rate } = req.body;
     const normalizedEmail = String(email || '').trim().toLowerCase();
-    const normalizedRefCode = String(ref_code || '').trim().toUpperCase().replace(/\s+/g, '');
+    const normalizedName = String(name || '').trim();
+    const normalizedRefCode = await generateAffiliateRefCode(String(ref_code || '').trim(), normalizedName);
     
     // Basic anti-spam: check if email already exists
     if (!supabase) return res.status(500).json({ error: "Supabase not configured" });
@@ -2705,7 +2790,7 @@ app.post("/api/checkout", async (req, res) => {
 
     const affiliateData: any = { 
       id: crypto.randomUUID(),
-      name, 
+      name: normalizedName,
       email: normalizedEmail,
       ref_code: normalizedRefCode,
       commission_rate: Number(commission_rate) || 10,
@@ -2730,7 +2815,7 @@ app.post("/api/checkout", async (req, res) => {
       await enviarEmail(
         process.env.EMAIL_USER || 'admin@l7fitness.com.br',
         "Novo Afiliado Pendente",
-        `Novo afiliado aguardando aprovação.<br/><br/><strong>Nome:</strong> ${name}<br/><strong>E-mail:</strong> ${normalizedEmail}<br/><strong>WhatsApp:</strong> ${whatsapp || '—'}<br/><strong>Ref:</strong> ${normalizedRefCode}`,
+        `Novo afiliado aguardando aprovação.<br/><br/><strong>Nome:</strong> ${normalizedName}<br/><strong>E-mail:</strong> ${normalizedEmail}<br/><strong>WhatsApp:</strong> ${whatsapp || '—'}<br/><strong>Ref:</strong> ${normalizedRefCode}`,
       );
     } catch (e) {
       console.error("Email error:", e);
@@ -2740,7 +2825,7 @@ app.post("/api/checkout", async (req, res) => {
       await enviarEmail(
         normalizedEmail,
         'Recebemos sua solicitação de afiliação',
-        `Olá ${name},<br/><br/>Recebemos sua solicitação para o programa de afiliados da L7 Fitness.<br/>Seu cadastro foi registrado com sucesso e agora está em análise.<br/><br/><strong>Código solicitado:</strong> ${normalizedRefCode}<br/><br/>Assim que houver aprovação ou necessidade de ajuste, você será avisado por e-mail.`,
+        `Olá ${normalizedName},<br/><br/>Recebemos sua solicitação para o programa de afiliados da L7 Fitness.<br/>Seu cadastro foi registrado com sucesso e agora está em análise.<br/><br/><strong>Código gerado:</strong> ${normalizedRefCode}<br/><br/>Assim que houver aprovação ou necessidade de ajuste, você será avisado por e-mail.`,
       );
     } catch (e) {
       console.error('Affiliate confirmation email error:', e);
