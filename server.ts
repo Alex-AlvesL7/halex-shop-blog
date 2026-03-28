@@ -1,6 +1,5 @@
 import express from "express";
 import axios from "axios";
-import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
@@ -21,6 +20,21 @@ const envPath = path.join(__dirname, '.env.local');
 console.log("Loading .env.local from:", envPath);
 dotenv.config({ path: envPath });
 
+const isTemporaryFilesystemRuntime = Boolean(
+  process.env.VERCEL
+  || process.env.RAILWAY_PROJECT_ID
+  || process.env.RAILWAY_SERVICE_ID
+  || process.env.RAILWAY_ENVIRONMENT_ID
+  || process.env.RAILWAY_ENVIRONMENT_NAME
+);
+
+let Database: any = null;
+try {
+  Database = (await import("better-sqlite3")).default;
+} catch (error) {
+  console.warn('better-sqlite3 não disponível neste runtime. Seguindo com Supabase/armazenamento alternativo.');
+}
+
 process.on('uncaughtException', (err) => {
   console.error('Uncaught Exception:', err);
 });
@@ -31,7 +45,11 @@ process.on('unhandledRejection', (reason, promise) => {
 
 let db: any;
 try {
-  const dbPath = process.env.VERCEL ? "/tmp/halex.db" : path.join(__dirname, "halex.db");
+  if (!Database) {
+    throw new Error('better-sqlite3 indisponível');
+  }
+
+  const dbPath = isTemporaryFilesystemRuntime ? "/tmp/halex.db" : path.join(__dirname, "halex.db");
   console.log(`Initializing SQLite at: ${dbPath}`);
   db = new Database(dbPath);
   
@@ -282,13 +300,7 @@ const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL ||
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 const supabaseKey = supabaseServiceRoleKey || supabaseAnonKey;
-const isEphemeralSQLiteRuntime = Boolean(
-  process.env.VERCEL
-  || process.env.RAILWAY_PROJECT_ID
-  || process.env.RAILWAY_SERVICE_ID
-  || process.env.RAILWAY_ENVIRONMENT_ID
-  || process.env.RAILWAY_ENVIRONMENT_NAME
-);
+const isEphemeralSQLiteRuntime = isTemporaryFilesystemRuntime;
 const geminiApiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
 const ai = geminiApiKey ? new GoogleGenAI({ apiKey: geminiApiKey }) : null;
 
