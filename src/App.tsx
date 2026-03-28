@@ -3803,7 +3803,7 @@ function MainApp() {
 
       {!isCheckoutFlowPage && <Footer />}
 
-      {!isCheckoutFlowPage && (
+      {!isCheckoutFlowPage && !isCartOpen && (
         <Suspense fallback={null}>
           <SupportChat products={products} />
         </Suspense>
@@ -3825,7 +3825,7 @@ function MainApp() {
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed top-0 right-0 bottom-0 w-full max-w-md bg-white z-[70] shadow-2xl flex flex-col"
+              className="fixed top-0 right-0 bottom-0 w-full max-w-md bg-white z-[70] shadow-2xl flex flex-col overflow-hidden"
             >
               <div className="p-6 border-b border-gray-100 flex items-center justify-between">
                 <h2 className="text-2xl font-black uppercase">Seu Carrinho</h2>
@@ -3834,7 +3834,7 @@ function MainApp() {
                 </button>
               </div>
               
-              <div className="flex-grow overflow-y-auto p-6 space-y-6">
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-6 space-y-6 pb-8">
                 {cart.length === 0 ? (
                   <div className="h-full flex flex-col items-center justify-center text-center space-y-4">
                     <ShoppingBag size={64} className="text-gray-200" />
@@ -3864,17 +3864,15 @@ function MainApp() {
                     </div>
                   ))
                 )}
-              </div>
-              
-              {cart.length > 0 && (
-                <>
-                  <div className="px-6 py-4 border-t border-gray-100 bg-gradient-to-b from-gray-50 to-white">
+                {cart.length > 0 && (
+                  <>
+                    <div className="border-t border-gray-100 bg-gradient-to-b from-gray-50 to-white -mx-6 px-6 py-4">
                     <Suspense fallback={<LazySectionFallback label="Carregando cálculo de frete..." />}>
                       <FreteCalculator cartItems={cart} onFreteSelect={setSelectedFrete} />
                     </Suspense>
-                  </div>
+                    </div>
                   
-                  <div className="p-6 border-t border-gray-100 bg-gray-50">
+                    <div className="border-t border-gray-100 bg-gray-50 -mx-6 -mb-8 px-6 pt-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
                     <div className="flex justify-between items-center mb-4">
                       <span className="font-bold">Total ({cart.reduce((sum, item) => sum + item.quantity, 0)} itens)</span>
                       <span className="text-2xl font-black">R$ {cartTotal.toFixed(2)}</span>
@@ -3894,9 +3892,10 @@ function MainApp() {
                         'Continuar para Entrega'
                       )}
                     </button>
-                  </div>
-                </>
-              )}
+                    </div>
+                  </>
+                )}
+              </div>
             </motion.div>
           </>
         )}
