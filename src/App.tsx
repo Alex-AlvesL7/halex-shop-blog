@@ -617,6 +617,7 @@ const AdminPage = ({ products, posts, orders, onRefresh, onNavigate }: { product
   const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'posts' | 'orders' | 'affiliates' | 'categories' | 'leads'>('dashboard');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [expandedOrderIds, setExpandedOrderIds] = useState<Record<string, boolean>>({});
   const [orderFulfillmentDrafts, setOrderFulfillmentDrafts] = useState<Record<string, { status: string; trackingCode: string; trackingUrl: string; internalNote: string }>>({});
   const [savingOrderId, setSavingOrderId] = useState<string | null>(null);
   const [savingPaymentOrderId, setSavingPaymentOrderId] = useState<string | null>(null);
@@ -1349,98 +1350,137 @@ const AdminPage = ({ products, posts, orders, onRefresh, onNavigate }: { product
     reviews: Number(newProduct.reviews) || 0,
   }), [editingId, newProduct]);
 
+  const adminSections = [
+    { key: 'dashboard', label: 'Financeiro', description: 'Receita, ticket médio e visão geral', icon: DollarSign },
+    { key: 'orders', label: 'Vendas', description: 'Pedidos, pagamento e logística', icon: ShoppingBag },
+    { key: 'products', label: 'Produtos', description: 'Catálogo e ofertas', icon: Package },
+    { key: 'posts', label: 'Conteúdo', description: 'Blog e materiais', icon: FileText },
+    { key: 'categories', label: 'Categorias', description: 'Organização da loja', icon: Tag },
+    { key: 'affiliates', label: 'Afiliados', description: 'Parceiros e comissões', icon: Users },
+    { key: 'leads', label: 'Leads', description: 'CRM e recuperação', icon: Mail },
+  ] as const;
+
+  const currentSection = adminSections.find((section) => section.key === activeTab) || adminSections[0];
+  const CurrentSectionIcon = currentSection.icon;
+
+  const toggleOrderExpanded = (orderId: string) => {
+    setExpandedOrderIds((current) => ({
+      ...current,
+      [orderId]: !current[orderId],
+    }));
+  };
+
   return (
     <div className="pt-32 pb-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-12">
-        <div>
-          <h1 className="text-5xl font-black mb-4 uppercase flex items-center gap-4">
-            Painel ADM <LayoutDashboard className="text-brand-orange" size={40} />
-          </h1>
-          <p className="text-gray-500">Gerencie seus produtos, conteúdo do blog e pedidos.</p>
-          {activeTab === 'products' && productActionFeedback && (
-            <div className="mt-4 inline-flex items-center px-4 py-2 rounded-full bg-emerald-50 text-emerald-700 text-xs font-black uppercase tracking-widest border border-emerald-100">
-              {productActionFeedback}
+      <div className="grid grid-cols-1 xl:grid-cols-[280px_minmax(0,1fr)] gap-8 items-start">
+        <aside className="xl:sticky xl:top-28 space-y-6">
+          <div className="rounded-[32px] border border-gray-100 bg-white p-6 shadow-sm">
+            <div className="flex items-center gap-4 mb-5">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-black text-white">
+                <LayoutDashboard size={26} />
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.22em] text-gray-400 font-black">Painel administrativo</p>
+                <h1 className="text-2xl font-black uppercase text-brand-black">L7 Admin</h1>
+              </div>
             </div>
-          )}
-        </div>
-        {activeTab !== 'orders' && activeTab !== 'affiliates' && activeTab !== 'leads' && (
-          <button 
-            onClick={() => { if(showForm) resetForm(); else setShowForm(true); }}
-            className="btn-primary flex items-center gap-2"
-          >
-            <Plus size={20} /> {showForm ? 'Cancelar' : activeTab === 'products' ? 'Novo Produto' : 'Novo Post'}
-          </button>
-        )}
-        {activeTab === 'orders' && (
-          <button 
-            onClick={onRefresh}
-            className="btn-secondary border border-gray-200 flex items-center gap-2"
-          >
-            <Upload size={20} className="rotate-180" /> Atualizar Pedidos
-          </button>
-        )}
-        {activeTab === 'affiliates' && (
-          <button 
-            onClick={handleAffiliatesRefresh}
-            className="btn-secondary border border-gray-200 flex items-center gap-2"
-          >
-            <Upload size={20} className="rotate-180" /> Atualizar
-          </button>
-        )}
-        {activeTab === 'leads' && (
-          <button 
-            onClick={fetchQuizLeads}
-            className="btn-secondary border border-gray-200 flex items-center gap-2"
-          >
-            <Upload size={20} className="rotate-180" /> {leadsLoading ? 'Atualizando...' : 'Atualizar Leads'}
-          </button>
-        )}
-      </div>
+            <p className="text-sm text-gray-500 leading-relaxed">Acompanhe financeiro, vendas, catálogo, afiliados e CRM em uma navegação única e mais rápida.</p>
+          </div>
 
-      <div className="flex gap-4 mb-8 border-b border-gray-100 pb-4 overflow-x-auto scrollbar-hide">
-        <button 
-          onClick={() => { setActiveTab('dashboard'); resetForm(); }}
-          className={`flex items-center gap-2 px-6 py-2 rounded-full font-bold uppercase text-xs tracking-widest transition-all whitespace-nowrap ${activeTab === 'dashboard' ? 'bg-brand-black text-white' : 'text-gray-400 hover:text-brand-orange'}`}
-        >
-          <BarChart3 size={16} /> Dashboard
-        </button>
-        <button 
-          onClick={() => { setActiveTab('products'); resetForm(); }}
-          className={`flex items-center gap-2 px-6 py-2 rounded-full font-bold uppercase text-xs tracking-widest transition-all whitespace-nowrap ${activeTab === 'products' ? 'bg-brand-black text-white' : 'text-gray-400 hover:text-brand-orange'}`}
-        >
-          <Package size={16} /> Produtos
-        </button>
-        <button 
-          onClick={() => { setActiveTab('posts'); resetForm(); }}
-          className={`flex items-center gap-2 px-6 py-2 rounded-full font-bold uppercase text-xs tracking-widest transition-all whitespace-nowrap ${activeTab === 'posts' ? 'bg-brand-black text-white' : 'text-gray-400 hover:text-brand-orange'}`}
-        >
-          <FileText size={16} /> Blog
-        </button>
-        <button 
-          onClick={() => { setActiveTab('categories'); resetForm(); }}
-          className={`flex items-center gap-2 px-6 py-2 rounded-full font-bold uppercase text-xs tracking-widest transition-all whitespace-nowrap ${activeTab === 'categories' ? 'bg-brand-black text-white' : 'text-gray-400 hover:text-brand-orange'}`}
-        >
-          <Tag size={16} /> Categorias
-        </button>
-        <button 
-          onClick={() => { setActiveTab('orders'); resetForm(); }}
-          className={`flex items-center gap-2 px-6 py-2 rounded-full font-bold uppercase text-xs tracking-widest transition-all whitespace-nowrap ${activeTab === 'orders' ? 'bg-brand-black text-white' : 'text-gray-400 hover:text-brand-orange'}`}
-        >
-          <ShoppingBag size={16} /> Pedidos
-        </button>
-        <button 
-          onClick={() => { setActiveTab('affiliates'); resetForm(); }}
-          className={`flex items-center gap-2 px-6 py-2 rounded-full font-bold uppercase text-xs tracking-widest transition-all whitespace-nowrap ${activeTab === 'affiliates' ? 'bg-brand-black text-white' : 'text-gray-400 hover:text-brand-orange'}`}
-        >
-          <Users size={16} /> Afiliados
-        </button>
-        <button 
-          onClick={() => { setActiveTab('leads'); resetForm(); }}
-          className={`flex items-center gap-2 px-6 py-2 rounded-full font-bold uppercase text-xs tracking-widest transition-all whitespace-nowrap ${activeTab === 'leads' ? 'bg-brand-black text-white' : 'text-gray-400 hover:text-brand-orange'}`}
-        >
-          <Mail size={16} /> Leads Quiz
-        </button>
-      </div>
+          <div className="rounded-[32px] border border-gray-100 bg-white p-4 shadow-sm space-y-2">
+            {adminSections.map((section) => {
+              const Icon = section.icon;
+              const isActive = activeTab === section.key;
+
+              return (
+                <button
+                  key={section.key}
+                  onClick={() => { setActiveTab(section.key); resetForm(); }}
+                  className={`w-full rounded-2xl px-4 py-4 text-left transition-all ${isActive ? 'bg-brand-black text-white shadow-lg' : 'bg-gray-50 text-gray-600 hover:bg-orange-50 hover:text-brand-orange'}`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={`mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl ${isActive ? 'bg-white/10 text-white' : 'bg-white text-gray-500 border border-gray-200'}`}>
+                      <Icon size={18} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-widest">{section.label}</p>
+                      <p className={`mt-1 text-xs leading-relaxed ${isActive ? 'text-white/70' : 'text-gray-400'}`}>{section.description}</p>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 xl:grid-cols-1 gap-3">
+            <div className="rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
+              <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black mb-2">Receita paga</p>
+              <p className="text-2xl font-black text-brand-orange">{formatPriceBRL(metrics.totalSales || 0)}</p>
+            </div>
+            <div className="rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
+              <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black mb-2">Pedidos pagos</p>
+              <p className="text-2xl font-black text-brand-black">{metrics.paidOrdersCount}</p>
+            </div>
+            <div className="rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
+              <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black mb-2">Pendências</p>
+              <p className="text-2xl font-black text-brand-black">{orders.filter((order: any) => order.status === 'pending').length}</p>
+            </div>
+          </div>
+        </aside>
+
+        <div className="space-y-8">
+          <div className="rounded-[32px] border border-gray-100 bg-white p-6 shadow-sm">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.22em] text-gray-400 font-black mb-2">Seção ativa</p>
+                <h2 className="text-4xl font-black uppercase text-brand-black flex items-center gap-3">
+                  {currentSection.label}
+                  <CurrentSectionIcon className="text-brand-orange" size={28} />
+                </h2>
+                <p className="text-sm text-gray-500 mt-3">{currentSection.description}. Resolva tudo daqui sem abrir várias caixas ao mesmo tempo.</p>
+                {activeTab === 'products' && productActionFeedback && (
+                  <div className="mt-4 inline-flex items-center px-4 py-2 rounded-full bg-emerald-50 text-emerald-700 text-xs font-black uppercase tracking-widest border border-emerald-100">
+                    {productActionFeedback}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                {activeTab !== 'orders' && activeTab !== 'affiliates' && activeTab !== 'leads' && (
+                  <button 
+                    onClick={() => { if(showForm) resetForm(); else setShowForm(true); }}
+                    className="btn-primary flex items-center gap-2"
+                  >
+                    <Plus size={20} /> {showForm ? 'Cancelar' : activeTab === 'products' ? 'Novo Produto' : 'Novo Post'}
+                  </button>
+                )}
+                {activeTab === 'orders' && (
+                  <button 
+                    onClick={onRefresh}
+                    className="btn-secondary border border-gray-200 flex items-center gap-2"
+                  >
+                    <Upload size={20} className="rotate-180" /> Atualizar Pedidos
+                  </button>
+                )}
+                {activeTab === 'affiliates' && (
+                  <button 
+                    onClick={handleAffiliatesRefresh}
+                    className="btn-secondary border border-gray-200 flex items-center gap-2"
+                  >
+                    <Upload size={20} className="rotate-180" /> Atualizar
+                  </button>
+                )}
+                {activeTab === 'leads' && (
+                  <button 
+                    onClick={fetchQuizLeads}
+                    className="btn-secondary border border-gray-200 flex items-center gap-2"
+                  >
+                    <Upload size={20} className="rotate-180" /> {leadsLoading ? 'Atualizando...' : 'Atualizar Leads'}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
 
       <AnimatePresence mode="wait">
         {showForm ? (
@@ -2847,48 +2887,61 @@ const AdminPage = ({ products, posts, orders, onRefresh, onNavigate }: { product
                           trackingUrl: order.fulfillment?.trackingUrl || '',
                           internalNote: order.internalNote || '',
                         };
+                        const isExpanded = !!expandedOrderIds[order.id];
                         const trackingLink = getTrackingLink(draft.trackingCode, draft.trackingUrl);
                         const trackingWhatsAppLink = getTrackingWhatsAppLink(order.customer?.phone, order, draft);
 
                         return (
                           <>
-                      <div className="flex flex-col md:flex-row justify-between gap-4 mb-4">
-                        <div>
-                          <div className="flex items-center gap-3 mb-1">
-                            <span className="text-lg font-black">{order.order_nsu}</span>
-                            <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${order.status === 'paid' ? 'bg-green-100 text-green-600' : order.status === 'failed' ? 'bg-rose-100 text-rose-600' : 'bg-orange-100 text-orange-600'}`}>
-                              {order.status === 'paid' ? 'Pago' : order.status === 'failed' ? 'Falhou' : 'Pendente'}
-                            </span>
-                            <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${fulfillmentBadgeClasses[draft.status] || fulfillmentBadgeClasses['aguardando-envio']}`}>
-                              {fulfillmentLabels[draft.status] || 'Aguardando envio'}
-                            </span>
-                          </div>
-                          <p className="text-sm text-gray-500">{order.customer?.name || 'Cliente não informado'} • {order.customer_email}</p>
-                          {order.customer?.phone && (
-                            <p className="text-xs text-gray-400 mt-1">Tel/WhatsApp: {order.customer.phone}</p>
-                          )}
-                          {order.customer?.document && (
-                            <p className="text-xs text-gray-400">CPF: {order.customer.document}</p>
-                          )}
-                          {order.shipping && (
-                            <p className="text-xs text-gray-400 mt-1">
-                              Entrega: {order.shipping.street}, {order.shipping.number}
-                              {order.shipping.complement ? `, ${order.shipping.complement}` : ''}
-                              {' • '}{order.shipping.neighborhood} • {order.shipping.city}/{order.shipping.state} • CEP {order.shipping.cep}
-                            </p>
-                          )}
-                          <p className="text-xs text-gray-400 mt-1">{new Date(order.created_at).toLocaleString('pt-BR')}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-2xl font-black text-brand-orange">R$ {order.total.toFixed(2)}</p>
-                          {order.frete && (
-                            <p className="text-xs text-gray-400 mt-1">Frete: {(order.frete.carrier || '').trim()} {order.frete.name} • R$ {Number(order.frete.price || 0).toFixed(2)}</p>
-                          )}
-                          {draft.trackingCode && (
-                            <p className="text-xs text-gray-400 mt-1">Rastreio: {draft.trackingCode}</p>
-                          )}
-                        </div>
-                      </div>
+                            <button
+                              type="button"
+                              onClick={() => toggleOrderExpanded(order.id)}
+                              className="w-full text-left"
+                            >
+                              <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                                <div className="flex items-start gap-4">
+                                  <div className={`mt-1 flex h-11 w-11 items-center justify-center rounded-2xl border transition-all ${isExpanded ? 'border-brand-orange bg-orange-50 text-brand-orange' : 'border-gray-200 bg-gray-50 text-gray-500'}`}>
+                                    <ChevronRight size={18} className={`transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                                  </div>
+                                  <div>
+                                    <div className="flex flex-wrap items-center gap-3 mb-2">
+                                      <span className="text-lg font-black">{order.order_nsu}</span>
+                                      <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${order.status === 'paid' ? 'bg-green-100 text-green-600' : order.status === 'failed' ? 'bg-rose-100 text-rose-600' : 'bg-orange-100 text-orange-600'}`}>
+                                        {order.status === 'paid' ? 'Pago' : order.status === 'failed' ? 'Falhou' : 'Pendente'}
+                                      </span>
+                                      <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${fulfillmentBadgeClasses[draft.status] || fulfillmentBadgeClasses['aguardando-envio']}`}>
+                                        {fulfillmentLabels[draft.status] || 'Aguardando envio'}
+                                      </span>
+                                    </div>
+                                    <p className="text-sm text-gray-600 font-medium">{order.customer?.name || 'Cliente não informado'} • {order.customer_email}</p>
+                                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400">
+                                      <span>{new Date(order.created_at).toLocaleString('pt-BR')}</span>
+                                      {order.customer?.phone && <span>WhatsApp: {order.customer.phone}</span>}
+                                      {order.shipping?.city && order.shipping?.state && <span>{order.shipping.city}/{order.shipping.state}</span>}
+                                      {draft.trackingCode && <span>Rastreio: {draft.trackingCode}</span>}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="lg:text-right pl-[60px] lg:pl-0">
+                                  <p className="text-2xl font-black text-brand-orange">R$ {order.total.toFixed(2)}</p>
+                                  {order.frete && (
+                                    <p className="text-xs text-gray-400 mt-1">Frete: {(order.frete.carrier || '').trim()} {order.frete.name} • R$ {Number(order.frete.price || 0).toFixed(2)}</p>
+                                  )}
+                                  <p className="mt-3 text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400">
+                                    {isExpanded ? 'Clique para recolher' : 'Clique para abrir detalhes'}
+                                  </p>
+                                </div>
+                              </div>
+                            </button>
+
+                            <AnimatePresence initial={false}>
+                              {isExpanded && (
+                                <motion.div
+                                  initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                                  animate={{ opacity: 1, height: 'auto', marginTop: 20 }}
+                                  exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                                  className="overflow-hidden"
+                                >
                       <div className="grid lg:grid-cols-2 gap-4 mb-4">
                         <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
                           <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">
@@ -3031,6 +3084,9 @@ const AdminPage = ({ products, posts, orders, onRefresh, onNavigate }: { product
                           ))}
                         </div>
                       </div>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
                           </>
                         );
                       })()}
@@ -3042,6 +3098,8 @@ const AdminPage = ({ products, posts, orders, onRefresh, onNavigate }: { product
           </motion.div>
         )}
       </AnimatePresence>
+        </div>
+      </div>
     </div>
   );
 };
