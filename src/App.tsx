@@ -39,13 +39,14 @@ const LazySectionFallback = ({ label = 'Carregando...' }: { label?: string }) =>
 );
 
 // --- Components ---
-const Navbar = ({ cartCount, onCartClick, onNavigate }: { cartCount: number, onCartClick: () => void, onNavigate: (page: string, options?: { affiliateRef?: string | null }) => void }) => {
+const Navbar = ({ cartCount, onCartClick, onNavigate, onOpenCustomerPanel }: { cartCount: number, onCartClick: () => void, onNavigate: (page: string, options?: { affiliateRef?: string | null }) => void, onOpenCustomerPanel: () => void }) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user, logout } = useAuth();
   const { affiliate, loading: loadingAffiliate } = useApprovedAffiliate(user?.email);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [customerOrders, setCustomerOrders] = useState<any[]>([]);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -76,6 +77,30 @@ const Navbar = ({ cartCount, onCartClick, onNavigate }: { cartCount: number, onC
     };
   }, []);
 
+  useEffect(() => {
+    if (!user?.email) {
+      setCustomerOrders([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    fetch(`/api/orders/${encodeURIComponent(user.email)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled) {
+          setCustomerOrders(Array.isArray(data) ? data : []);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setCustomerOrders([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.email, isProfileOpen]);
+
   const handleAffiliateDashboardOpen = () => {
     const affiliateRef = String(affiliate?.ref_code || '').trim();
 
@@ -88,6 +113,9 @@ const Navbar = ({ cartCount, onCartClick, onNavigate }: { cartCount: number, onC
     setIsProfileOpen(false);
     onNavigate('affiliate-dashboard', { affiliateRef });
   };
+
+  const latestOrder = customerOrders[0] || null;
+  const latestTrackingCode = String(latestOrder?.fulfillment?.trackingCode || '').trim();
 
   return (
     <>
@@ -140,6 +168,45 @@ const Navbar = ({ cartCount, onCartClick, onNavigate }: { cartCount: number, onC
                     </div>
 
                     <div className="pt-4 space-y-3">
+                      <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4 space-y-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black">Conta e compras</p>
+                            <p className="text-sm font-bold text-brand-black mt-1">{cartCount === 1 ? '1 item no carrinho' : `${cartCount} itens no carrinho`}</p>
+                          </div>
+                          <button
+                            onClick={() => {
+                              setIsProfileOpen(false);
+                              onOpenCustomerPanel();
+                            }}
+                            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-brand-black px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white hover:opacity-90 transition-opacity"
+                          >
+                            <ShoppingBag size={14} /> Painel de compras
+                          </button>
+                        </div>
+
+                        {latestOrder ? (
+                          <div className="rounded-2xl border border-white bg-white px-4 py-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black">Última compra</p>
+                                <p className="text-xs font-black text-brand-black mt-1">{latestOrder.order_nsu}</p>
+                              </div>
+                              <span className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${latestOrder.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : latestOrder.status === 'failed' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>
+                                {latestOrder.status === 'paid' ? 'Pago' : latestOrder.status === 'failed' ? 'Falhou' : 'Pendente'}
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-2">
+                              {latestTrackingCode ? `Rastreio: ${latestTrackingCode}` : 'Sem código de rastreio por enquanto.'}
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="rounded-2xl border border-white bg-white px-4 py-3 text-xs text-gray-500">
+                            Você ainda não fez pedidos nesta conta.
+                          </div>
+                        )}
+                      </div>
+
                       {loadingAffiliate && (
                         <div className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-center text-[11px] font-black uppercase tracking-widest text-gray-500">
                           Verificando afiliação...
@@ -3153,13 +3220,17 @@ const AuthModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }
   );
 };
 
-const ProfileModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) => {
+const ProfileModal = ({ isOpen, onClose, cartCount, onNavigate, initialTab = 'orders' }: { isOpen: boolean, onClose: () => void, cartCount: number, onNavigate: (page: string, options?: any) => void, initialTab?: 'favorites' | 'orders' }) => {
   const { user, favorites, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState<'favorites' | 'orders'>('favorites');
+  const [activeTab, setActiveTab] = useState<'favorites' | 'orders'>(initialTab);
   const [products, setProducts] = useState<Product[]>([]);
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [userOrders, setUserOrders] = useState<any[]>([]);
-  const { affiliate, loading: loadingAffiliate } = useApprovedAffiliate(user?.email);
+  const { affiliate } = useApprovedAffiliate(user?.email);
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab, isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -3175,6 +3246,8 @@ const ProfileModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => voi
 
   const favoriteProducts = products.filter(p => favorites.some(f => f.item_id === p.id && f.item_type === 'product'));
   const favoritePosts = posts.filter(p => favorites.some(f => f.item_id === p.id && f.item_type === 'post'));
+  const latestOrder = userOrders[0] || null;
+  const latestTrackingLink = latestOrder?.fulfillment?.trackingCode ? getTrackingLink(latestOrder.fulfillment.trackingCode, latestOrder.fulfillment?.trackingUrl) : '';
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -3203,17 +3276,71 @@ const ProfileModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => voi
             <button onClick={logout} className="text-brand-orange text-xs font-bold uppercase tracking-widest mt-2 flex items-center gap-1 hover:underline">
               <LogOut size={12} /> Sair da Conta
             </button>
+            <button
+              onClick={() => setActiveTab('orders')}
+              className="mt-3 inline-flex items-center gap-2 rounded-full border border-gray-200 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-gray-600 hover:border-brand-orange hover:text-brand-orange transition-colors"
+            >
+              <ShoppingBag size={12} /> Painel de compras
+            </button>
             {affiliate && (
-              <a
-                href={`/afiliado/${affiliate.ref_code}`}
-                className="mt-3 inline-block btn-primary px-6 py-2 rounded-full text-xs font-bold uppercase tracking-widest bg-brand-orange text-white hover:bg-orange-600 transition-colors"
-                style={{ textDecoration: 'none' }}
+              <button
+                onClick={() => {
+                  onClose();
+                  if (affiliate.status === 'approved') onNavigate('affiliate-dashboard', { affiliateRef: affiliate.ref_code });
+                  else onNavigate('affiliate-program');
+                }}
+                className="mt-3 inline-flex items-center gap-2 btn-primary px-6 py-2 rounded-full text-xs font-bold uppercase tracking-widest bg-brand-orange text-white hover:bg-orange-600 transition-colors"
               >
-                Acessar meu painel de afiliado
-              </a>
+                <LayoutDashboard size={14} /> {affiliate.status === 'approved' ? 'Acessar meu painel de afiliado' : 'Ver programa de afiliados'}
+              </button>
             )}
           </div>
         </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="rounded-3xl border border-gray-100 bg-gray-50 p-4">
+            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Carrinho</p>
+            <p className="text-2xl font-black text-brand-black">{cartCount}</p>
+            <p className="text-xs text-gray-500 mt-1">{cartCount === 1 ? 'item aguardando checkout' : 'itens aguardando checkout'}</p>
+          </div>
+          <div className="rounded-3xl border border-gray-100 bg-gray-50 p-4">
+            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Pedidos</p>
+            <p className="text-2xl font-black text-brand-black">{userOrders.length}</p>
+            <p className="text-xs text-gray-500 mt-1">Resumo da sua conta</p>
+          </div>
+          <div className="rounded-3xl border border-gray-100 bg-gray-50 p-4">
+            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Rastreio</p>
+            <p className="text-sm font-black text-brand-black line-clamp-2">{latestOrder?.fulfillment?.trackingCode || 'Ainda sem código'}</p>
+            <p className="text-xs text-gray-500 mt-1">{latestTrackingLink ? 'Último código disponível' : 'Vai aparecer quando o pedido for postado'}</p>
+          </div>
+        </div>
+
+        {latestOrder && (
+          <div className="rounded-3xl border border-brand-orange/10 bg-orange-50/50 p-5 mb-6">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-brand-orange mb-2">Última compra</p>
+                <p className="text-sm font-black text-brand-black">{latestOrder.order_nsu}</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {latestOrder.shipping ? `Entrega em ${latestOrder.shipping.city}/${latestOrder.shipping.state}` : 'Pedido criado com sucesso'}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${latestOrder.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : latestOrder.status === 'failed' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>
+                  {latestOrder.status === 'paid' ? 'Pago' : latestOrder.status === 'failed' ? 'Falhou' : 'Pendente'}
+                </span>
+                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${fulfillmentBadgeClasses[latestOrder.fulfillment?.status || 'aguardando-envio'] || fulfillmentBadgeClasses['aguardando-envio']}`}>
+                  {fulfillmentLabels[latestOrder.fulfillment?.status || 'aguardando-envio'] || 'Aguardando envio'}
+                </span>
+                {latestTrackingLink && (
+                  <a href={latestTrackingLink} target="_blank" rel="noreferrer" className="px-3 py-1 rounded-full bg-brand-black text-white text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-opacity">
+                    Ver rastreio
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="flex gap-4 mb-6 border-b border-gray-100 pb-4">
           <button 
@@ -3237,13 +3364,13 @@ const ProfileModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => voi
                 <h3 className="text-sm font-black uppercase tracking-widest mb-4">Produtos</h3>
                 <div className="grid grid-cols-2 gap-4">
                   {favoriteProducts.map(p => (
-                    <div key={p.id} className="flex items-center gap-4 p-2 border border-gray-100 rounded-2xl">
+                    <button key={p.id} onClick={() => { onClose(); onNavigate('product-details', { productId: p.id }); }} className="flex items-center gap-4 p-2 border border-gray-100 rounded-2xl text-left hover:border-brand-orange transition-colors">
                       <img src={p.image} alt={p.name} className="w-12 h-12 rounded-xl object-cover" />
                       <div className="min-w-0">
                         <p className="text-xs font-bold truncate">{p.name}</p>
                         <p className="text-[10px] text-brand-orange font-black">R$ {p.price.toFixed(2)}</p>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -3253,13 +3380,13 @@ const ProfileModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => voi
                 <h3 className="text-sm font-black uppercase tracking-widest mb-4">Artigos do Blog</h3>
                 <div className="space-y-4">
                   {favoritePosts.map(p => (
-                    <div key={p.id} className="flex items-center gap-4 p-2 border border-gray-100 rounded-2xl">
+                    <button key={p.id} onClick={() => { onClose(); onNavigate('blog-details', { postId: p.id }); }} className="flex items-center gap-4 p-2 border border-gray-100 rounded-2xl text-left hover:border-brand-orange transition-colors">
                       <img src={p.image} alt={p.title} className="w-16 h-12 rounded-xl object-cover" />
                       <div className="min-w-0">
                         <p className="text-xs font-bold truncate">{p.title}</p>
                         <p className="text-[10px] text-gray-400">{p.author}</p>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -3295,6 +3422,14 @@ const ProfileModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => voi
                   <div className="flex justify-between items-center">
                     <p className="text-xs text-gray-400">{new Date(order.created_at).toLocaleDateString('pt-BR')}</p>
                     <p className="text-sm font-black text-brand-orange">R$ {order.total.toFixed(2)}</p>
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    {Array.isArray(order.items) && order.items.slice(0, 3).map((item: any, idx: number) => (
+                      <div key={idx} className="flex justify-between rounded-2xl bg-gray-50 px-3 py-2 text-xs text-gray-600">
+                        <span>{item.quantity}x {item.name}</span>
+                        <span className="font-bold text-brand-black">R$ {Number((item.price || 0) * (item.quantity || 0)).toFixed(2)}</span>
+                      </div>
+                    ))}
                   </div>
                   {order.shipping && (
                     <p className="text-xs text-gray-400 mt-3 leading-relaxed">
@@ -3345,6 +3480,7 @@ function MainApp() {
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [selectedFrete, setSelectedFrete] = useState<FreteOption | null>(null);
   const [selectedAffiliateRef, setSelectedAffiliateRef] = useState<string | null>(null);
+  const [isCustomerPanelOpen, setIsCustomerPanelOpen] = useState(false);
   const [checkoutForm, setCheckoutForm] = useState<CheckoutFormData>(initialCheckoutForm);
   const [lastPageBeforeCheckout, setLastPageBeforeCheckout] = useState('/');
 
@@ -3693,6 +3829,7 @@ function MainApp() {
             cartCount={cartCount} 
             onCartClick={() => setIsCartOpen(true)} 
             onNavigate={navigateTo}
+            onOpenCustomerPanel={() => setIsCustomerPanelOpen(true)}
           />
         )}
 
@@ -3850,6 +3987,14 @@ function MainApp() {
       </main>
 
       {!isCheckoutFlowPage && <Footer />}
+
+      <ProfileModal
+        isOpen={isCustomerPanelOpen}
+        onClose={() => setIsCustomerPanelOpen(false)}
+        cartCount={cartCount}
+        onNavigate={navigateTo}
+        initialTab="orders"
+      />
 
       {!isCheckoutFlowPage && !isCartOpen && (
         <Suspense fallback={null}>
