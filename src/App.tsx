@@ -552,6 +552,7 @@ const AdminPage = ({ products, posts, orders, onRefresh, onNavigate }: { product
   const [editingId, setEditingId] = useState<string | null>(null);
   const [orderFulfillmentDrafts, setOrderFulfillmentDrafts] = useState<Record<string, { status: string; trackingCode: string; trackingUrl: string; internalNote: string }>>({});
   const [savingOrderId, setSavingOrderId] = useState<string | null>(null);
+  const [savingPaymentOrderId, setSavingPaymentOrderId] = useState<string | null>(null);
   const [orderStatusFilter, setOrderStatusFilter] = useState<'all' | 'paid' | 'pending' | 'aguardando-envio' | 'separando' | 'postado' | 'entregue'>('all');
   const [orderSearch, setOrderSearch] = useState('');
   const [aiInsight, setAiInsight] = useState<string | null>(null);
@@ -1185,6 +1186,31 @@ const AdminPage = ({ products, posts, orders, onRefresh, onNavigate }: { product
       alert(error instanceof Error ? error.message : 'Falha ao atualizar logística do pedido.');
     } finally {
       setSavingOrderId(null);
+    }
+  };
+
+  const handleUpdatePaymentStatus = async (orderId: string, status: 'pending' | 'paid' | 'failed') => {
+    setSavingPaymentOrderId(orderId);
+
+    try {
+      const response = await fetch(`/api/orders/${orderId}/payment-status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Falha ao atualizar status de pagamento');
+      }
+
+      await onRefresh();
+      alert(status === 'paid' ? 'Pagamento marcado como pago.' : status === 'failed' ? 'Pagamento marcado como falhou.' : 'Pagamento marcado como pendente.');
+    } catch (error) {
+      console.error('Erro ao atualizar status de pagamento:', error);
+      alert(error instanceof Error ? error.message : 'Falha ao atualizar status de pagamento.');
+    } finally {
+      setSavingPaymentOrderId(null);
     }
   };
 
@@ -2763,8 +2789,8 @@ const AdminPage = ({ products, posts, orders, onRefresh, onNavigate }: { product
                         <div>
                           <div className="flex items-center gap-3 mb-1">
                             <span className="text-lg font-black">{order.order_nsu}</span>
-                            <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${order.status === 'paid' ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-600'}`}>
-                              {order.status === 'paid' ? 'Pago' : 'Pendente'}
+                            <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${order.status === 'paid' ? 'bg-green-100 text-green-600' : order.status === 'failed' ? 'bg-rose-100 text-rose-600' : 'bg-orange-100 text-orange-600'}`}>
+                              {order.status === 'paid' ? 'Pago' : order.status === 'failed' ? 'Falhou' : 'Pendente'}
                             </span>
                             <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${fulfillmentBadgeClasses[draft.status] || fulfillmentBadgeClasses['aguardando-envio']}`}>
                               {fulfillmentLabels[draft.status] || 'Aguardando envio'}
@@ -2830,6 +2856,28 @@ const AdminPage = ({ products, posts, orders, onRefresh, onNavigate }: { product
                             <p><span className="font-bold text-gray-900">CEP:</span> {order.shipping?.cep || 'Não informado'}</p>
                           </div>
                         </div>
+                      </div>
+                      <div className="rounded-2xl border border-gray-100 bg-white p-4 mb-4">
+                        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">
+                          <CheckCircle size={14} /> Pagamento
+                        </div>
+                        <div className="flex flex-wrap gap-2 mb-2">
+                          {[
+                            ['pending', 'Pendente'],
+                            ['paid', 'Pago'],
+                            ['failed', 'Falhou'],
+                          ].map(([value, label]) => (
+                            <button
+                              key={value}
+                              onClick={() => handleUpdatePaymentStatus(order.id, value as 'pending' | 'paid' | 'failed')}
+                              disabled={savingPaymentOrderId === order.id}
+                              className={`px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${order.status === value ? value === 'paid' ? 'bg-green-600 text-white' : value === 'failed' ? 'bg-rose-600 text-white' : 'bg-brand-black text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'} ${savingPaymentOrderId === order.id ? 'opacity-70 cursor-not-allowed' : ''}`}
+                            >
+                              {savingPaymentOrderId === order.id && order.status !== value ? 'Salvando...' : label}
+                            </button>
+                          ))}
+                        </div>
+                        <p className="text-xs text-gray-400 mb-4">Se o cliente enviar o comprovante, você pode confirmar manualmente o pagamento por aqui.</p>
                       </div>
                       <div className="rounded-2xl border border-gray-100 bg-white p-4 mb-4">
                         <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">

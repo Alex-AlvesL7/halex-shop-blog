@@ -1145,6 +1145,55 @@ const buildOrderEmailHtml = ({
   `;
 };
 
+const sendOrderPaidNotifications = async (order: any, previousOrder?: any | null) => {
+  if (!order) return;
+
+  const orderNotificationEmail = process.env.ORDER_NOTIFICATION_EMAIL || process.env.EMAIL_USER || 'contato@mail.l7fitness.com.br';
+  const relatedAffiliate = await getAffiliateById(order?.affiliate_id || previousOrder?.affiliate_id || null);
+
+  try {
+    await enviarEmail(
+      orderNotificationEmail,
+      `Pagamento aprovado ${order.order_nsu}`,
+      buildOrderEmailHtml({
+        title: 'Pagamento aprovado',
+        intro: 'O pagamento foi confirmado. O pedido está pronto para separação e envio.',
+        order,
+      })
+    );
+  } catch (emailError) {
+    console.warn('Falha ao enviar aviso de pagamento aprovado para admin:', emailError);
+  }
+
+  if (order?.customer_email) {
+    try {
+      await enviarEmail(
+        order.customer_email,
+        `Pagamento confirmado ${order.order_nsu}`,
+        buildOrderEmailHtml({
+          title: 'Pagamento confirmado',
+          intro: 'Recebemos seu pagamento com sucesso. Em breve você receberá novidades sobre a preparação e o envio do pedido.',
+          order,
+        })
+      );
+    } catch (emailError) {
+      console.warn('Falha ao enviar confirmação de pagamento para cliente:', emailError);
+    }
+  }
+
+  if (relatedAffiliate?.email) {
+    try {
+      await enviarEmail(
+        relatedAffiliate.email,
+        `Parabéns! Nova venda aprovada ${order.order_nsu}`,
+        `Olá ${relatedAffiliate.name || 'afiliado'},<br/><br/>Parabéns! Seu link gerou mais uma venda aprovada.<br/><br/><strong>Pedido:</strong> ${order.order_nsu}<br/><strong>Comissão estimada:</strong> ${formatBRL((Number(order?.total) || 0) * ((Number(relatedAffiliate.commission_rate) || 0) / 100))}<br/><br/>Seu painel será atualizado automaticamente com essa venda.`
+      );
+    } catch (emailError) {
+      console.warn('Falha ao enviar aviso de nova venda para afiliado:', emailError);
+    }
+  }
+};
+
 const mergeOrderMetadataItems = (rawItems: any[], patch: any) => {
   const items = Array.isArray(rawItems) ? [...rawItems] : [];
   const metadataIndex = items.findIndex((item: any) => item?.type === 'customer_metadata');
@@ -1256,35 +1305,118 @@ const getAffiliateById = async (affiliateId?: string | null) => {
   return null;
 };
 
+const normalizeInfinitePayOrderNsuCandidate = (candidate: unknown): string | null => {
+  if (candidate == null) return null;
+
+  const raw = String(candidate).trim();
+  if (!raw) return null;
+
+  const embeddedMatch = raw.match(/L7-\d{8,}/i);
+  if (embeddedMatch?.[0]) {
+    return embeddedMatch[0].toUpperCase();
+  }
+
+  if (/^\d{8,}$/.test(raw)) {
+    return `L7-${raw}`;
+  }
+
+  return raw;
+};
+
+const buildOrderNsuLookupVariants = (orderNsu: string | null | undefined) => {
+  const normalized = normalizeInfinitePayOrderNsuCandidate(orderNsu);
+  if (!normalized) return [] as string[];
+
+  const variants = new Set<string>([normalized]);
+  const digitsOnly = normalized.replace(/^L7-/i, '').trim();
+
+  if (digitsOnly && digitsOnly !== normalized) {
+    variants.add(digitsOnly);
+    variants.add(`L7-${digitsOnly}`);
+  }
+
+  return [...variants];
+};
+
+const resolveWebhookOrderByNsu = async (incomingOrderNsu: string | null | undefined) => {
+  const variants = buildOrderNsuLookupVariants(incomingOrderNsu);
+
+  for (const variant of variants) {
+    const order = await getOrderByNsu(variant);
+    if (order) {
+      return { order, resolvedOrderNsu: variant };
+    }
+  }
+
+  return {
+    order: null,
+    resolvedOrderNsu: variants[0] || null,
+  };
+};
+
 const extractInfinitePayOrderNsu = (data: any): string | null => {
   const candidates = [
     data?.order_nsu,
     data?.orderNsu,
+    data?.metadata?.order_nsu,
+    data?.metadata?.orderNsu,
     data?.data?.order_nsu,
     data?.data?.orderNsu,
+    data?.data?.metadata?.order_nsu,
+    data?.data?.metadata?.orderNsu,
     data?.invoice?.order_nsu,
     data?.invoice?.orderNsu,
+    data?.invoice?.metadata?.order_nsu,
+    data?.invoice?.metadata?.orderNsu,
     data?.payment?.order_nsu,
     data?.payment?.orderNsu,
+    data?.payment?.metadata?.order_nsu,
+    data?.payment?.metadata?.orderNsu,
     data?.payload?.order_nsu,
     data?.payload?.orderNsu,
+    data?.payload?.metadata?.order_nsu,
+    data?.payload?.metadata?.orderNsu,
     data?.resource?.order_nsu,
     data?.resource?.orderNsu,
+    data?.resource?.metadata?.order_nsu,
+    data?.resource?.metadata?.orderNsu,
     data?.external_reference,
     data?.externalReference,
+    data?.invoice?.external_reference,
+    data?.invoice?.externalReference,
+    data?.payment?.external_reference,
+    data?.payment?.externalReference,
+    data?.resource?.external_reference,
+    data?.resource?.externalReference,
   ];
 
-  const value = candidates.find((candidate) => typeof candidate === 'string' && candidate.trim().length > 0);
-  return value ? String(value).trim() : null;
+  for (const candidate of candidates) {
+    const normalized = normalizeInfinitePayOrderNsuCandidate(candidate);
+    if (normalized) return normalized;
+  }
+
+  const serialized = JSON.stringify(data || {});
+  const embeddedMatch = serialized.match(/L7-\d{8,}/i);
+  return embeddedMatch?.[0] ? embeddedMatch[0].toUpperCase() : null;
 };
 
 const extractInfinitePayStatus = (data: any): string => {
   const candidates = [
     data?.status,
+    data?.payment_status,
+    data?.paymentStatus,
     data?.data?.status,
+    data?.data?.payment_status,
+    data?.data?.paymentStatus,
     data?.invoice?.status,
+    data?.invoice?.payment_status,
+    data?.invoice?.paymentStatus,
     data?.payment?.status,
+    data?.payment?.payment_status,
+    data?.payment?.paymentStatus,
     data?.resource?.status,
+    data?.resource?.payment_status,
+    data?.resource?.paymentStatus,
     data?.event,
     data?.type,
     data?.data?.event,
@@ -1297,7 +1429,55 @@ const extractInfinitePayStatus = (data: any): string => {
 
 const isInfinitePayPaidStatus = (status: string) => {
   const normalized = String(status || '').toLowerCase();
-  return ['paid', 'approved', 'completed', 'success', 'succeeded', 'invoice.paid', 'payment.approved', 'payment.paid'].includes(normalized);
+  return ['paid', 'approved', 'completed', 'success', 'succeeded', 'confirmed', 'received', 'settled', 'invoice.paid', 'payment.approved', 'payment.paid'].includes(normalized);
+};
+
+const isInfinitePayPendingStatus = (status: string) => {
+  const normalized = String(status || '').toLowerCase();
+  return [
+    'pending',
+    'processing',
+    'processing_payment',
+    'waiting_payment',
+    'awaiting_payment',
+    'created',
+    'opened',
+    'generated',
+    'authorized',
+    'in_process',
+    'invoice.created',
+    'invoice.pending',
+    'payment.pending',
+    'payment.created',
+  ].includes(normalized);
+};
+
+const isInfinitePayFailedStatus = (status: string) => {
+  const normalized = String(status || '').toLowerCase();
+  return [
+    'failed',
+    'declined',
+    'denied',
+    'canceled',
+    'cancelled',
+    'expired',
+    'refunded',
+    'chargeback',
+    'voided',
+    'invoice.failed',
+    'invoice.canceled',
+    'payment.failed',
+    'payment.denied',
+    'payment.cancelled',
+  ].includes(normalized);
+};
+
+const mapInfinitePayStatusToOrderStatus = (incomingStatus: string, currentStatus?: string | null): 'paid' | 'pending' | 'failed' => {
+  if (isInfinitePayPaidStatus(incomingStatus)) return 'paid';
+  if (isInfinitePayFailedStatus(incomingStatus)) return 'failed';
+  if (isInfinitePayPendingStatus(incomingStatus)) return 'pending';
+
+  return currentStatus === 'paid' || currentStatus === 'failed' ? currentStatus : 'pending';
 };
 
 const normalizeAffiliateRefBase = (value?: string | null) => {
@@ -2652,22 +2832,75 @@ app.post("/api/checkout", async (req, res) => {
   }
 });
 
+  app.put("/api/orders/:id/payment-status", async (req, res) => {
+    const { id } = req.params;
+    const requestedStatus = String(req.body?.status || '').trim().toLowerCase();
+    const allowedStatuses = ['pending', 'paid', 'failed'];
+    const nextStatus = allowedStatuses.includes(requestedStatus) ? requestedStatus : null;
+
+    if (!nextStatus) {
+      return res.status(400).json({ error: 'Status de pagamento inválido.' });
+    }
+
+    try {
+      const rawOrder = await getRawOrderById(id);
+      if (!rawOrder) {
+        return res.status(404).json({ error: 'Pedido não encontrado' });
+      }
+
+      const previousOrder = normalizeOrderRecord(rawOrder);
+
+      if (db) {
+        try {
+          db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(nextStatus, id);
+        } catch (error) {
+          console.error('SQLite payment status update failed:', error);
+        }
+      }
+
+      if (supabase) {
+        try {
+          await supabase.from('orders').update({ status: nextStatus }).eq('id', id);
+        } catch (error) {
+          console.error('Supabase payment status update failed:', error);
+        }
+      }
+
+      const refreshedRawOrder = await getRawOrderById(id);
+      const updatedOrder = normalizeOrderRecord(refreshedRawOrder || { ...rawOrder, status: nextStatus });
+
+      if (nextStatus === 'paid' && previousOrder.status !== 'paid') {
+        await sendOrderPaidNotifications(updatedOrder, previousOrder);
+      }
+
+      return res.json({ success: true, order: updatedOrder });
+    } catch (error) {
+      console.error('Error in PUT /api/orders/:id/payment-status:', error);
+      return res.status(500).json({ error: 'Falha ao atualizar status de pagamento', details: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
   // InfinitePay Webhook Handler
   app.post("/api/webhook-infinitepay", async (req, res) => {
     const data = req.body;
     console.log("InfinitePay Webhook Received:", JSON.stringify(data));
     
-    const orderNsu = extractInfinitePayOrderNsu(data);
+    const incomingOrderNsu = extractInfinitePayOrderNsu(data);
     const incomingStatus = extractInfinitePayStatus(data);
-    const status = isInfinitePayPaidStatus(incomingStatus) ? 'paid' : 'failed';
+    const { order: previousOrder, resolvedOrderNsu } = await resolveWebhookOrderByNsu(incomingOrderNsu);
+    const orderNsu = resolvedOrderNsu;
+    const status = mapInfinitePayStatusToOrderStatus(incomingStatus, previousOrder?.status);
 
     if (!orderNsu) {
       console.warn('InfinitePay webhook recebido sem `order_nsu` identificável.');
       return res.status(200).send("IGNORED");
     }
-
-    const previousOrder = orderNsu ? await getOrderByNsu(orderNsu) : null;
     const previousStatus = previousOrder?.status;
+
+    if (!previousOrder) {
+      console.warn(`InfinitePay webhook não encontrou pedido local para ${orderNsu}. Status recebido: ${incomingStatus}`);
+      return res.status(200).send("IGNORED");
+    }
 
     if (orderNsu) {
       // Update SQLite
@@ -2682,50 +2915,7 @@ app.post("/api/checkout", async (req, res) => {
 
       if (status === 'paid' && previousStatus !== 'paid') {
         const updatedOrder = (await getOrderByNsu(orderNsu)) || { ...previousOrder, status: 'paid' };
-        const orderNotificationEmail = process.env.ORDER_NOTIFICATION_EMAIL || process.env.EMAIL_USER || 'contato@mail.l7fitness.com.br';
-        const relatedAffiliate = await getAffiliateById(updatedOrder?.affiliate_id || previousOrder?.affiliate_id || null);
-
-        try {
-          await enviarEmail(
-            orderNotificationEmail,
-            `Pagamento aprovado ${orderNsu}`,
-            buildOrderEmailHtml({
-              title: 'Pagamento aprovado',
-              intro: 'O pagamento foi confirmado pela InfinitePay. O pedido está pronto para separação e envio.',
-              order: updatedOrder,
-            })
-          );
-        } catch (emailError) {
-          console.warn('Falha ao enviar aviso de pagamento aprovado para admin:', emailError);
-        }
-
-        if (updatedOrder?.customer_email) {
-          try {
-            await enviarEmail(
-              updatedOrder.customer_email,
-              `Pagamento confirmado ${orderNsu}`,
-              buildOrderEmailHtml({
-                title: 'Pagamento confirmado',
-                intro: 'Recebemos seu pagamento com sucesso. Em breve você receberá novidades sobre a preparação e o envio do pedido.',
-                order: updatedOrder,
-              })
-            );
-          } catch (emailError) {
-            console.warn('Falha ao enviar confirmação de pagamento para cliente:', emailError);
-          }
-        }
-
-        if (relatedAffiliate?.email) {
-          try {
-            await enviarEmail(
-              relatedAffiliate.email,
-              `Parabéns! Nova venda aprovada ${orderNsu}`,
-              `Olá ${relatedAffiliate.name || 'afiliado'},<br/><br/>Parabéns! Seu link gerou mais uma venda aprovada.<br/><br/><strong>Pedido:</strong> ${orderNsu}<br/><strong>Comissão estimada:</strong> ${formatBRL((Number(updatedOrder?.total) || 0) * ((Number(relatedAffiliate.commission_rate) || 0) / 100))}<br/><br/>Seu painel será atualizado automaticamente com essa venda.`
-            );
-          } catch (emailError) {
-            console.warn('Falha ao enviar aviso de nova venda para afiliado:', emailError);
-          }
-        }
+        await sendOrderPaidNotifications(updatedOrder, previousOrder);
       }
     }
     
