@@ -282,7 +282,13 @@ const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL ||
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 const supabaseKey = supabaseServiceRoleKey || supabaseAnonKey;
-const isEphemeralSQLiteRuntime = Boolean(process.env.VERCEL);
+const isEphemeralSQLiteRuntime = Boolean(
+  process.env.VERCEL
+  || process.env.RAILWAY_PROJECT_ID
+  || process.env.RAILWAY_SERVICE_ID
+  || process.env.RAILWAY_ENVIRONMENT_ID
+  || process.env.RAILWAY_ENVIRONMENT_NAME
+);
 const geminiApiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
 const ai = geminiApiKey ? new GoogleGenAI({ apiKey: geminiApiKey }) : null;
 
@@ -306,7 +312,7 @@ if (!process.env.EMAIL_FROM) {
 }
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT || 3000);
 
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ limit: '100mb', extended: true }));
@@ -1244,8 +1250,23 @@ const getRawOrderById = async (id: string) => {
 
 const resolveAppUrl = (req: any) => {
   const configuredUrl = String(process.env.APP_URL || '').trim();
-  if (configuredUrl) {
-    return configuredUrl.replace(/\/$/, '');
+  const normalizedConfiguredUrl = configuredUrl.replace(/\/$/, '');
+
+  if (normalizedConfiguredUrl) {
+    try {
+      const parsedConfiguredUrl = new URL(normalizedConfiguredUrl);
+      const hostname = String(parsedConfiguredUrl.hostname || '').trim().toLowerCase();
+      const isLocalHost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '0.0.0.0';
+      const isProductionRuntime = process.env.VERCEL === '1' || process.env.NODE_ENV === 'production';
+
+      if (!(isProductionRuntime && isLocalHost)) {
+        return normalizedConfiguredUrl;
+      }
+
+      console.warn(`APP_URL ignorada para webhook/redirect porque aponta para ambiente local em produção: ${normalizedConfiguredUrl}`);
+    } catch (error) {
+      console.warn(`APP_URL inválida, usando URL resolvida pela requisição: ${normalizedConfiguredUrl}`);
+    }
   }
 
   const forwardedProtoHeader = req.headers['x-forwarded-proto'];
@@ -1884,7 +1905,7 @@ Retorne APENAS JSON no schema pedido.`,
     if (!supabaseSaved && sqliteSaved && isEphemeralSQLiteRuntime) {
       return res.status(500).json({
         error: 'Produto salvo apenas em armazenamento temporário e não persistiu.',
-        details: `Configure SUPABASE_SERVICE_ROLE_KEY no deploy para persistência real. Em ambiente Vercel o SQLite é temporário. ${saveErrors.length ? `Detalhe Supabase: ${saveErrors.join(' | ')}` : ''}`,
+        details: `Configure SUPABASE_SERVICE_ROLE_KEY no deploy para persistência real. Em ambientes sem volume persistente (como Vercel ou Railway sem volume) o SQLite é temporário. ${saveErrors.length ? `Detalhe Supabase: ${saveErrors.join(' | ')}` : ''}`,
       });
     }
 
@@ -1921,7 +1942,7 @@ Retorne APENAS JSON no schema pedido.`,
       return res.status(500).json({
         success: false,
         error: 'Exclusão concluída apenas em armazenamento temporário.',
-        details: 'Configure SUPABASE_SERVICE_ROLE_KEY no deploy para persistência real. Em ambiente Vercel o SQLite é temporário.',
+        details: 'Configure SUPABASE_SERVICE_ROLE_KEY no deploy para persistência real. Em ambientes sem volume persistente (como Vercel ou Railway sem volume) o SQLite é temporário.',
       });
     }
     
@@ -2061,7 +2082,7 @@ Retorne APENAS JSON no schema pedido.`,
     if (!supabaseUpdated && sqliteUpdated && isEphemeralSQLiteRuntime) {
       return res.status(500).json({
         error: 'Produto atualizado apenas em armazenamento temporário e não persistiu.',
-        details: `Configure SUPABASE_SERVICE_ROLE_KEY no deploy para persistência real. Em ambiente Vercel o SQLite é temporário. ${updateErrors.length ? `Detalhe Supabase: ${updateErrors.join(' | ')}` : ''}`,
+        details: `Configure SUPABASE_SERVICE_ROLE_KEY no deploy para persistência real. Em ambientes sem volume persistente (como Vercel ou Railway sem volume) o SQLite é temporário. ${updateErrors.length ? `Detalhe Supabase: ${updateErrors.join(' | ')}` : ''}`,
       });
     }
 
@@ -3915,13 +3936,9 @@ app.post("/api/checkout", async (req, res) => {
     });
   });
 
-  if (process.env.NODE_ENV === "production" && !process.env.VERCEL) {
+  if (!process.env.VERCEL) {
     app.listen(PORT, "0.0.0.0", () => {
-      console.log(`Server running on http://localhost:${PORT}`);
-    });
-  } else if (!process.env.VERCEL) {
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`Server running on http://localhost:${PORT}`);
+      console.log(`Server running on http://0.0.0.0:${PORT}`);
     });
   }
 
