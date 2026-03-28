@@ -106,6 +106,7 @@ try {
       email TEXT NOT NULL,
       whatsapp TEXT,
       ref_code TEXT NOT NULL UNIQUE,
+      tag TEXT,
       commission_rate REAL DEFAULT 10,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
@@ -151,6 +152,9 @@ try {
   } catch (e) {}
   try {
     db.exec("ALTER TABLE affiliates ADD COLUMN status TEXT DEFAULT 'pending'");
+  } catch (e) {}
+  try {
+    db.exec("ALTER TABLE affiliates ADD COLUMN tag TEXT");
   } catch (e) {}
   try {
     db.exec("ALTER TABLE orders ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP");
@@ -2753,10 +2757,11 @@ app.post("/api/checkout", async (req, res) => {
   });
 
   app.post("/api/affiliates", async (req, res) => {
-    const { name, email, whatsapp, ref_code, commission_rate } = req.body;
+    const { name, email, whatsapp, ref_code, commission_rate, tag } = req.body;
     const normalizedEmail = String(email || '').trim().toLowerCase();
     const normalizedName = String(name || '').trim();
     const normalizedRefCode = await generateAffiliateRefCode(String(ref_code || '').trim(), normalizedName);
+    const normalizedTag = String(tag || '').trim();
     
     // Basic anti-spam: check if email already exists
     if (!supabase) return res.status(500).json({ error: "Supabase not configured" });
@@ -2798,6 +2803,7 @@ app.post("/api/checkout", async (req, res) => {
     };
     
     if (whatsapp) affiliateData.whatsapp = whatsapp;
+    if (normalizedTag) affiliateData.tag = normalizedTag;
     
     const { error } = await supabase.from('affiliates').insert([affiliateData]);
     if (error) {
@@ -2836,24 +2842,59 @@ app.post("/api/checkout", async (req, res) => {
 
   app.patch("/api/affiliates/:id", async (req, res) => {
     const { id } = req.params;
-    const { name, email, whatsapp, commission_rate } = req.body;
-    
-    const updateData: any = { 
-      name,
-      email,
-      whatsapp,
-      commission_rate: Number(commission_rate) 
-    };
+    const { name, email, whatsapp, commission_rate, tag } = req.body || {};
+
+    const updateData: any = {};
+
+    if (name !== undefined) updateData.name = String(name || '').trim();
+    if (email !== undefined) updateData.email = String(email || '').trim().toLowerCase();
+    if (whatsapp !== undefined) updateData.whatsapp = String(whatsapp || '').trim() || null;
+    if (tag !== undefined) updateData.tag = String(tag || '').trim() || null;
+    if (commission_rate !== undefined) {
+      const parsedCommission = Number(commission_rate);
+      if (!Number.isFinite(parsedCommission)) {
+        return res.status(400).json({ error: 'Comissão inválida.' });
+      }
+      updateData.commission_rate = parsedCommission;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ error: 'Nenhum campo enviado para atualização.' });
+    }
 
     try {
-      if (!supabase) throw new Error("Supabase not configured");
+      let updated = false;
+      let supabaseError: Error | null = null;
 
-      const { error } = await supabase
-        .from('affiliates')
-        .update(updateData)
-        .eq('id', id);
-        
-      if (error) throw error;
+      if (supabase) {
+        const { error } = await supabase
+          .from('affiliates')
+          .update(updateData)
+          .eq('id', id);
+
+        if (!error) {
+          updated = true;
+        } else {
+          supabaseError = new Error(error.message);
+        }
+      }
+
+      if (!updated && db) {
+        const allowedFields = ['name', 'email', 'whatsapp', 'commission_rate', 'tag'];
+        const entries = Object.entries(updateData).filter(([key]) => allowedFields.includes(key));
+        const setClause = entries.map(([key]) => `${key} = ?`).join(', ');
+
+        if (!setClause) {
+          return res.status(400).json({ error: 'Nenhum campo válido enviado para atualização.' });
+        }
+
+        db.prepare(`UPDATE affiliates SET ${setClause} WHERE id = ?`).run(...entries.map(([, value]) => value), id);
+        updated = true;
+      }
+
+      if (!updated) {
+        throw supabaseError || new Error("Affiliate storage not configured");
+      }
       
       res.json({ success: true });
     } catch (e: any) {

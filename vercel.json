@@ -37,6 +37,10 @@
       "dest": "server.ts"
     },
     {
+      "src": "/afiliado/(.*)",
+      "dest": "server.ts"
+    },
+    {
       "src": "/blog",
       "dest": "server.ts"
     },

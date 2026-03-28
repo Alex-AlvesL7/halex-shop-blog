@@ -16,7 +16,12 @@ export function useApprovedAffiliate(email: string | null | undefined) {
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
-          const found = data.find((a: any) => String(a.email || '').trim().toLowerCase() === normalizedEmail);
+          const matches = data.filter((a: any) => String(a.email || '').trim().toLowerCase() === normalizedEmail);
+          const found =
+            matches.find((a: any) => String(a.status || '').toLowerCase() === 'approved' && String(a.ref_code || '').trim()) ||
+            matches.find((a: any) => String(a.status || '').toLowerCase() === 'approved') ||
+            matches.find((a: any) => String(a.ref_code || '').trim()) ||
+            matches[0];
           setAffiliate(found || null);
         } else {
           setAffiliate(null);

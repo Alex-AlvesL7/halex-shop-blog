@@ -76,6 +76,19 @@ const Navbar = ({ cartCount, onCartClick, onNavigate }: { cartCount: number, onC
     };
   }, []);
 
+  const handleAffiliateDashboardOpen = () => {
+    const affiliateRef = String(affiliate?.ref_code || '').trim();
+
+    if (!affiliateRef) {
+      setIsProfileOpen(false);
+      onNavigate('affiliate-program');
+      return;
+    }
+
+    setIsProfileOpen(false);
+    onNavigate('affiliate-dashboard', { affiliateRef });
+  };
+
   return (
     <>
       <nav className={`theme-nav fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? 'bg-white/90 backdrop-blur-md shadow-sm py-3' : 'bg-transparent py-6'}`}>
@@ -136,8 +149,13 @@ const Navbar = ({ cartCount, onCartClick, onNavigate }: { cartCount: number, onC
                       {affiliate && (
                         <button
                           onClick={() => {
+                            if (affiliate.status === 'approved') {
+                              handleAffiliateDashboardOpen();
+                              return;
+                            }
+
                             setIsProfileOpen(false);
-                            onNavigate('affiliate-dashboard', { affiliateRef: affiliate.ref_code });
+                            onNavigate('affiliate-program');
                           }}
                           className={`w-full inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-xs font-black uppercase tracking-widest transition-colors ${affiliate.status === 'approved' ? 'bg-brand-orange text-white hover:bg-orange-600' : 'bg-amber-100 text-amber-800 hover:bg-amber-200'}`}
                         >

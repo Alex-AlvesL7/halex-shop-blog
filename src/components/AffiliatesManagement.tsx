@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { BarChart3, Edit2, Plus, Save, TrendingUp, UserPlus, Users, Wallet, X } from 'lucide-react';
+import { BarChart3, ChevronDown, ChevronUp, Edit2, Plus, Save, Search, Tag, TrendingUp, UserPlus, Users, Wallet, X } from 'lucide-react';
 import { Product } from '../types';
 
 type AffiliateInsight = {
@@ -32,6 +32,18 @@ export const AffiliatesManagement = ({ affiliates, products, onRefresh }: { affi
   const [loadingPending, setLoadingPending] = useState(false);
   const [affiliateInsights, setAffiliateInsights] = useState<Record<string, AffiliateInsight>>({});
   const [loadingInsights, setLoadingInsights] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [expandedAffiliateId, setExpandedAffiliateId] = useState<string | null>(null);
+  const [labelDrafts, setLabelDrafts] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    setLabelDrafts(
+      affiliates.reduce<Record<string, string>>((acc, affiliate) => {
+        acc[String(affiliate.id)] = String(affiliate.tag || '');
+        return acc;
+      }, {}),
+    );
+  }, [affiliates]);
 
   const loadPendingAffiliates = async () => {
     setLoadingPending(true);
@@ -75,6 +87,42 @@ export const AffiliatesManagement = ({ affiliates, products, onRefresh }: { affi
 
   const approvedAffiliates = affiliates.filter((affiliate) => String(affiliate.status || 'approved') === 'approved');
   const rejectedAffiliates = affiliates.filter((affiliate) => String(affiliate.status || '') === 'rejected');
+  const normalizedSearch = String(searchTerm || '').trim().toLowerCase();
+
+  const filteredApprovedAffiliates = useMemo(() => {
+    if (!normalizedSearch) return approvedAffiliates;
+
+    return approvedAffiliates.filter((affiliate) => {
+      const label = String(affiliate.tag || '').toLowerCase();
+      const haystack = [affiliate.name, affiliate.email, affiliate.ref_code, affiliate.whatsapp, label]
+        .map((value) => String(value || '').toLowerCase())
+        .join(' ');
+      return haystack.includes(normalizedSearch);
+    });
+  }, [approvedAffiliates, normalizedSearch]);
+
+  const filteredPendingAffiliates = useMemo(() => {
+    if (!normalizedSearch) return pendingAffiliates;
+
+    return pendingAffiliates.filter((affiliate) => {
+      const haystack = [affiliate.name, affiliate.email, affiliate.ref_code, affiliate.whatsapp]
+        .map((value: any) => String(value || '').toLowerCase())
+        .join(' ');
+      return haystack.includes(normalizedSearch);
+    });
+  }, [normalizedSearch, pendingAffiliates]);
+
+  const filteredRejectedAffiliates = useMemo(() => {
+    if (!normalizedSearch) return rejectedAffiliates;
+
+    return rejectedAffiliates.filter((affiliate) => {
+      const label = String(affiliate.tag || '').toLowerCase();
+      const haystack = [affiliate.name, affiliate.email, affiliate.ref_code, affiliate.whatsapp, label]
+        .map((value) => String(value || '').toLowerCase())
+        .join(' ');
+      return haystack.includes(normalizedSearch);
+    });
+  }, [normalizedSearch, rejectedAffiliates]);
 
   const loadAffiliateInsights = async () => {
     if (approvedAffiliates.length === 0) {
@@ -116,7 +164,7 @@ export const AffiliatesManagement = ({ affiliates, products, onRefresh }: { affi
   }, [activeTab, affiliates, products]);
 
   const affiliateControlSummary = useMemo(() => {
-    return approvedAffiliates.reduce(
+    return filteredApprovedAffiliates.reduce(
       (acc, affiliate) => {
         const insight = affiliateInsights[affiliate.ref_code];
         acc.approved += 1;
@@ -127,7 +175,25 @@ export const AffiliatesManagement = ({ affiliates, products, onRefresh }: { affi
       },
       { approved: 0, grossSales: 0, paidCommission: 0, orders: 0 },
     );
-  }, [affiliateInsights, approvedAffiliates]);
+  }, [affiliateInsights, filteredApprovedAffiliates]);
+
+  const handleSaveLabel = async (affiliateId: string) => {
+    const nextValue = String(labelDrafts[affiliateId] || '').trim();
+
+    const response = await fetch(`/api/affiliates/${affiliateId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tag: nextValue }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      alert(`Erro ao salvar etiqueta: ${errorData.error || 'falha ao atualizar afiliado'}`);
+      return;
+    }
+
+    await onRefresh();
+  };
 
   const handleAddAffiliate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -303,6 +369,23 @@ export const AffiliatesManagement = ({ affiliates, products, onRefresh }: { affi
         <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm">
           <div className="flex flex-col gap-8">
             <div>
+              <div className="mb-6 rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white border border-gray-200 text-gray-500">
+                    <Search size={18} />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black mb-2">Busca rápida</p>
+                    <input
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      placeholder="Buscar por nome, e-mail, ref, WhatsApp ou etiqueta"
+                      className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700 outline-none transition focus:border-brand-orange"
+                    />
+                  </div>
+                </div>
+              </div>
+
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-6">
                 <div>
                   <h3 className="text-2xl font-bold">Solicitações pendentes</h3>
@@ -315,11 +398,11 @@ export const AffiliatesManagement = ({ affiliates, products, onRefresh }: { affi
 
               {loadingPending ? (
                 <div className="rounded-2xl border border-gray-100 bg-gray-50 p-6 text-sm text-gray-500">Carregando solicitações pendentes...</div>
-              ) : pendingAffiliates.length === 0 ? (
+              ) : filteredPendingAffiliates.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-6 text-sm text-gray-500">Nenhum afiliado pendente no momento.</div>
               ) : (
                 <div className="space-y-4 mb-8">
-                  {pendingAffiliates.map((affiliate) => (
+                  {filteredPendingAffiliates.map((affiliate) => (
                     <div key={affiliate.id} className="rounded-2xl border border-amber-100 bg-amber-50/60 p-5">
                       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                         <div>
@@ -367,7 +450,12 @@ export const AffiliatesManagement = ({ affiliates, products, onRefresh }: { affi
               </div>
 
               <div className="space-y-4">
-            {approvedAffiliates.map(a => (
+            {filteredApprovedAffiliates.map(a => {
+              const isExpanded = expandedAffiliateId === a.id;
+              const currentLabel = String(a.tag || '');
+              const labelDraft = labelDrafts[a.id] ?? currentLabel;
+
+              return (
               <div key={a.id} className="p-5 bg-gray-50 rounded-2xl border border-gray-100">
                 {editingId === a.id ? (
                   <div className="flex flex-col gap-3 w-full">
@@ -390,21 +478,56 @@ export const AffiliatesManagement = ({ affiliates, products, onRefresh }: { affi
                             <p className="font-bold text-lg">{a.name}</p>
                             <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase tracking-widest">Aprovado</span>
                             <span className="px-3 py-1 rounded-full bg-white text-gray-500 text-[10px] font-black uppercase tracking-widest border border-gray-200">Ref {a.ref_code}</span>
+                            {currentLabel && (
+                              <span className="px-3 py-1 rounded-full bg-brand-orange/10 text-brand-orange text-[10px] font-black uppercase tracking-widest border border-brand-orange/20">
+                                {currentLabel}
+                              </span>
+                            )}
                           </div>
                           <p className="text-sm text-gray-500 mt-2">{a.email} • <span className="font-medium text-gray-700">WhatsApp:</span> {a.whatsapp}</p>
                         </div>
                         <div className="flex items-center gap-6">
                           <p className="font-bold text-xl text-brand-orange">{a.commission_rate}%</p>
+                          <button
+                            onClick={() => setExpandedAffiliateId((current) => current === a.id ? null : a.id)}
+                            className="inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white p-2 text-gray-500 hover:border-brand-orange hover:text-brand-orange transition-colors"
+                            title={isExpanded ? 'Recolher afiliado' : 'Abrir afiliado'}
+                          >
+                            {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                          </button>
                           <button onClick={() => { setEditingId(a.id); setEditData({ name: a.name, email: a.email, whatsapp: a.whatsapp, commission_rate: a.commission_rate }); }} className="text-gray-400 hover:text-brand-orange transition-colors">
                             <Edit2 size={18} />
                           </button>
                         </div>
                       </div>
 
-                      {(() => {
+                      {isExpanded && (() => {
                         const insight = affiliateInsights[a.ref_code];
                         return (
                           <>
+                            <div className="rounded-2xl bg-white border border-gray-100 p-4">
+                              <div className="flex flex-col lg:flex-row lg:items-end gap-3">
+                                <div className="flex-1">
+                                  <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black mb-2">Etiqueta do afiliado</p>
+                                  <div className="relative">
+                                    <Tag size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                                    <input
+                                      value={labelDraft}
+                                      onChange={(e) => setLabelDrafts((current) => ({ ...current, [a.id]: e.target.value }))}
+                                      placeholder="Ex.: Alto potencial, VIP, Influenciador, Revisar"
+                                      className="w-full rounded-2xl border border-gray-200 bg-gray-50 py-3 pl-10 pr-4 text-sm text-gray-700 outline-none transition focus:border-brand-orange"
+                                    />
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={() => handleSaveLabel(a.id)}
+                                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-brand-black px-4 py-3 text-xs font-black uppercase tracking-widest text-white hover:bg-black/90 transition-colors"
+                                >
+                                  <Save size={14} /> Salvar etiqueta
+                                </button>
+                              </div>
+                            </div>
+
                             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
                               <div className="rounded-2xl bg-white border border-gray-100 px-4 py-3">
                                 <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black mb-2">Vendas</p>
@@ -472,18 +595,18 @@ export const AffiliatesManagement = ({ affiliates, products, onRefresh }: { affi
                     </div>
                 )}
               </div>
-            ))}
-              {approvedAffiliates.length === 0 && (
+            )})}
+              {filteredApprovedAffiliates.length === 0 && (
                 <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-6 text-sm text-gray-500">Nenhum afiliado aprovado ainda.</div>
               )}
               </div>
             </div>
 
-            {rejectedAffiliates.length > 0 && (
+            {filteredRejectedAffiliates.length > 0 && (
               <div>
                 <h3 className="text-2xl font-bold mb-6">Afiliados rejeitados</h3>
                 <div className="space-y-4">
-                  {rejectedAffiliates.map((affiliate) => (
+                  {filteredRejectedAffiliates.map((affiliate) => (
                     <div key={affiliate.id} className="flex justify-between items-center p-5 bg-rose-50 rounded-2xl border border-rose-100">
                       <div>
                         <div className="flex flex-wrap items-center gap-2">
