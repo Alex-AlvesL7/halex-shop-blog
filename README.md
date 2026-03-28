@@ -73,7 +73,7 @@
 ## 🚀 Quick Start
 
 ### Pré-requisitos
-- Node.js 18+
+- Node.js 20+
 - npm ou yarn
 
 ### Instalação
@@ -182,7 +182,7 @@ npm run clean     # Limpar pasta dist
 
 **Backend:**
 - Express
-- Node.js
+- Node.js 20+
 - SQLite (default) / Supabase
 
 **Integrações:**
@@ -225,6 +225,7 @@ MELHOR_ENVIO_CEP_ORIGEM=...
 ### Observações de produção
 
 - A Railway injeta a porta automaticamente e o servidor já usa `process.env.PORT`
+- Use Node 20+ na Railway para compatibilidade com Vite, Supabase e `@google/genai`
 - Se usar SQLite na Railway, configure volume persistente; sem volume, o disco é temporário
 - O recomendado em produção é manter persistência principal no Supabase
 - Revise no Supabase as URLs de redirecionamento para o domínio novo
