@@ -3046,27 +3046,128 @@ const AdminPage = ({ products, posts, orders, onRefresh, onNavigate }: { product
   );
 };
 
-const CheckoutSuccessPage = ({ onContinue }: { onContinue: () => void }) => {
+const CheckoutSuccessPage = ({ onContinue, onOpenCustomerPanel }: { onContinue: () => void, onOpenCustomerPanel: () => void }) => {
+  const { user } = useAuth();
+  const [latestOrder, setLatestOrder] = useState<any>(null);
+  const [loadingOrder, setLoadingOrder] = useState(false);
+
+  useEffect(() => {
+    const orderFromQuery = new URLSearchParams(window.location.search).get('order');
+    const storedOrder = localStorage.getItem('l7_last_checkout_order_nsu');
+    const targetOrderNsu = String(orderFromQuery || storedOrder || '').trim();
+
+    if (!user?.email) return;
+
+    let cancelled = false;
+
+    const loadOrders = async () => {
+      if (!cancelled) setLoadingOrder(true);
+
+      try {
+        const response = await fetch(`/api/orders/${encodeURIComponent(user.email)}`);
+        const data = await response.json();
+        const orders = Array.isArray(data) ? data : [];
+        const matchedOrder = targetOrderNsu
+          ? orders.find((order: any) => String(order.order_nsu || '').trim() === targetOrderNsu) || orders[0] || null
+          : orders[0] || null;
+
+        if (!cancelled) {
+          setLatestOrder(matchedOrder);
+          if (matchedOrder?.order_nsu) {
+            localStorage.setItem('l7_last_checkout_order_nsu', matchedOrder.order_nsu);
+          }
+        }
+      } catch {
+        if (!cancelled) setLatestOrder(null);
+      } finally {
+        if (!cancelled) setLoadingOrder(false);
+      }
+    };
+
+    loadOrders();
+    const intervalId = window.setInterval(loadOrders, 8000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [user?.email]);
+
+  const paymentBadgeClass = latestOrder?.status === 'paid'
+    ? 'bg-emerald-100 text-emerald-700'
+    : latestOrder?.status === 'failed'
+      ? 'bg-rose-100 text-rose-700'
+      : 'bg-amber-100 text-amber-700';
+  const paymentBadgeLabel = latestOrder?.status === 'paid' ? 'Pago' : latestOrder?.status === 'failed' ? 'Falhou' : 'Em análise';
+  const successTitle = latestOrder?.status === 'paid' ? 'Pagamento confirmado!' : 'Pedido recebido!';
+  const successMessage = latestOrder?.status === 'paid'
+    ? 'Obrigado pela compra. Já estamos preparando seu pedido e em breve você verá o código de rastreio no seu painel.'
+    : 'Recebemos seu pedido. O pagamento está sendo conferido e, assim que confirmar, vamos preparar o envio.';
+
   return (
     <div className="pt-32 pb-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
       <motion.div 
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="bg-white p-12 rounded-[40px] border border-gray-100 shadow-xl max-w-xl mx-auto"
+        className="bg-white p-12 rounded-[40px] border border-gray-100 shadow-xl max-w-2xl mx-auto"
       >
         <div className="w-24 h-24 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-8">
           <CheckCircle className="text-green-500" size={48} />
         </div>
-        <h1 className="text-4xl font-black mb-4 uppercase">Pagamento Confirmado!</h1>
-        <p className="text-gray-500 text-lg mb-10">
-          Seu pedido foi processado com sucesso. Você receberá um e-mail com os detalhes da entrega em instantes.
-        </p>
-        <button 
-          onClick={onContinue}
-          className="btn-primary w-full py-4 text-lg"
-        >
-          Continuar Comprando
-        </button>
+        <h1 className="text-4xl font-black mb-4 uppercase">{successTitle}</h1>
+        <p className="text-gray-500 text-lg mb-8">{successMessage}</p>
+
+        {user && (
+          <div className="rounded-3xl border border-gray-100 bg-gray-50 p-6 text-left mb-8">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+              <div>
+                <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black mb-2">Seu pedido</p>
+                <p className="text-lg font-black text-brand-black">{latestOrder?.order_nsu || 'Carregando pedido...'}</p>
+              </div>
+              <span className={`inline-flex w-fit items-center rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-widest ${paymentBadgeClass}`}>
+                {loadingOrder && !latestOrder ? 'Atualizando...' : paymentBadgeLabel}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+              <div className="rounded-2xl bg-white px-4 py-3 border border-gray-100">
+                <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black mb-2">Total</p>
+                <p className="text-xl font-black text-brand-orange">{latestOrder ? `R$ ${Number(latestOrder.total || 0).toFixed(2)}` : '—'}</p>
+              </div>
+              <div className="rounded-2xl bg-white px-4 py-3 border border-gray-100">
+                <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black mb-2">Envio</p>
+                <p className="text-sm font-black text-brand-black">{fulfillmentLabels[latestOrder?.fulfillment?.status || 'aguardando-envio'] || 'Aguardando envio'}</p>
+              </div>
+              <div className="rounded-2xl bg-white px-4 py-3 border border-gray-100">
+                <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black mb-2">Rastreio</p>
+                <p className="text-sm font-black text-brand-black">{latestOrder?.fulfillment?.trackingCode || 'Em breve'}</p>
+              </div>
+            </div>
+
+            <p className="text-sm text-gray-500">
+              {latestOrder?.status === 'paid'
+                ? 'Tudo certo. Seu pagamento foi aprovado e nosso time já está preparando o pedido.'
+                : 'Se o status ainda não ficou verde, aguarde alguns instantes enquanto a confirmação termina de chegar.'}
+            </p>
+          </div>
+        )}
+
+        <div className="flex flex-col sm:flex-row gap-4">
+          {user && (
+            <button 
+              onClick={onOpenCustomerPanel}
+              className="btn-primary flex-1 py-4 text-lg"
+            >
+              Abrir meu painel de compras
+            </button>
+          )}
+          <button 
+            onClick={onContinue}
+            className="flex-1 py-4 text-lg rounded-2xl border border-gray-200 font-black text-gray-700 hover:border-brand-orange hover:text-brand-orange transition-colors"
+          >
+            Continuar comprando
+          </button>
+        </div>
       </motion.div>
     </div>
   );
@@ -3787,6 +3888,9 @@ function MainApp() {
       const data = await response.json();
       
       if (data.url) {
+        if (data.order_nsu) {
+          localStorage.setItem('l7_last_checkout_order_nsu', data.order_nsu);
+        }
         // Clear cart and frete selection after successful checkout initiation
         setCart([]);
         setSelectedFrete(null);
@@ -3980,7 +4084,7 @@ function MainApp() {
           )}
           {currentPage === 'checkout-success' && (
             <motion.div key="checkout-success" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <CheckoutSuccessPage onContinue={() => navigateTo('home')} />
+              <CheckoutSuccessPage onContinue={() => navigateTo('home')} onOpenCustomerPanel={() => setIsCustomerPanelOpen(true)} />
             </motion.div>
           )}
         </AnimatePresence>

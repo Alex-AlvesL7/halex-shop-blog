@@ -2785,7 +2785,7 @@ app.post("/api/checkout", async (req, res) => {
           quantity: parseInt(item.quantity),
           price: Math.round(parseFloat(item.price) * 100)
         })),
-        redirect_url: `${appUrl}/checkout/success`,
+        redirect_url: `${appUrl}/checkout/success?order=${encodeURIComponent(orderNsu)}`,
         webhook_url: `${appUrl}/api/webhook-infinitepay`
       };
 
@@ -2808,7 +2808,7 @@ app.post("/api/checkout", async (req, res) => {
                           responseData?.data?.url;
       
       if (checkoutUrl) {
-        res.json({ url: checkoutUrl, id: checkoutUrl.split('/').pop() });
+        res.json({ url: checkoutUrl, id: checkoutUrl.split('/').pop(), order_nsu: orderNsu });
       } else {
         console.error("InfinitePay Link Missing. Full Response:", JSON.stringify(responseData));
         const apiError = responseData?.message || responseData?.error || "Estrutura de resposta desconhecida";
@@ -2822,6 +2822,7 @@ app.post("/api/checkout", async (req, res) => {
       res.json({ 
         url: `https://pay.infinitepay.io/${handle}/checkout-simulado`,
         id: "sim_" + Date.now(),
+        order_nsu: orderNsu,
         simulated: true,
         debug_error: errorDetail
       });
