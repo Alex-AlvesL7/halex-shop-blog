@@ -1726,7 +1726,7 @@ app.get("/api/health", async (req, res) => {
 
       if (supabase) {
         try {
-          const { data, error } = await supabase.from('posts').select('*');
+          const { data, error } = await supabase.from('posts').select('*').order('date', { ascending: false });
           if (error) throw error;
           posts = (data || []).map(normalizePostRecord);
           usedSupabase = true;
@@ -1737,7 +1737,7 @@ app.get("/api/health", async (req, res) => {
 
       if (!usedSupabase && db) {
         try {
-          posts = db.prepare("SELECT * FROM posts").all();
+          posts = db.prepare("SELECT * FROM posts ORDER BY date DESC, id DESC").all();
           posts = posts.map(normalizePostRecord);
         } catch (sqliteError) {
           console.error("SQLite posts fetch failed:", sqliteError);

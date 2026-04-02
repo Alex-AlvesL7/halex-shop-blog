@@ -4,7 +4,7 @@ import { motion } from 'motion/react';
 import { BlogPost } from '../types';
 import { useAuth } from '../contexts/authContext';
 
-const blogCategoryLabels: Record<BlogPost['category'], string> = {
+const blogCategoryLabels: Record<string, string> = {
   alimentacao: 'Nutrição',
   treino: 'Treino',
   dieta: 'Estratégia alimentar',

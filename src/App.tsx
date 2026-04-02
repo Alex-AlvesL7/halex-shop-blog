@@ -38,6 +38,17 @@ const LazySectionFallback = ({ label = 'Carregando...' }: { label?: string }) =>
   </div>
 );
 
+const sortPostsNewestFirst = (posts: BlogPost[] = []) => [...posts].sort((a, b) => {
+  const timeA = new Date(a?.date || 0).getTime();
+  const timeB = new Date(b?.date || 0).getTime();
+
+  if (!Number.isNaN(timeA) && !Number.isNaN(timeB) && timeA !== timeB) {
+    return timeB - timeA;
+  }
+
+  return String(b?.id || '').localeCompare(String(a?.id || ''));
+});
+
 // --- Components ---
 const Navbar = ({ cartCount, onCartClick, onNavigate, onOpenCustomerPanel }: { cartCount: number, onCartClick: () => void, onNavigate: (page: string, options?: { affiliateRef?: string | null }) => void, onOpenCustomerPanel: () => void }) => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -1034,6 +1045,33 @@ const AdminPage = ({ products, posts, orders, onRefresh, onNavigate }: { product
     title: '', excerpt: '', content: '', category: 'alimentacao', author: 'Equipe L7 Fitness', date: new Date().toISOString().split('T')[0], image: '/images/blog/l7-ultra-guide.svg', readTime: '5 min'
   });
 
+  const availableBlogCategoryOptions = useMemo(() => {
+    const names = new Map<string, string>();
+
+    ['Nutrição', 'Treino', 'Estratégia alimentar', 'Afiliados'].forEach((name) => {
+      names.set(name.toLowerCase(), name);
+    });
+
+    posts.forEach((post) => {
+      const categoryName = String(post.category || '').trim();
+      if (!categoryName) return;
+      const label = ({
+        alimentacao: 'Nutrição',
+        treino: 'Treino',
+        dieta: 'Estratégia alimentar',
+        negocios: 'Afiliados',
+      } as Record<string, string>)[categoryName.toLowerCase()] || categoryName;
+      names.set(label.toLowerCase(), label);
+    });
+
+    const currentCategory = String(newPost.category || '').trim();
+    if (currentCategory && !names.has(currentCategory.toLowerCase())) {
+      names.set(currentCategory.toLowerCase(), currentCategory);
+    }
+
+    return Array.from(names.values());
+  }, [newPost.category, posts]);
+
   const availableProductCategoryOptions = useMemo(() => {
     const names = new Map<string, string>();
 
@@ -1765,16 +1803,23 @@ const AdminPage = ({ products, posts, orders, onRefresh, onNavigate }: { product
                     value={newPost.excerpt}
                     onChange={e => setNewPost({...newPost, excerpt: e.target.value})}
                   />
-                  <select 
-                    className="w-full p-4 bg-gray-50 rounded-xl border-none outline-none"
-                    value={newPost.category}
-                    onChange={e => setNewPost({...newPost, category: e.target.value as any})}
-                  >
-                    <option value="alimentacao">Nutrição</option>
-                    <option value="treino">Treino</option>
-                    <option value="dieta">Estratégia alimentar</option>
-                    <option value="negocios">Afiliados</option>
-                  </select>
+                  <div>
+                    <input
+                      list="blog-category-options"
+                      placeholder="Categoria / assunto"
+                      className="w-full p-4 bg-gray-50 rounded-xl border-none outline-none"
+                      value={newPost.category}
+                      onChange={e => setNewPost({...newPost, category: e.target.value})}
+                    />
+                    <datalist id="blog-category-options">
+                      {availableBlogCategoryOptions.map((categoryName) => (
+                        <option key={categoryName} value={categoryName} />
+                      ))}
+                    </datalist>
+                    <p className="mt-2 text-[11px] font-bold uppercase tracking-widest text-gray-400">
+                      Você pode escolher um assunto existente ou digitar um novo.
+                    </p>
+                  </div>
                   <div className="grid grid-cols-2 gap-4">
                     <input 
                       placeholder="Autor" 
@@ -3299,7 +3344,7 @@ const ProfileModal = ({ isOpen, onClose, cartCount, onNavigate, initialTab = 'or
   useEffect(() => {
     if (isOpen) {
       fetch('/api/products').then(res => res.json()).then(data => setProducts(data.products));
-      fetch('/api/posts').then(res => res.json()).then(data => setPosts(data.posts));
+      fetch('/api/posts').then(res => res.json()).then(data => setPosts(sortPostsNewestFirst(data.posts || [])));
       if (user) {
         fetch(`/api/orders/${user.email}`).then(res => res.json()).then(setUserOrders);
       }
@@ -3751,7 +3796,7 @@ function MainApp() {
       
       setProducts(prodData.products || []);
       setCategories(Array.isArray(categoryData) ? categoryData : []);
-      setPosts(postData.posts || []);
+      setPosts(sortPostsNewestFirst(postData.posts || []));
       setOrders(orderData.orders || []);
     } catch (error) {
       console.error("Error fetching data:", error);
