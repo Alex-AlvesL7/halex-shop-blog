@@ -404,6 +404,10 @@ const BlogPostDetailsPage: React.FC<{ post: BlogPost, posts: BlogPost[], product
     .sort((a, b) => b.score - a.score || Number(b.product.reviews || 0) - Number(a.product.reviews || 0))
     .map((entry) => entry.product)[0] || null;
 
+  const recommendedProductWhatsAppLink = recommendedProduct
+    ? `https://api.whatsapp.com/send?text=${encodeURIComponent(`${typeof window !== 'undefined' ? `${window.location.origin}/produto/${encodeURIComponent(recommendedProduct.id)}\n\n` : ''}Olá! Vi este artigo no blog da L7 Fitness e quero saber mais sobre ${recommendedProduct.name}. Pode me explicar como funciona e como usar?`)}`
+    : '';
+
   const relatedPosts = posts
     .filter((candidate) => candidate.id !== post.id)
     .sort((a, b) => {
@@ -483,6 +487,27 @@ const BlogPostDetailsPage: React.FC<{ post: BlogPost, posts: BlogPost[], product
                 Depois deste conteúdo, conduza a leitora para a compra, para uma nova leitura, para a Nutri IA L7 ou para o programa de afiliadas.
               </p>
 
+              <div className="mt-5 flex flex-wrap gap-2">
+                <span className="rounded-full bg-white px-4 py-2 text-[11px] font-black uppercase tracking-widest text-emerald-600 border border-emerald-100">
+                  {recommendedProduct?.reviews ? `${recommendedProduct.reviews}+ avaliações` : 'Conteúdo com foco em conversão'}
+                </span>
+                <span className="rounded-full bg-white px-4 py-2 text-[11px] font-black uppercase tracking-widest text-brand-orange border border-orange-100">
+                  {recommendedProduct?.stock && recommendedProduct.stock > 0 ? `Estoque atual: ${recommendedProduct.stock}` : 'Atendimento rápido'}
+                </span>
+                <span className="rounded-full bg-white px-4 py-2 text-[11px] font-black uppercase tracking-widest text-gray-700 border border-gray-200">
+                  {recommendedProduct && hasProductPromotion(recommendedProduct) ? 'Oferta ativa agora' : 'Leve a leitora ao próximo passo'}
+                </span>
+              </div>
+
+              <div className="mt-5 rounded-[24px] border border-orange-100 bg-white/80 px-5 py-4 text-sm leading-7 text-gray-600 shadow-sm">
+                <p className="font-black uppercase tracking-widest text-brand-orange text-[10px] mb-1">Urgência leve</p>
+                <p>
+                  {recommendedProduct?.stock && recommendedProduct.stock <= 15
+                    ? `Este produto está com estoque mais curto no momento. Se fizer sentido para a sua rotina, vale aproveitar enquanto ainda está disponível.`
+                    : `Se este tema faz sentido para a sua rotina, o ideal é aproveitar o interesse agora e seguir para o produto, para a análise da Nutri IA L7 ou para a próxima leitura.`}
+                </p>
+              </div>
+
               <div className="mt-6 grid gap-3 sm:grid-cols-2">
                 <button
                   onClick={() => {
@@ -512,6 +537,16 @@ const BlogPostDetailsPage: React.FC<{ post: BlogPost, posts: BlogPost[], product
                 >
                   <Users size={16} /> Quero me afiliar
                 </button>
+                {recommendedProductWhatsAppLink && (
+                  <a
+                    href={recommendedProductWhatsAppLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center justify-center gap-2 rounded-full bg-[#25d366] px-6 py-3 text-sm font-black uppercase tracking-widest text-white transition hover:bg-[#1ebe5d] sm:col-span-2"
+                  >
+                    <Phone size={16} /> Falar no WhatsApp sobre este produto
+                  </a>
+                )}
               </div>
             </div>
 
@@ -535,6 +570,23 @@ const BlogPostDetailsPage: React.FC<{ post: BlogPost, posts: BlogPost[], product
                     <span className="text-2xl font-black text-brand-orange">{formatPriceBRL(recommendedProduct.price)}</span>
                     {hasProductPromotion(recommendedProduct) && recommendedProduct.compareAtPrice && (
                       <span className="text-sm font-bold text-gray-400 line-through">{formatPriceBRL(recommendedProduct.compareAtPrice)}</span>
+                    )}
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {recommendedProduct.reviews > 0 && (
+                      <span className="rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-600 border border-emerald-100">
+                        {recommendedProduct.reviews}+ avaliações
+                      </span>
+                    )}
+                    {recommendedProduct.stock > 0 && (
+                      <span className="rounded-full bg-orange-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-brand-orange border border-orange-100">
+                        {recommendedProduct.stock <= 15 ? `Últimas ${recommendedProduct.stock} unidades` : `${recommendedProduct.stock} em estoque`}
+                      </span>
+                    )}
+                    {recommendedProduct.promotionLabel && (
+                      <span className="rounded-full bg-gray-100 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-gray-700 border border-gray-200">
+                        {recommendedProduct.promotionLabel}
+                      </span>
                     )}
                   </div>
                   <button
