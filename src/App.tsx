@@ -375,7 +375,35 @@ const Footer = () => (
 
 // --- Pages ---
 
-const BlogPostDetailsPage: React.FC<{ post: BlogPost, posts: BlogPost[], onBack: () => void, onNavigate: (p: string) => void, onPostClick: (post: BlogPost) => void }> = ({ post, posts, onBack, onNavigate, onPostClick }) => {
+const BlogPostDetailsPage: React.FC<{ post: BlogPost, posts: BlogPost[], products: Product[], onBack: () => void, onNavigate: (page: string, options?: any) => void, onPostClick: (post: BlogPost) => void, onAddToCart: (product: Product) => void }> = ({ post, posts, products, onBack, onNavigate, onPostClick, onAddToCart }) => {
+  const relatedSectionRef = useRef<HTMLDivElement | null>(null);
+  const normalizedPostSource = `${post.title} ${post.excerpt} ${post.content} ${post.category}`
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+  const recommendedProduct = [...products]
+    .map((product) => {
+      const productTerms = `${product.name} ${product.category || ''} ${product.description || ''}`
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .split(/[^a-z0-9]+/)
+        .filter((term) => term.length > 3);
+
+      const matchedTerms = productTerms.filter((term, index) => productTerms.indexOf(term) === index && normalizedPostSource.includes(term)).length;
+      const categoryMatch = String(product.category || '').trim() && normalizedPostSource.includes(String(product.category || '').trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()) ? 3 : 0;
+      const promotionBonus = hasProductPromotion(product) ? 2 : 0;
+      const reviewBonus = Math.min(Number(product.reviews || 0) / 50, 2);
+
+      return {
+        product,
+        score: matchedTerms + categoryMatch + promotionBonus + reviewBonus,
+      };
+    })
+    .sort((a, b) => b.score - a.score || Number(b.product.reviews || 0) - Number(a.product.reviews || 0))
+    .map((entry) => entry.product)[0] || null;
+
   const relatedPosts = posts
     .filter((candidate) => candidate.id !== post.id)
     .sort((a, b) => {
@@ -444,6 +472,87 @@ const BlogPostDetailsPage: React.FC<{ post: BlogPost, posts: BlogPost[], onBack:
           </div>
         </div>
 
+        <section className="rounded-[36px] border border-orange-100 bg-[linear-gradient(135deg,#fff7f0_0%,#ffffff_45%,#fff3ea_100%)] p-6 shadow-[0_20px_60px_rgba(255,99,33,0.10)] sm:p-8">
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)] xl:items-start">
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.28em] text-brand-orange">Próximo passo da leitora</p>
+              <h2 className="mt-3 text-3xl font-black uppercase text-brand-black sm:text-4xl">
+                Transforme a leitura em ação.
+              </h2>
+              <p className="mt-4 max-w-2xl text-base leading-8 text-gray-600">
+                Depois deste conteúdo, conduza a leitora para a compra, para uma nova leitura, para a Nutri IA L7 ou para o programa de afiliadas.
+              </p>
+
+              <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                <button
+                  onClick={() => {
+                    if (!recommendedProduct) return;
+                    onAddToCart(recommendedProduct);
+                  }}
+                  disabled={!recommendedProduct}
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-brand-orange px-6 py-3 text-sm font-black uppercase tracking-widest text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <ShoppingBag size={16} /> Comprar produto recomendado
+                </button>
+                <button
+                  onClick={() => onNavigate('tips')}
+                  className="inline-flex items-center justify-center gap-2 rounded-full border border-brand-orange/20 bg-white px-6 py-3 text-sm font-black uppercase tracking-widest text-brand-orange transition hover:bg-brand-orange hover:text-white"
+                >
+                  <CheckCircle size={16} /> Fazer consulta na Nutri IA L7
+                </button>
+                <button
+                  onClick={() => relatedSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                  className="inline-flex items-center justify-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-6 py-3 text-sm font-black uppercase tracking-widest text-gray-700 transition hover:border-brand-orange hover:text-brand-orange"
+                >
+                  <FileText size={16} /> Ler outro artigo
+                </button>
+                <button
+                  onClick={() => onNavigate('affiliate-program')}
+                  className="inline-flex items-center justify-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-6 py-3 text-sm font-black uppercase tracking-widest text-gray-700 transition hover:border-brand-orange hover:text-brand-orange"
+                >
+                  <Users size={16} /> Quero me afiliar
+                </button>
+              </div>
+            </div>
+
+            <div className="rounded-[28px] border border-white bg-white/90 p-5 shadow-sm">
+              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-brand-orange">Produto recomendado</p>
+              {recommendedProduct ? (
+                <>
+                  <div className="mt-4 flex items-start gap-4">
+                    <img
+                      src={recommendedProduct.image}
+                      alt={recommendedProduct.name}
+                      className="h-24 w-24 rounded-2xl object-cover border border-gray-100 bg-gray-50"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="min-w-0">
+                      <p className="text-lg font-black leading-tight text-brand-black">{recommendedProduct.name}</p>
+                      <p className="mt-2 text-sm leading-6 text-gray-500">{getProductMarketingSummary(recommendedProduct).summary}</p>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex flex-wrap items-end gap-3">
+                    <span className="text-2xl font-black text-brand-orange">{formatPriceBRL(recommendedProduct.price)}</span>
+                    {hasProductPromotion(recommendedProduct) && recommendedProduct.compareAtPrice && (
+                      <span className="text-sm font-bold text-gray-400 line-through">{formatPriceBRL(recommendedProduct.compareAtPrice)}</span>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => onNavigate('product-details', { productId: recommendedProduct.id })}
+                    className="mt-4 inline-flex items-center gap-2 rounded-full bg-brand-black px-5 py-3 text-sm font-black uppercase tracking-widest text-white transition hover:bg-brand-orange"
+                  >
+                    Ver produto <ChevronRight size={16} />
+                  </button>
+                </>
+              ) : (
+                <p className="mt-4 text-sm leading-7 text-gray-500">
+                  Assim que houver produto mais alinhado a este tema, ele aparecerá aqui para apoiar a conversão.
+                </p>
+              )}
+            </div>
+          </div>
+        </section>
+
         <AffiliatePromoCard
           onNavigate={onNavigate}
           variant="inline"
@@ -455,7 +564,7 @@ const BlogPostDetailsPage: React.FC<{ post: BlogPost, posts: BlogPost[], onBack:
         />
 
         {relatedPosts.length > 0 && (
-          <section className="pt-4">
+          <section ref={relatedSectionRef} className="pt-4">
             <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="text-[11px] font-black uppercase tracking-[0.28em] text-brand-orange">Continue lendo</p>
@@ -4087,9 +4196,11 @@ function MainApp() {
                     key={post.id}
                     post={post} 
                     posts={posts}
+                    products={products}
                     onBack={() => navigateTo('blog')}
                     onNavigate={navigateTo}
                     onPostClick={handlePostClick}
+                    onAddToCart={addToCart}
                   />
                 );
               })()}
