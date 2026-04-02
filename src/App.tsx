@@ -3539,6 +3539,7 @@ function MainApp() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
@@ -3732,21 +3733,24 @@ function MainApp() {
   const fetchData = async () => {
     try {
       const timestamp = Date.now();
-      const [prodRes, postRes, orderRes] = await Promise.all([
+      const [prodRes, categoryRes, postRes, orderRes] = await Promise.all([
         fetch(`/api/products?t=${timestamp}`),
+        fetch(`/api/categories?t=${timestamp}`),
         fetch(`/api/posts?t=${timestamp}`),
         fetch(`/api/orders?t=${timestamp}`)
       ]);
       
-      if (!prodRes.ok || !postRes.ok || !orderRes.ok) {
+      if (!prodRes.ok || !categoryRes.ok || !postRes.ok || !orderRes.ok) {
         throw new Error('Failed to fetch data');
       }
 
       const prodData = await prodRes.json();
+      const categoryData = await categoryRes.json();
       const postData = await postRes.json();
       const orderData = await orderRes.json();
       
       setProducts(prodData.products || []);
+      setCategories(Array.isArray(categoryData) ? categoryData : []);
       setPosts(postData.posts || []);
       setOrders(orderData.orders || []);
     } catch (error) {
@@ -3912,7 +3916,7 @@ function MainApp() {
           {currentPage === 'store' && (
             <motion.div key="store" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <Suspense fallback={<div className="pt-32 pb-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"><LazySectionFallback label="Carregando loja..." /></div>}>
-                <StorePage onAddToCart={addToCart} products={products} onProductClick={handleProductClick} onNavigate={navigateTo} />
+                <StorePage onAddToCart={addToCart} products={products} categories={categories} onProductClick={handleProductClick} onNavigate={navigateTo} />
               </Suspense>
             </motion.div>
           )}
