@@ -528,6 +528,52 @@ const normalizeProductRecord = (product: any) => {
   });
 };
 
+const normalizePostRecord = (post: any) => ({
+  ...post,
+  readTime: String(post?.read_time ?? post?.readtime ?? post?.readTime ?? '5 min').trim() || '5 min',
+});
+
+const buildSupabasePostPayloadVariants = (post: {
+  id?: string;
+  title: string;
+  excerpt: string;
+  content: string;
+  category: string;
+  author: string;
+  date: string;
+  image: string;
+  readTime: string;
+}) => {
+  const shared = {
+    id: post.id,
+    title: post.title,
+    excerpt: post.excerpt,
+    content: post.content,
+    category: post.category,
+    author: post.author,
+    date: post.date,
+    image: post.image,
+  };
+
+  return [
+    {
+      label: 'snake_case',
+      insert: { ...shared, read_time: post.readTime },
+      update: { ...shared, read_time: post.readTime },
+    },
+    {
+      label: 'lowercase',
+      insert: { ...shared, readtime: post.readTime },
+      update: { ...shared, readtime: post.readTime },
+    },
+    {
+      label: 'camelCase',
+      insert: { ...shared, readTime: post.readTime },
+      update: { ...shared, readTime: post.readTime },
+    },
+  ];
+};
+
 const getProductsCatalog = () => {
   if (db) {
     try {
@@ -1682,7 +1728,7 @@ app.get("/api/health", async (req, res) => {
         try {
           const { data, error } = await supabase.from('posts').select('*');
           if (error) throw error;
-          posts = (data || []).map(p => ({ ...p, readTime: p.read_time || p.readTime }));
+          posts = (data || []).map(normalizePostRecord);
           usedSupabase = true;
         } catch (supaError: any) {
           console.error("Supabase posts fetch failed, falling back to SQLite:", supaError.message || supaError);
@@ -1692,11 +1738,12 @@ app.get("/api/health", async (req, res) => {
       if (!usedSupabase && db) {
         try {
           posts = db.prepare("SELECT * FROM posts").all();
-          posts = posts.map(p => ({ ...p, readTime: p.read_time || p.readTime }));
+          posts = posts.map(normalizePostRecord);
         } catch (sqliteError) {
           console.error("SQLite posts fetch failed:", sqliteError);
         }
       }
+      posts.sort((a, b) => String(b?.date || '').localeCompare(String(a?.date || '')));
       res.json({ posts });
     } catch (error) {
       console.error("Error in GET /api/posts:", error);
@@ -2111,36 +2158,85 @@ Retorne APENAS JSON no schema pedido.`,
   // Admin API - Posts
   app.post("/api/posts", async (req, res) => {
     console.log("POST /api/posts - req.body:", req.body);
-    const { id, title, excerpt, content, category, author, date, image, readtime } = req.body;
+    const { id, title, excerpt, content, category, author, date, image, readTime, readtime, read_time } = req.body;
     
     // Ensure we have a unique ID
     const postId = id || crypto.randomUUID();
+    const normalizedReadTime = String(readTime || readtime || read_time || '5 min').trim() || '5 min';
     
     const postData = { 
       id: postId, 
-      title, 
-      excerpt, 
-      content, 
-      category, 
+      title,
+      excerpt: excerpt || '',
+      content: content || '',
+      category: category || 'alimentacao',
       author: author || 'Equipe Halex', 
       date: date || new Date().toISOString().split('T')[0], 
-      image: image, 
-      readtime: readtime || '5 min'
+      image: image || '',
+      read_time: normalizedReadTime,
     };
     
     console.log("Creating post in Supabase:", postData);
     
     try {
-      if (!supabase) throw new Error("Supabase not configured");
+      let savedSomewhere = false;
+      let sqliteSaved = false;
+      let supabaseSaved = false;
+      const saveErrors: string[] = [];
 
-      const { data, error } = await supabase
-        .from('posts')
-        .insert([postData])
-        .select();
-          
-      if (error) throw error;
-      
-      res.json({ success: true, id: postId });
+      if (db) {
+        try {
+          const result = db.prepare("INSERT INTO posts (id, title, excerpt, content, category, author, date, image, read_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+            .run(postData.id, postData.title, postData.excerpt, postData.content, postData.category, postData.author, postData.date, postData.image, postData.read_time);
+          sqliteSaved = result.changes > 0;
+          savedSomewhere = savedSomewhere || sqliteSaved;
+        } catch (sqliteError) {
+          console.error("SQLite post insert error:", sqliteError);
+          saveErrors.push(sqliteError instanceof Error ? sqliteError.message : 'Falha ao salvar post no SQLite.');
+        }
+      }
+
+      if (supabase) {
+        const variants = buildSupabasePostPayloadVariants({
+          id: postData.id,
+          title: postData.title,
+          excerpt: postData.excerpt,
+          content: postData.content,
+          category: postData.category,
+          author: postData.author,
+          date: postData.date,
+          image: postData.image,
+          readTime: postData.read_time,
+        });
+
+        for (const variant of variants) {
+          const { error } = await supabase.from('posts').upsert([variant.insert]);
+          if (!error) {
+            supabaseSaved = true;
+            savedSomewhere = true;
+            break;
+          }
+
+          console.error(`Supabase post upsert error (${variant.label}):`, error);
+          saveErrors.push(`${variant.label}: ${error.message || 'Falha ao salvar post no Supabase.'}`);
+        }
+      }
+
+      if (!supabaseSaved && sqliteSaved && isEphemeralSQLiteRuntime) {
+        return res.status(500).json({
+          error: 'Post salvo apenas em armazenamento temporário e não persistiu.',
+          details: `Configure SUPABASE_SERVICE_ROLE_KEY no deploy para persistência real. ${saveErrors.length ? `Detalhe Supabase: ${saveErrors.join(' | ')}` : ''}`,
+        });
+      }
+
+      if (!savedSomewhere) {
+        return res.status(500).json({
+          error: 'Falha ao salvar post.',
+          details: saveErrors.join(' | ') || 'Nenhum banco confirmou a gravação do post.',
+        });
+      }
+
+      res.json({ success: true, id: postId, post: normalizePostRecord(postData) });
     } catch (e: any) {
       console.error("Post creation error:", e);
       res.status(400).json({ error: e.message || "Error creating post" });
@@ -2492,18 +2588,75 @@ Retorne APENAS JSON no schema pedido.`,
 
   app.put("/api/posts/:id", async (req, res) => {
     const { title, excerpt, content, category, author, date, image, readTime } = req.body;
-    const postData = { title, excerpt, content, category, author, date, image, read_time: readTime };
+    const postData = {
+      title,
+      excerpt: excerpt || '',
+      content: content || '',
+      category: category || 'alimentacao',
+      author: author || 'Equipe Halex',
+      date: date || new Date().toISOString().split('T')[0],
+      image: image || '',
+      read_time: String(readTime || '5 min').trim() || '5 min'
+    };
+
+    let updatedSomewhere = false;
+    let sqliteUpdated = false;
+    let supabaseUpdated = false;
+    const updateErrors: string[] = [];
     
     if (db) {
-      db.prepare("UPDATE posts SET title = ?, excerpt = ?, content = ?, category = ?, author = ?, date = ?, image = ?, read_time = ? WHERE id = ?")
-        .run(postData.title, postData.excerpt, postData.content, postData.category, postData.author, postData.date, postData.image, postData.read_time, req.params.id);
+      try {
+        const result = db.prepare("UPDATE posts SET title = ?, excerpt = ?, content = ?, category = ?, author = ?, date = ?, image = ?, read_time = ? WHERE id = ?")
+          .run(postData.title, postData.excerpt, postData.content, postData.category, postData.author, postData.date, postData.image, postData.read_time, req.params.id);
+        sqliteUpdated = result.changes > 0;
+        updatedSomewhere = updatedSomewhere || sqliteUpdated;
+      } catch (sqliteError) {
+        console.error('SQLite post update error:', sqliteError);
+        updateErrors.push(sqliteError instanceof Error ? sqliteError.message : 'Falha ao atualizar post no SQLite.');
+      }
     }
     
     if (supabase) {
-      await supabase.from('posts').update(postData).eq('id', req.params.id);
+      const variants = buildSupabasePostPayloadVariants({
+        id: req.params.id,
+        title: postData.title,
+        excerpt: postData.excerpt,
+        content: postData.content,
+        category: postData.category,
+        author: postData.author,
+        date: postData.date,
+        image: postData.image,
+        readTime: postData.read_time,
+      });
+
+      for (const variant of variants) {
+        const { error } = await supabase.from('posts').update(variant.update).eq('id', req.params.id);
+        if (!error) {
+          supabaseUpdated = true;
+          updatedSomewhere = true;
+          break;
+        }
+
+        console.error(`Supabase post update error (${variant.label}):`, error);
+        updateErrors.push(`${variant.label}: ${error.message || 'Falha ao atualizar post no Supabase.'}`);
+      }
+    }
+
+    if (!supabaseUpdated && sqliteUpdated && isEphemeralSQLiteRuntime) {
+      return res.status(500).json({
+        error: 'Post atualizado apenas em armazenamento temporário e não persistiu.',
+        details: `Configure SUPABASE_SERVICE_ROLE_KEY no deploy para persistência real. ${updateErrors.length ? `Detalhe Supabase: ${updateErrors.join(' | ')}` : ''}`,
+      });
+    }
+
+    if (!updatedSomewhere) {
+      return res.status(500).json({
+        error: 'Falha ao atualizar post.',
+        details: updateErrors.join(' | ') || 'Nenhum banco confirmou a atualização do post.',
+      });
     }
     
-    res.json({ success: true });
+    res.json({ success: true, post: normalizePostRecord({ id: req.params.id, ...postData }) });
   });
 
   // InfinitePay Checkout
