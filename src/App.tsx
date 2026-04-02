@@ -6,7 +6,7 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Toolti
 import { Auth } from '@supabase/auth-ui-react';
 import { supabase } from './services/supabaseClient';
 import { PRODUCTS, POSTS } from './data';
-import { Product, BlogPost, CartItem } from './types';
+import { Product, BlogPost, CartItem, Category } from './types';
 import { AffiliatePromoCard } from './components/AffiliatePromoCard';
 import { BlogPostCard } from './components/BlogPostCard';
 import { ProductCard } from './components/ProductCard';
@@ -640,6 +640,23 @@ const AdminPage = ({ products, posts, orders, onRefresh, onNavigate }: { product
   const [isGeneratingProductAI, setIsGeneratingProductAI] = useState(false);
   const [productAIMode, setProductAIMode] = useState<'equilibrado' | 'conversao' | 'premium'>('equilibrado');
   const [productAdSuggestions, setProductAdSuggestions] = useState<{ headline: string; primaryText: string; description: string } | null>(null);
+  const [productCategories, setProductCategories] = useState<Category[]>([]);
+
+  const fetchProductCategories = async () => {
+    try {
+      const response = await fetch('/api/categories');
+      const data = await response.json();
+      setProductCategories(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Erro ao carregar categorias de produtos:', error);
+      setProductCategories([]);
+    }
+  };
+  useEffect(() => {
+    if (activeTab === 'products' || activeTab === 'categories') {
+      void fetchProductCategories();
+    }
+  }, [activeTab]);
 
   const fetchAffiliates = async () => {
     try {
@@ -1009,13 +1026,42 @@ const AdminPage = ({ products, posts, orders, onRefresh, onNavigate }: { product
 
   // Product Form State
   const [newProduct, setNewProduct] = useState<Partial<Product>>({
-    name: '', price: 0, compareAtPrice: 0, promotionLabel: '', promotionCta: '', promotionBadge: '', description: '', category: 'suplementos', image: 'https://picsum.photos/seed/new/600/600', images: [], stock: 0, rating: 5, reviews: 0
+    name: '', price: 0, compareAtPrice: 0, promotionLabel: '', promotionCta: '', promotionBadge: '', description: '', category: 'Suplementos', image: 'https://picsum.photos/seed/new/600/600', images: [], stock: 0, rating: 5, reviews: 0
   });
 
   // Post Form State
   const [newPost, setNewPost] = useState<Partial<BlogPost>>({
     title: '', excerpt: '', content: '', category: 'alimentacao', author: 'Equipe L7 Fitness', date: new Date().toISOString().split('T')[0], image: '/images/blog/l7-ultra-guide.svg', readTime: '5 min'
   });
+
+  const availableProductCategoryOptions = useMemo(() => {
+    const names = new Map<string, string>();
+
+    ['Suplementos', 'Acessórios', 'Vestuário'].forEach((name) => {
+      names.set(name.toLowerCase(), name);
+    });
+
+    productCategories.forEach((category) => {
+      const trimmedName = String(category.name || '').trim();
+      if (!trimmedName) return;
+      names.set(trimmedName.toLowerCase(), trimmedName);
+    });
+
+    const currentCategory = String(newProduct.category || '').trim();
+    if (currentCategory && !names.has(currentCategory.toLowerCase())) {
+      names.set(currentCategory.toLowerCase(), currentCategory);
+    }
+
+    return Array.from(names.values());
+  }, [newProduct.category, productCategories]);
+  
+  const normalizedProductCategory = useMemo(() => {
+    const currentCategory = String(newProduct.category || '').trim();
+    return availableProductCategoryOptions.find((categoryName) => categoryName.toLowerCase() === currentCategory.toLowerCase())
+      || currentCategory
+      || availableProductCategoryOptions[0]
+      || 'Suplementos';
+  }, [availableProductCategoryOptions, newProduct.category]);
 
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1024,7 +1070,7 @@ const AdminPage = ({ products, posts, orders, onRefresh, onNavigate }: { product
       const response = await fetch(editingId ? `/api/products/${editingId}` : '/api/products', {
         method: editingId ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editingId ? newProduct : { ...newProduct, id: Date.now().toString() })
+        body: JSON.stringify(editingId ? { ...newProduct, category: normalizedProductCategory } : { ...newProduct, category: normalizedProductCategory, id: Date.now().toString() })
       });
 
       const data = await response.json().catch(() => ({}));
@@ -1076,7 +1122,7 @@ const AdminPage = ({ products, posts, orders, onRefresh, onNavigate }: { product
   const resetForm = () => {
     setShowForm(false);
     setEditingId(null);
-    setNewProduct({ name: '', price: 0, compareAtPrice: 0, promotionLabel: '', promotionCta: '', promotionBadge: '', description: '', category: 'suplementos', image: 'https://picsum.photos/seed/new/600/600', images: [], stock: 0, rating: 5, reviews: 0 });
+    setNewProduct({ name: '', price: 0, compareAtPrice: 0, promotionLabel: '', promotionCta: '', promotionBadge: '', description: '', category: 'Suplementos', image: 'https://picsum.photos/seed/new/600/600', images: [], stock: 0, rating: 5, reviews: 0 });
     setNewPost({ title: '', excerpt: '', content: '', category: 'alimentacao', author: 'Equipe L7 Fitness', date: new Date().toISOString().split('T')[0], image: '/images/blog/l7-ultra-guide.svg', readTime: '5 min' });
   };
 
@@ -1316,40 +1362,6 @@ const AdminPage = ({ products, posts, orders, onRefresh, onNavigate }: { product
     }
   };
 
-  const productDraftPreview = useMemo(() => getProductMarketingSummary({
-    id: newProduct.id || editingId || 'preview-product',
-    name: newProduct.name || 'Produto em edição',
-    price: Number(newProduct.price) || 0,
-    compareAtPrice: Number(newProduct.compareAtPrice) || 0,
-    promotionLabel: newProduct.promotionLabel || '',
-    promotionCta: newProduct.promotionCta || '',
-    promotionBadge: newProduct.promotionBadge || '',
-    description: newProduct.description || '',
-    category: newProduct.category || 'suplementos',
-    image: newProduct.image || 'https://picsum.photos/seed/new/600/600',
-    images: newProduct.images || [],
-    stock: Number(newProduct.stock) || 0,
-    rating: Number(newProduct.rating) || 5,
-    reviews: Number(newProduct.reviews) || 0,
-  }), [editingId, newProduct]);
-
-  const productDraftDetails = useMemo(() => getProductDetailContent({
-    id: newProduct.id || editingId || 'preview-product',
-    name: newProduct.name || 'Produto em edição',
-    price: Number(newProduct.price) || 0,
-    compareAtPrice: Number(newProduct.compareAtPrice) || 0,
-    promotionLabel: newProduct.promotionLabel || '',
-    promotionCta: newProduct.promotionCta || '',
-    promotionBadge: newProduct.promotionBadge || '',
-    description: newProduct.description || '',
-    category: newProduct.category || 'suplementos',
-    image: newProduct.image || 'https://picsum.photos/seed/new/600/600',
-    images: newProduct.images || [],
-    stock: Number(newProduct.stock) || 0,
-    rating: Number(newProduct.rating) || 5,
-    reviews: Number(newProduct.reviews) || 0,
-  }), [editingId, newProduct]);
-
   const adminSections = [
     { key: 'dashboard', label: 'Financeiro', description: 'Receita, ticket médio e visão geral', icon: DollarSign },
     { key: 'orders', label: 'Vendas', description: 'Pedidos, pagamento e logística', icon: ShoppingBag },
@@ -1446,7 +1458,7 @@ const AdminPage = ({ products, posts, orders, onRefresh, onNavigate }: { product
               </div>
 
               <div className="flex flex-wrap gap-3">
-                {activeTab !== 'orders' && activeTab !== 'affiliates' && activeTab !== 'leads' && (
+                {activeTab !== 'orders' && activeTab !== 'affiliates' && activeTab !== 'leads' && activeTab !== 'categories' && (
                   <button 
                     onClick={() => { if(showForm) resetForm(); else setShowForm(true); }}
                     className="btn-primary flex items-center gap-2"
@@ -1494,7 +1506,7 @@ const AdminPage = ({ products, posts, orders, onRefresh, onNavigate }: { product
               {editingId ? 'Editar' : 'Adicionar'} {activeTab === 'products' ? 'Produto' : 'Post'}
             </h2>
             
-            <form onSubmit={activeTab === 'products' ? handleAddProduct : handleAddPost} className={activeTab === 'products' ? 'grid grid-cols-1 xl:grid-cols-[minmax(0,1.35fr)_360px] gap-8' : 'space-y-4'}>
+            <form onSubmit={activeTab === 'products' ? handleAddProduct : handleAddPost} className="space-y-4">
               {activeTab === 'products' ? (
                 <>
                   <div className="space-y-5">
@@ -1537,12 +1549,14 @@ const AdminPage = ({ products, posts, orders, onRefresh, onNavigate }: { product
                         <label className="block text-[11px] font-black uppercase tracking-widest text-gray-400 mb-2">Categoria</label>
                         <select 
                           className="w-full p-4 bg-gray-50 rounded-xl border-none outline-none"
-                          value={newProduct.category}
+                          value={normalizedProductCategory}
                           onChange={e => setNewProduct({...newProduct, category: e.target.value as any})}
                         >
-                          <option value="suplementos">Suplementos</option>
-                          <option value="acessorios">Acessórios</option>
-                          <option value="vestuario">Vestuário</option>
+                          {availableProductCategoryOptions.map((categoryName) => (
+                            <option key={categoryName} value={categoryName}>
+                              {categoryName}
+                            </option>
+                          ))}
                         </select>
                       </div>
                       <div>
@@ -1734,39 +1748,6 @@ const AdminPage = ({ products, posts, orders, onRefresh, onNavigate }: { product
                     <button type="submit" disabled={savingProduct} className="w-full btn-primary py-4 disabled:opacity-60">
                       {savingProduct ? 'Salvando produto...' : 'Salvar alterações'}
                     </button>
-                  </div>
-
-                  <div className="xl:sticky xl:top-28 h-fit space-y-4">
-                    <div className="rounded-[28px] border border-gray-100 bg-gray-50 p-5">
-                      <p className="text-[10px] uppercase tracking-[0.24em] text-brand-orange font-black mb-3">Preview do produto</p>
-                      {newProduct.image && (
-                        <div className="relative w-full aspect-square rounded-2xl overflow-hidden border border-gray-100 bg-white mb-4">
-                          <img src={newProduct.image} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                        </div>
-                      )}
-                      <h3 className="text-xl font-black leading-tight mb-2">{newProduct.name || 'Produto em edição'}</h3>
-                      <div className="flex flex-wrap items-center gap-2 mb-3">
-                        <span className="text-2xl font-black text-brand-orange">{formatPriceBRL(Number(newProduct.price) || 0)}</span>
-                        {hasProductPromotion(newProduct as Product) && (
-                          <span className="text-sm text-gray-400 line-through font-bold">{formatPriceBRL(Number(newProduct.compareAtPrice) || 0)}</span>
-                        )}
-                      </div>
-                      <p className="text-sm text-gray-600 leading-relaxed mb-4">{productDraftPreview.summary || 'A descrição principal aparecerá aqui conforme você editar.'}</p>
-                      <div className="space-y-3">
-                        <div className="rounded-2xl bg-white border border-gray-100 p-4">
-                          <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-2">Para que serve</p>
-                          <p className="text-sm text-gray-600 leading-relaxed">{productDraftPreview.purpose}</p>
-                        </div>
-                        <div className="rounded-2xl bg-white border border-gray-100 p-4">
-                          <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-2">O que vem no kit</p>
-                          <p className="text-sm text-gray-600 leading-relaxed">{productDraftDetails.kitContents}</p>
-                        </div>
-                        <div className="rounded-2xl bg-white border border-gray-100 p-4">
-                          <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-2">Página completa</p>
-                          <p className="text-sm text-gray-600 leading-relaxed line-clamp-6">{productDraftDetails.details || 'As informações completas aparecerão aqui.'}</p>
-                        </div>
-                      </div>
-                    </div>
                   </div>
                 </>
               ) : (
@@ -2081,7 +2062,7 @@ const AdminPage = ({ products, posts, orders, onRefresh, onNavigate }: { product
               </div>
             ) : activeTab === 'products' ? (
               products.map(p => (
-                <div key={p.id} className="bg-white p-5 rounded-3xl border border-gray-100 grid grid-cols-1 xl:grid-cols-[minmax(0,1.4fr)_420px] gap-5 group hover:shadow-md transition-all">
+                <div key={p.id} className="bg-white p-5 rounded-3xl border border-gray-100 group hover:shadow-md transition-all">
                   <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-5">
                     <div className="flex items-start gap-4 min-w-0">
                       <img src={p.image} className="w-16 h-16 rounded-2xl object-cover bg-gray-50" referrerPolicy="no-referrer" />
@@ -2169,82 +2150,6 @@ const AdminPage = ({ products, posts, orders, onRefresh, onNavigate }: { product
                       >
                         <Trash2 size={20} />
                       </button>
-                    </div>
-                  </div>
-
-                  <div className="rounded-[28px] overflow-hidden bg-brand-black text-white border border-white/5 shadow-inner">
-                    <div className="p-4 border-b border-white/10 flex items-center justify-between">
-                      <div>
-                        <p className="text-[10px] uppercase tracking-[0.22em] text-brand-orange font-black">Preview da oferta</p>
-                        <p className="text-xs text-gray-400 mt-1">Loja vs. compartilhamento</p>
-                      </div>
-                      {p.promotionLabel && <span className="px-3 py-1 rounded-full bg-brand-orange text-white text-[10px] font-black uppercase tracking-widest">{p.promotionLabel}</span>}
-                    </div>
-
-                    <div className="p-4 grid grid-cols-1 gap-4">
-                      <div className="rounded-[24px] bg-[#111318] border border-white/10 overflow-hidden">
-                        <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
-                          <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black">Card da loja</p>
-                          <span className="text-[10px] uppercase tracking-widest text-brand-orange font-black">Site</span>
-                        </div>
-                        <div className="aspect-[16/10] bg-white/5 relative">
-                          <img src={p.image} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                          {hasProductPromotion(p) && (
-                            <div className="absolute top-3 right-3 px-3 py-1 rounded-full bg-brand-orange text-white text-[10px] font-black uppercase tracking-widest shadow-lg">
-                              {p.discountPercentage}% OFF
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="p-4">
-                          <div className="flex flex-wrap gap-2 mb-3">
-                            <span className="px-2 py-1 rounded-full bg-white/5 text-[10px] font-black uppercase tracking-widest text-gray-200">{p.category}</span>
-                            {p.promotionBadge && <span className="px-2 py-1 rounded-full bg-white/5 text-[10px] font-black uppercase tracking-widest text-brand-orange">{p.promotionBadge}</span>}
-                          </div>
-
-                          <h5 className="font-black text-lg leading-tight mb-3 line-clamp-2">{p.name}</h5>
-
-                          <div className="flex flex-wrap items-end gap-2 mb-4">
-                            <span className="text-2xl font-black text-brand-orange">{formatPriceBRL(p.price)}</span>
-                            {hasProductPromotion(p) && <span className="text-sm text-gray-500 line-through">{formatPriceBRL(p.compareAtPrice)}</span>}
-                          </div>
-
-                          <button className="w-full py-3 rounded-2xl bg-brand-orange text-white text-xs font-black uppercase tracking-widest">
-                            {p.promotionCta || 'Comprar agora'}
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="rounded-[24px] bg-[#103a2e] border border-emerald-900/40 overflow-hidden">
-                        <div className="px-4 py-3 border-b border-emerald-900/40 flex items-center justify-between">
-                          <p className="text-[10px] uppercase tracking-widest text-emerald-100/80 font-black">Preview WhatsApp</p>
-                          <span className="text-[10px] uppercase tracking-widest text-emerald-300 font-black">Compartilhamento</span>
-                        </div>
-                        <div className="p-4">
-                          {/* Balão de mensagem simulado */}
-                          <div className="bg-[#1a4d38] rounded-2xl rounded-tl-sm px-4 py-3 mb-3 text-sm text-white leading-relaxed whitespace-pre-line">
-                            {`${getCampaignOfferUrl(p.id)}\n\n${p.name}\n${p.promotionCta || 'Veja a oferta completa'}`}
-                          </div>
-                          {/* Preview do link OG */}
-                          <div className="bg-[#0d2b21] rounded-xl overflow-hidden border border-emerald-900/40">
-                            <div className="h-20 bg-white/5 relative overflow-hidden">
-                              <img src={p.image} className="w-full h-full object-cover opacity-80" referrerPolicy="no-referrer" />
-                              {p.promotionLabel && (
-                                <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-brand-orange text-white text-[9px] font-black uppercase tracking-widest">
-                                  {p.promotionLabel}
-                                </div>
-                              )}
-                            </div>
-                            <div className="p-3">
-                              <p className="text-[10px] text-emerald-400 font-bold mb-0.5">www.l7fitness.com.br</p>
-                              <p className="text-xs text-white font-black leading-snug mb-1 line-clamp-1">{p.name}</p>
-                              <p className="text-[11px] text-emerald-100/70 leading-relaxed line-clamp-2">
-                                {p.promotionCta || getProductMarketingSummary(p).summary || 'Oferta ativa com frete rápido e atendimento direto no WhatsApp.'}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
                     </div>
                   </div>
                 </div>
