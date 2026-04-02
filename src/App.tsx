@@ -3909,7 +3909,7 @@ function MainApp() {
           {currentPage === 'home' && (
             <motion.div key="home" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <Suspense fallback={<div className="pt-32 pb-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"><LazySectionFallback label="Carregando página inicial..." /></div>}>
-                <HomePage onNavigate={navigateTo} onAddToCart={addToCart} products={products} posts={posts} onProductClick={handleProductClick} onPostClick={handlePostClick} />
+                <HomePage onNavigate={navigateTo} onAddToCart={addToCart} products={products} categories={categories} posts={posts} onProductClick={handleProductClick} onPostClick={handlePostClick} />
               </Suspense>
             </motion.div>
           )}

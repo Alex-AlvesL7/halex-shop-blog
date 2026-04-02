@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowUpRight,
   ChevronLeft,
@@ -11,7 +11,7 @@ import {
   WandSparkles,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import { BlogPost, Product } from '../types';
+import { BlogPost, Category, Product } from '../types';
 import { AffiliatePromoCard } from '../components/AffiliatePromoCard';
 import { BlogPostCard } from '../components/BlogPostCard';
 import { ProductCard } from '../components/ProductCard';
@@ -35,6 +35,7 @@ export const HomePage = ({
   onNavigate,
   onAddToCart,
   products,
+  categories,
   posts,
   onProductClick,
   onPostClick,
@@ -42,14 +43,52 @@ export const HomePage = ({
   onNavigate: (page: string) => void;
   onAddToCart: (product: Product) => void;
   products: Product[];
+  categories: Category[];
   posts: BlogPost[];
   onProductClick: (product: Product) => void;
   onPostClick: (post: BlogPost) => void;
 }) => {
-  const featuredProducts = products.slice(0, 4);
   const latestPosts = posts.slice(0, 3);
   const secondaryPosts = latestPosts.slice(1, 3);
   const heroPost = latestPosts[0];
+  const [featuredCategoryFilter, setFeaturedCategoryFilter] = useState('todos');
+
+  const homeCategoryFilters = useMemo(() => {
+    const productCategoryMap = new Map<string, string>();
+
+    products.forEach((product) => {
+      const categoryName = String(product.category || '').trim();
+      if (!categoryName) return;
+      productCategoryMap.set(categoryName.toLowerCase(), categoryName);
+    });
+
+    const categoriesWithProducts = categories
+      .map((category) => String(category.name || '').trim())
+      .filter((categoryName) => categoryName && productCategoryMap.has(categoryName.toLowerCase()))
+      .map((categoryName) => productCategoryMap.get(categoryName.toLowerCase()) || categoryName);
+
+    const productOnlyCategories = Array.from(productCategoryMap.entries())
+      .filter(([key]) => !categoriesWithProducts.some((categoryName) => categoryName.toLowerCase() === key))
+      .map(([, value]) => value);
+
+    return ['todos', ...categoriesWithProducts, ...productOnlyCategories];
+  }, [categories, products]);
+
+  useEffect(() => {
+    if (!homeCategoryFilters.some((category) => category.toLowerCase() === featuredCategoryFilter.toLowerCase())) {
+      setFeaturedCategoryFilter('todos');
+    }
+  }, [featuredCategoryFilter, homeCategoryFilters]);
+
+  const featuredProducts = useMemo(() => {
+    const baseProducts = featuredCategoryFilter === 'todos'
+      ? products
+      : products.filter((product) => String(product.category || '').trim().toLowerCase() === featuredCategoryFilter.toLowerCase());
+
+    return baseProducts.slice(0, 4);
+  }, [featuredCategoryFilter, products]);
+
+  const getHomeCategoryLabel = (category: string) => category === 'todos' ? 'Todos' : category;
 
   // Carousel: promoted products first, fill up to 5
   const carouselProducts = [
@@ -1043,6 +1082,17 @@ export const HomePage = ({
               Conheça os produtos mais procurados da loja e encontre opções
               para começar com mais clareza, praticidade e confiança.
             </p>
+            <div className="mt-5 flex flex-wrap gap-2">
+              {homeCategoryFilters.map((category) => (
+                <button
+                  key={category}
+                  onClick={() => setFeaturedCategoryFilter(category)}
+                  className={`rounded-full px-4 py-2 text-xs font-black uppercase tracking-widest transition-all ${featuredCategoryFilter.toLowerCase() === category.toLowerCase() ? 'bg-brand-orange text-white shadow-[0_10px_24px_rgba(255,99,33,0.22)]' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                >
+                  {getHomeCategoryLabel(category)}
+                </button>
+              ))}
+            </div>
           </div>
           <button
             onClick={() => onNavigate('store')}
@@ -1062,6 +1112,11 @@ export const HomePage = ({
             />
           ))}
         </div>
+        {featuredProducts.length === 0 && (
+          <div className="mt-6 rounded-[28px] border border-gray-100 bg-white px-6 py-5 text-sm font-bold text-gray-500 shadow-sm">
+            Ainda não há produtos nesta categoria.
+          </div>
+        )}
       </section>
 
       {/* ── CTA FOOTER ────────────────────────────────────────── */}
