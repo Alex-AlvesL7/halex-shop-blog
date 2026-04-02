@@ -375,7 +375,27 @@ const Footer = () => (
 
 // --- Pages ---
 
-const BlogPostDetailsPage: React.FC<{ post: BlogPost, onBack: () => void, onNavigate: (p: string) => void }> = ({ post, onBack, onNavigate }) => {
+const BlogPostDetailsPage: React.FC<{ post: BlogPost, posts: BlogPost[], onBack: () => void, onNavigate: (p: string) => void, onPostClick: (post: BlogPost) => void }> = ({ post, posts, onBack, onNavigate, onPostClick }) => {
+  const relatedPosts = posts
+    .filter((candidate) => candidate.id !== post.id)
+    .sort((a, b) => {
+      const aSameCategory = String(a.category || '').trim().toLowerCase() === String(post.category || '').trim().toLowerCase();
+      const bSameCategory = String(b.category || '').trim().toLowerCase() === String(post.category || '').trim().toLowerCase();
+
+      if (aSameCategory !== bSameCategory) {
+        return aSameCategory ? -1 : 1;
+      }
+
+      const timeA = new Date(a.date || 0).getTime();
+      const timeB = new Date(b.date || 0).getTime();
+      if (!Number.isNaN(timeA) && !Number.isNaN(timeB) && timeA !== timeB) {
+        return timeB - timeA;
+      }
+
+      return String(b.id || '').localeCompare(String(a.id || ''));
+    })
+    .slice(0, 3);
+
   return (
     <div className="pt-32 pb-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <button 
@@ -433,6 +453,37 @@ const BlogPostDetailsPage: React.FC<{ post: BlogPost, onBack: () => void, onNavi
           primaryLabel="Quero conhecer"
           secondaryLabel="Ver loja"
         />
+
+        {relatedPosts.length > 0 && (
+          <section className="pt-4">
+            <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[0.28em] text-brand-orange">Continue lendo</p>
+                <h2 className="mt-2 text-3xl font-black uppercase text-brand-black">Artigos relacionados</h2>
+                <p className="mt-2 max-w-2xl text-sm leading-7 text-gray-500">
+                  Leve a leitora para o próximo passo com mais conteúdo, mais confiança e mais chances de conversão.
+                </p>
+              </div>
+              <button
+                onClick={() => onNavigate('blog')}
+                className="inline-flex items-center gap-2 self-start rounded-full border border-brand-orange/20 bg-orange-50 px-5 py-3 text-sm font-black uppercase tracking-widest text-brand-orange transition hover:bg-brand-orange hover:text-white"
+              >
+                Ver todo o blog <ChevronRight size={16} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-8 md:grid-cols-2 xl:grid-cols-3">
+              {relatedPosts.map((relatedPost) => (
+                <BlogPostCard
+                  key={relatedPost.id}
+                  post={relatedPost}
+                  onClick={onPostClick}
+                  onAffiliateClick={() => onNavigate('affiliate-program')}
+                />
+              ))}
+            </div>
+          </section>
+        )}
       </div>
     </div>
   );
@@ -4035,8 +4086,10 @@ function MainApp() {
                   <BlogPostDetailsPage 
                     key={post.id}
                     post={post} 
+                    posts={posts}
                     onBack={() => navigateTo('blog')}
                     onNavigate={navigateTo}
+                    onPostClick={handlePostClick}
                   />
                 );
               })()}
