@@ -81,7 +81,8 @@ try {
       author TEXT,
       date TEXT,
       image TEXT,
-      read_time TEXT
+      read_time TEXT,
+      recommended_product_id TEXT
     );
 
     CREATE TABLE IF NOT EXISTS orders (
@@ -179,6 +180,9 @@ try {
   } catch (e) {}
   try {
     db.exec("ALTER TABLE posts ADD COLUMN read_time TEXT");
+  } catch (e) {}
+  try {
+    db.exec("ALTER TABLE posts ADD COLUMN recommended_product_id TEXT");
   } catch (e) {}
   try {
     db.exec("ALTER TABLE products ADD COLUMN rating REAL");
@@ -531,6 +535,12 @@ const normalizeProductRecord = (product: any) => {
 const normalizePostRecord = (post: any) => ({
   ...post,
   readTime: String(post?.read_time ?? post?.readtime ?? post?.readTime ?? '5 min').trim() || '5 min',
+  recommendedProductId: String(
+    post?.recommended_product_id
+    ?? post?.recommendedProductId
+    ?? post?.recommendedproductid
+    ?? ''
+  ).trim() || undefined,
 });
 
 const buildSupabasePostPayloadVariants = (post: {
@@ -543,6 +553,7 @@ const buildSupabasePostPayloadVariants = (post: {
   date: string;
   image: string;
   readTime: string;
+  recommendedProductId?: string;
 }) => {
   const shared = {
     id: post.id,
@@ -555,21 +566,23 @@ const buildSupabasePostPayloadVariants = (post: {
     image: post.image,
   };
 
+  const normalizedRecommendedProductId = String(post.recommendedProductId || '').trim() || null;
+
   return [
     {
       label: 'snake_case',
-      insert: { ...shared, read_time: post.readTime },
-      update: { ...shared, read_time: post.readTime },
+      insert: { ...shared, read_time: post.readTime, recommended_product_id: normalizedRecommendedProductId },
+      update: { ...shared, read_time: post.readTime, recommended_product_id: normalizedRecommendedProductId },
     },
     {
       label: 'lowercase',
-      insert: { ...shared, readtime: post.readTime },
-      update: { ...shared, readtime: post.readTime },
+      insert: { ...shared, readtime: post.readTime, recommendedproductid: normalizedRecommendedProductId },
+      update: { ...shared, readtime: post.readTime, recommendedproductid: normalizedRecommendedProductId },
     },
     {
       label: 'camelCase',
-      insert: { ...shared, readTime: post.readTime },
-      update: { ...shared, readTime: post.readTime },
+      insert: { ...shared, readTime: post.readTime, recommendedProductId: normalizedRecommendedProductId },
+      update: { ...shared, readTime: post.readTime, recommendedProductId: normalizedRecommendedProductId },
     },
   ];
 };
@@ -2158,11 +2171,29 @@ Retorne APENAS JSON no schema pedido.`,
   // Admin API - Posts
   app.post("/api/posts", async (req, res) => {
     console.log("POST /api/posts - req.body:", req.body);
-    const { id, title, excerpt, content, category, author, date, image, readTime, readtime, read_time } = req.body;
+    const {
+      id,
+      title,
+      excerpt,
+      content,
+      category,
+      author,
+      date,
+      image,
+      readTime,
+      readtime,
+      read_time,
+      recommendedProductId,
+      recommended_product_id,
+      recommendedproductid,
+    } = req.body;
     
     // Ensure we have a unique ID
     const postId = id || crypto.randomUUID();
     const normalizedReadTime = String(readTime || readtime || read_time || '5 min').trim() || '5 min';
+    const normalizedRecommendedProductId = String(
+      recommendedProductId || recommended_product_id || recommendedproductid || ''
+    ).trim() || null;
     
     const postData = { 
       id: postId, 
@@ -2174,6 +2205,7 @@ Retorne APENAS JSON no schema pedido.`,
       date: date || new Date().toISOString().split('T')[0], 
       image: image || '',
       read_time: normalizedReadTime,
+      recommended_product_id: normalizedRecommendedProductId,
     };
     
     console.log("Creating post in Supabase:", postData);
@@ -2186,8 +2218,8 @@ Retorne APENAS JSON no schema pedido.`,
 
       if (db) {
         try {
-          const result = db.prepare("INSERT INTO posts (id, title, excerpt, content, category, author, date, image, read_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
-            .run(postData.id, postData.title, postData.excerpt, postData.content, postData.category, postData.author, postData.date, postData.image, postData.read_time);
+          const result = db.prepare("INSERT INTO posts (id, title, excerpt, content, category, author, date, image, read_time, recommended_product_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+            .run(postData.id, postData.title, postData.excerpt, postData.content, postData.category, postData.author, postData.date, postData.image, postData.read_time, postData.recommended_product_id);
           sqliteSaved = result.changes > 0;
           savedSomewhere = savedSomewhere || sqliteSaved;
         } catch (sqliteError) {
@@ -2207,6 +2239,7 @@ Retorne APENAS JSON no schema pedido.`,
           date: postData.date,
           image: postData.image,
           readTime: postData.read_time,
+          recommendedProductId: postData.recommended_product_id || undefined,
         });
 
         for (const variant of variants) {
@@ -2587,7 +2620,21 @@ Retorne APENAS JSON no schema pedido.`,
   });
 
   app.put("/api/posts/:id", async (req, res) => {
-    const { title, excerpt, content, category, author, date, image, readTime } = req.body;
+    const {
+      title,
+      excerpt,
+      content,
+      category,
+      author,
+      date,
+      image,
+      readTime,
+      readtime,
+      read_time,
+      recommendedProductId,
+      recommended_product_id,
+      recommendedproductid,
+    } = req.body;
     const postData = {
       title,
       excerpt: excerpt || '',
@@ -2596,7 +2643,10 @@ Retorne APENAS JSON no schema pedido.`,
       author: author || 'Equipe Halex',
       date: date || new Date().toISOString().split('T')[0],
       image: image || '',
-      read_time: String(readTime || '5 min').trim() || '5 min'
+      read_time: String(readTime || readtime || read_time || '5 min').trim() || '5 min',
+      recommended_product_id: String(
+        recommendedProductId || recommended_product_id || recommendedproductid || ''
+      ).trim() || null,
     };
 
     let updatedSomewhere = false;
@@ -2606,8 +2656,8 @@ Retorne APENAS JSON no schema pedido.`,
     
     if (db) {
       try {
-        const result = db.prepare("UPDATE posts SET title = ?, excerpt = ?, content = ?, category = ?, author = ?, date = ?, image = ?, read_time = ? WHERE id = ?")
-          .run(postData.title, postData.excerpt, postData.content, postData.category, postData.author, postData.date, postData.image, postData.read_time, req.params.id);
+        const result = db.prepare("UPDATE posts SET title = ?, excerpt = ?, content = ?, category = ?, author = ?, date = ?, image = ?, read_time = ?, recommended_product_id = ? WHERE id = ?")
+          .run(postData.title, postData.excerpt, postData.content, postData.category, postData.author, postData.date, postData.image, postData.read_time, postData.recommended_product_id, req.params.id);
         sqliteUpdated = result.changes > 0;
         updatedSomewhere = updatedSomewhere || sqliteUpdated;
       } catch (sqliteError) {
@@ -2627,6 +2677,7 @@ Retorne APENAS JSON no schema pedido.`,
         date: postData.date,
         image: postData.image,
         readTime: postData.read_time,
+        recommendedProductId: postData.recommended_product_id || undefined,
       });
 
       for (const variant of variants) {

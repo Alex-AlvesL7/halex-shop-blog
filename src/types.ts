@@ -39,6 +39,7 @@ export interface BlogPost {
   date: string;
   image: string;
   readTime: string;
+  recommendedProductId?: string;
 }
 
 export interface CartItem extends Product {

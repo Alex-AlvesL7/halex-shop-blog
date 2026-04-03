@@ -382,7 +382,9 @@ const BlogPostDetailsPage: React.FC<{ post: BlogPost, posts: BlogPost[], product
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();
 
-  const recommendedProduct = [...products]
+  const manuallyRecommendedProduct = products.find((product) => product.id === post.recommendedProductId) || null;
+
+  const inferredRecommendedProduct = [...products]
     .map((product) => {
       const productTerms = `${product.name} ${product.category || ''} ${product.description || ''}`
         .normalize('NFD')
@@ -403,6 +405,8 @@ const BlogPostDetailsPage: React.FC<{ post: BlogPost, posts: BlogPost[], product
     })
     .sort((a, b) => b.score - a.score || Number(b.product.reviews || 0) - Number(a.product.reviews || 0))
     .map((entry) => entry.product)[0] || null;
+
+  const recommendedProduct = manuallyRecommendedProduct || inferredRecommendedProduct;
 
   const recommendedProductWhatsAppLink = recommendedProduct
     ? `https://api.whatsapp.com/send?text=${encodeURIComponent(`${typeof window !== 'undefined' ? `${window.location.origin}/produto/${encodeURIComponent(recommendedProduct.id)}\n\n` : ''}Olá! Vi este artigo no blog da L7 Fitness e quero saber mais sobre ${recommendedProduct.name}. Pode me explicar como funciona e como usar?`)}`
@@ -1254,8 +1258,13 @@ const AdminPage = ({ products, posts, orders, onRefresh, onNavigate }: { product
 
   // Post Form State
   const [newPost, setNewPost] = useState<Partial<BlogPost>>({
-    title: '', excerpt: '', content: '', category: 'alimentacao', author: 'Equipe L7 Fitness', date: new Date().toISOString().split('T')[0], image: '/images/blog/l7-ultra-guide.svg', readTime: '5 min'
+    title: '', excerpt: '', content: '', category: 'alimentacao', author: 'Equipe L7 Fitness', date: new Date().toISOString().split('T')[0], image: '/images/blog/l7-ultra-guide.svg', readTime: '5 min', recommendedProductId: ''
   });
+
+  const availableBlogRecommendedProducts = useMemo(
+    () => [...products].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' })),
+    [products]
+  );
 
   const availableBlogCategoryOptions = useMemo(() => {
     const names = new Map<string, string>();
@@ -1373,7 +1382,7 @@ const AdminPage = ({ products, posts, orders, onRefresh, onNavigate }: { product
     setShowForm(false);
     setEditingId(null);
     setNewProduct({ name: '', price: 0, compareAtPrice: 0, promotionLabel: '', promotionCta: '', promotionBadge: '', description: '', category: 'Suplementos', image: 'https://picsum.photos/seed/new/600/600', images: [], stock: 0, rating: 5, reviews: 0 });
-    setNewPost({ title: '', excerpt: '', content: '', category: 'alimentacao', author: 'Equipe L7 Fitness', date: new Date().toISOString().split('T')[0], image: '/images/blog/l7-ultra-guide.svg', readTime: '5 min' });
+    setNewPost({ title: '', excerpt: '', content: '', category: 'alimentacao', author: 'Equipe L7 Fitness', date: new Date().toISOString().split('T')[0], image: '/images/blog/l7-ultra-guide.svg', readTime: '5 min', recommendedProductId: '' });
   };
 
   const handleEditProduct = (product: Product) => {
@@ -1474,7 +1483,10 @@ const AdminPage = ({ products, posts, orders, onRefresh, onNavigate }: { product
   };
 
   const handleEditPost = (post: BlogPost) => {
-    setNewPost(post);
+    setNewPost({
+      ...post,
+      recommendedProductId: post.recommendedProductId || '',
+    });
     setEditingId(post.id);
     setShowForm(true);
   };
@@ -2045,6 +2057,23 @@ const AdminPage = ({ products, posts, orders, onRefresh, onNavigate }: { product
                       value={newPost.readTime}
                       onChange={e => setNewPost({...newPost, readTime: e.target.value})}
                     />
+                  </div>
+                  <div>
+                    <select
+                      className="w-full p-4 bg-gray-50 rounded-xl border-none outline-none"
+                      value={newPost.recommendedProductId || ''}
+                      onChange={e => setNewPost({...newPost, recommendedProductId: e.target.value})}
+                    >
+                      <option value="">Nenhum produto vinculado automaticamente</option>
+                      {availableBlogRecommendedProducts.map((product) => (
+                        <option key={product.id} value={product.id}>
+                          {product.name}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-2 text-[11px] font-bold uppercase tracking-widest text-gray-400">
+                      Escolha qual produto deve aparecer como recomendado neste artigo.
+                    </p>
                   </div>
                   <div className="relative group">
                     <input 
